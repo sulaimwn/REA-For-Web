@@ -12,7 +12,7 @@ Details for a task go under its heading below the table.
 | T003 | Define `StudioProject` schema from fixtures       | —     | todo   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | —     | todo   | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
-| T006 | Worker: run REA on an `.asar` in a sandbox        | —     | todo   | T002       |
+| T006 | Worker: run REA on an `.asar` in a sandbox        | codex | in progress | T002       |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 
 ---
