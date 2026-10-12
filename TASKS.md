@@ -11,7 +11,7 @@ Details for a task go under its heading below the table.
 | T002 | Scaffold npm-workspaces monorepo (web, worker, packages) | codex | done   | —          |
 | T003 | Define `StudioProject` schema from fixtures       | claude | done   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | claude | review | T003       |
-| T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
+| T005 | Web: static demo page rendering a fixture graph   | claude | in progress | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | —     | todo   | T002       |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
