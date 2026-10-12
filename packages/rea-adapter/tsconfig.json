@@ -4,7 +4,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "types": []
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"]
 }

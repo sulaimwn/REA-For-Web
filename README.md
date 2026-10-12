@@ -35,7 +35,7 @@ To serve a production build locally, run `npm run build` followed by
 | Workspace | Purpose |
 | --- | --- |
 | `@rea-studio/web` | Next.js App Router frontend; currently a starter page |
-| `@rea-studio/worker` | Empty entry point for the sandboxed analysis worker (T006) |
+| `@rea-studio/worker` | Sandboxed static-analysis runner; see `apps/worker/README.md` |
 | `@rea-studio/schema` | Empty entry point for fixture-derived types (T003) |
 | `@rea-studio/rea-adapter` | Empty entry point for REA normalization (T004) |
 
@@ -52,3 +52,7 @@ before checking TypeScript; generated files are ignored by Git.
 a shared package, run `npm run build:packages` again to refresh its output.
 
 REA installation, analysis, graphs, uploads, and storage are separate tasks.
+
+The worker foundation has a Docker image and an opt-in integration check:
+see [worker setup and limitations](apps/worker/README.md). Raw-result normalization
+awaits T004; uploaded applications are never executed.

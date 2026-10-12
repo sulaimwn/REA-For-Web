@@ -1,0 +1,136 @@
+// Opt-in: requires the built worker image and a Linux Docker engine. This test
+// analyzes inert source only and verifies normalized StudioProject output.
+import test, { type TestContext } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createPackage } from "@electron/asar";
+import { DEFAULT_LIMITS, runAnalysis, WorkerError, type AnalysisProgress } from "../src/index.js";
+import { executeDocker } from "../src/command.js";
+import { containerArgs } from "../src/run-analysis.js";
+import type { StudioProject } from "@rea-studio/schema";
+
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const sample = join(repo, "fixtures/sample-apps/tiny-electron");
+
+async function workerContainers() {
+  const result = await executeDocker(["ps", "-aq", "--filter", "label=rea-studio.worker=true"], {
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.equal(result.code, 0, result.stderr);
+  return result.stdout.trim().split(/\s+/u).filter(Boolean).sort();
+}
+
+async function workspace(t: TestContext) {
+  const temp = await mkdtemp(join(repo, ".worker-test-"));
+  t.after(async () => {
+    assert.equal(dirname(temp), repo);
+    await rm(temp, { recursive: true, force: true });
+  });
+  return temp;
+}
+
+test("real Docker applies the requested container configuration", { timeout: 30_000 }, async t => {
+  const name = `rea-studio-${randomUUID()}`;
+  t.after(async () => {
+    const cleanup = await executeDocker(["rm", "--force", name], { signal: AbortSignal.timeout(10_000) });
+    assert.equal(cleanup.code, 0, cleanup.stderr);
+  });
+  const creation = await executeDocker(containerArgs(name, sample, "directory", DEFAULT_LIMITS), {
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.equal(creation.code, 0, creation.stderr);
+  const inspection = await executeDocker(["inspect", "--format", "{{json .}}", name], {
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.equal(inspection.code, 0, inspection.stderr);
+  // Docker metadata only; raw REA output is never parsed by this package.
+  const container = JSON.parse(inspection.stdout);
+  assert.equal(container.Config.User, "1000:1000");
+  assert.equal(container.HostConfig.NetworkMode, "none");
+  assert.equal(container.HostConfig.ReadonlyRootfs, true);
+  assert.equal(container.HostConfig.Memory, DEFAULT_LIMITS.memoryMb * 1024 * 1024);
+  assert.equal(container.HostConfig.MemorySwap, container.HostConfig.Memory);
+  assert.equal(container.HostConfig.NanoCpus, DEFAULT_LIMITS.cpus * 1_000_000_000);
+  assert.equal(container.HostConfig.PidsLimit, 128);
+  assert.equal(container.HostConfig.Init, true);
+  assert.deepEqual(container.HostConfig.CapDrop, ["ALL"]);
+  assert.ok(container.HostConfig.SecurityOpt.includes("no-new-privileges=true"));
+  assert.equal(container.HostConfig.LogConfig.Type, "none");
+  assert.match(container.HostConfig.Tmpfs["/tmp"], /noexec/u);
+  const input = container.Mounts.filter((mount: { Type: string }) => mount.Type === "bind");
+  assert.equal(input.length, 1);
+  assert.equal(input[0].Destination, "/input/target");
+  assert.equal(input[0].RW, false);
+  assert.equal(container.HostConfig.Mounts[0].BindOptions.NonRecursive, true);
+});
+
+test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const archive = join(temp, "tiny.asar");
+  await createPackage(sample, archive);
+  for (const targetPath of [sample, archive]) {
+    const events: AnalysisProgress[] = [];
+    const output = await runAnalysis({
+      targetPath, outputRoot: join(temp, "results"), limits: { timeoutMs: 60_000 },
+      onProgress: value => events.push(value),
+    });
+    const project: StudioProject = JSON.parse(await readFile(output.projectPath, "utf8"));
+    assert.equal(project.schemaVersion, "0.1.0");
+    assert.equal(project.id, output.projectId);
+    assert.equal(project.target.name, "tiny-electron");
+    assert.equal(project.nodes.filter(n => n.kind === "process").length, 3);
+    assert.equal(project.nodes.filter(n => n.kind === "ipc-channel").length, 3);
+    assert.ok(project.findings.every(f => f.status !== "confirmed-absent"));
+    assert.equal(output.reaVersion, "6.4.0");
+    assert.ok(events.length > 0);
+  }
+  assert.equal((await readdir(join(temp, "results"))).length, 2);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker rejects oversized input and malformed ASAR without publishing results", { timeout: 60_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const outputRoot = join(temp, "results");
+  const archive = join(temp, "invalid.asar");
+  await writeFile(archive, "invalid archive header");
+  for (const [targetPath, maxFiles, code] of [
+    [sample, 1, "input_limit_exceeded"],
+    [archive, 5_000, "invalid_input"],
+  ] as const) {
+    await assert.rejects(runAnalysis({ targetPath, outputRoot, limits: { maxFiles, timeoutMs: 20_000 } }),
+      (error: unknown) => error instanceof WorkerError && error.code === code);
+  }
+  assert.deepEqual(await readdir(outputRoot), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker cancellation on REA progress removes the container and partial output", { timeout: 90_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const outputRoot = join(temp, "results");
+  const controller = new AbortController();
+  let progressSeen = false;
+  await assert.rejects(runAnalysis({
+    targetPath: sample, outputRoot, signal: controller.signal, limits: { timeoutMs: 60_000 },
+    onProgress: () => { progressSeen = true; controller.abort(); },
+  }), (error: unknown) => error instanceof WorkerError && error.code === "cancelled");
+  assert.ok(progressSeen);
+  assert.deepEqual(await readdir(outputRoot), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker output limit removes the container and partial output", { timeout: 90_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const outputRoot = join(temp, "results");
+  await assert.rejects(runAnalysis({
+    targetPath: sample, outputRoot, limits: { maxOutputBytes: 128, timeoutMs: 60_000 },
+  }), (error: unknown) => error instanceof WorkerError && error.code === "output_limit_exceeded");
+  assert.deepEqual(await readdir(outputRoot), []);
+  assert.deepEqual(await workerContainers(), before);
+});
