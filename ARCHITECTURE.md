@@ -107,7 +107,7 @@ interface StudioProject {
 | `source-map` | `source-map` | `available: false` when referenced but not shipped |
 | `javascript-module`, `semantic_role: source-module` | `module` | `exportNames` from its `export_names` property |
 | `javascript-module`, no role, has `module_key` + `bundler` | `module` with `bundler` set | a module recovered from inside a bundle chunk |
-| `javascript-module`, `semantic_role: module-reference` (`external` / `not-found`) | `external-module` | **dedupe by specifier**; merge evidence |
+| `javascript-module`, `semantic_role: module-reference` (`external` / `not-found`) | `external-module` | **dedupe bare specifiers** (`electron`, `node:path`) into id `external-module:<specifier>`; relative ones (`./types.js`) stay separate |
 | `javascript-module`, no role, has `reference_kind` + `resolution: unresolved` | `external-module` (`unresolved`) | e.g. `require('electron')`; same dedupe |
 | `javascript-module`, `semantic_role: export-binding` / `export-return-shapes` | dropped | names kept on `module.exportNames` |
 
@@ -131,6 +131,21 @@ Relations (`contains`, `imports`, `exposes`, `loads`, `maps_to`, `invokes`,
 `sends`, `handles`, `calls`, `persists_to`) are kept verbatim. Edges whose
 endpoints were dropped (export-shape nodes) are dropped too, and edges to
 deduplicated external modules are re-pointed at the merged node.
+REA node kinds the adapter doesn't recognize become `analysis-gap` nodes
+(operation `studio-adapter:unrecognized-rea-node:<kind>`) rather than vanishing.
+
+### Adapter API (`@rea-studio/rea-adapter`)
+
+```ts
+toStudioProject(rawReaJson: unknown, { reaVersion: '6.4.0' }): StudioProject
+adaptReaResult(rawReaJson, { reaVersion }): { project: StudioProject; report: AdapterReport }
+```
+
+- Input is the parsed stdout of `rea analyze-javascript-application --format json`.
+  REA's JSON doesn't contain its own package version, so the caller passes it.
+- Throws `ReaOutputError` if the input isn't an `analyze_javascript_application` result.
+- `AdapterReport` (not part of the schema) counts dropped and merged nodes and edges, for logs.
+- Measured on GitHub Desktop: 50 MB REA JSON → 4.5 MB StudioProject; 0.4 s to parse, 19 ms to adapt.
 
 ### Example (from the tiny-electron fixture, abbreviated)
 
