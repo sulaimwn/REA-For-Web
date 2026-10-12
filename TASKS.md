@@ -9,11 +9,14 @@ Details for a task go under its heading below the table.
 | ---- | ------------------------------------------------- | ----- | ------ | ---------- |
 | T001 | Generate real REA fixtures from open-source Electron apps | claude | done   | —          |
 | T002 | Scaffold npm-workspaces monorepo (web, worker, packages) | codex | done   | —          |
-| T003 | Define `StudioProject` schema from fixtures       | —     | todo   | T001       |
+| T003 | Define `StudioProject` schema from fixtures       | claude | review | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | —     | todo   | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | blocked | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
+| T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
+| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
+| T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | —     | todo   | T001       |
 
 ---
 
@@ -60,3 +63,20 @@ T004 integration to produce `StudioProject`. See
 ### T007 — Upload pipeline
 Presigned upload to object storage (Cloudflare R2), SHA-256 dedupe, job queue,
 results stored compressed, raw upload deleted after analysis.
+
+### T008 — Per-file analysis of big bundles
+In whole-app runs, 139/156 GitHub Desktop files lost their relationships to REA's
+shared result budget; `main.js` analyzed alone had none. Try analyzing large
+bundles individually (copy file + its `.map` + `package.json` to a temp dir) and
+merging results. Measure time/RAM and what's recovered. See `fixtures/README.md`.
+
+### T009 — Adapter heuristics
+Studio-side inferences, always emitted with `origin.source = 'studio-heuristic'`:
+link renderer `window.<apiKey>.<member>()` reads to `bridge-api` members; flag
+plausible endpoints by `mechanism` (`call:fetch`, `call:request`, …) and value
+shape. Never change REA facts; only add.
+
+### T010 — Upstream REA issues (draft only)
+Write issue drafts with minimal repros for: (1) `new r.BrowserWindow()` /
+`r.ipcMain.handle()` via webpack externals not recognized; (2) shared parent
+result budget dropping per-file relationships. The human decides whether to file.
