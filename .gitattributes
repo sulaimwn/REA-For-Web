@@ -1,0 +1,3 @@
+# Keep fixture bytes exactly as generated (REA hashes file contents).
+fixtures/samples/** -text
+fixtures/sample-apps/** -text
