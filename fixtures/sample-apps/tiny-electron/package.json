@@ -1,0 +1,7 @@
+{
+  "name": "tiny-electron",
+  "version": "1.0.0",
+  "description": "Hand-written ground-truth sample for validating REA output. Never run by tests.",
+  "main": "src/main/main.js",
+  "license": "MIT"
+}

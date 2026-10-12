@@ -7,7 +7,7 @@ Details for a task go under its heading below the table.
 
 | ID   | Task                                              | Owner | Status | Depends on |
 | ---- | ------------------------------------------------- | ----- | ------ | ---------- |
-| T001 | Generate real REA fixtures from open-source Electron apps | claude | in progress | —          |
+| T001 | Generate real REA fixtures from open-source Electron apps | claude | review | —          |
 | T002 | Scaffold npm-workspaces monorepo (web, worker, packages) | —     | todo   | —          |
 | T003 | Define `StudioProject` schema from fixtures       | —     | todo   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | —     | todo   | T003       |
