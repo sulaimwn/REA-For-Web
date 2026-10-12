@@ -1,0 +1,8 @@
+{
+  "name": "rea-studio-analysis-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "rea-agents": "6.4.0"
+  }
+}

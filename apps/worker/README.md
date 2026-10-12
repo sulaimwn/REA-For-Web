@@ -22,10 +22,18 @@ docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
 ```
 
 Image builds need network access. Analysis containers have no network, and jobs
-use `--pull=never` so the image must already exist. The image installs REA with
-package scripts disabled and verifies its exact version before analysis. REA's
-transitive dependencies are resolved at image-build time; the image has not yet
-been tested on this machine because Docker is unavailable.
+use `--pull=never` so the image must already exist. The Node base image is pinned
+by digest. `rea-runtime/package-lock.json` locks REA and its transitive packages;
+the image uses `npm ci` with package scripts disabled and verifies REA's exact
+version before analysis. The image has not yet been tested on this machine
+because Docker is unavailable.
+
+The runtime lock is independent of the workspace lock: REA is installed only
+inside the analysis image. To intentionally update it, change the runtime
+manifest and resolve its lock with `npm install --package-lock-only
+--ignore-scripts --workspaces=false --prefix apps/worker/rea-runtime` from the
+repo root. Review the lock and rerun the real Docker checks before changing the
+worker's pinned version or image digest.
 
 From the repository root, analyze the inert T001 directory sample:
 
@@ -115,10 +123,21 @@ The normal suite uses real T001 fixture bytes, genuine archives produced by the
 official Electron packager, and trusted fake Docker processes to exercise
 lifecycle failures. It does not execute any uploaded application.
 
-`test:docker` is opt-in and requires the built image and a suitable engine. It
-analyzes the inert sample both as a directory and a generated ASAR; it fails when
-Docker is missing. Real container/image verification is still pending. Neither
-the mocks nor successful TypeScript checks prove production sandbox behavior.
+`test:docker` is opt-in and requires the built image and a suitable engine. Five
+checks inspect the actual container configuration, analyze the inert sample as
+a directory and generated ASAR, reject invalid/oversized input, cancel on REA
+progress, and stop oversized output. They check container removal and discarded
+partial results. No uploaded target is executed. The suite fails when Docker is
+missing; real container/image verification is still pending.
+
+`.github/workflows/worker.yml` installs dependencies, typechecks all workspaces,
+runs worker tests, builds the image, runs those Docker checks on a Linux GitHub
+runner, and fails if worker containers remain. It runs on push/pull request and
+can be dispatched manually after the workflow reaches GitHub. Actions are pinned
+to commits, repository credentials are not persisted, and token permissions are
+read-only. No image is pushed or deployed. Its first successful run is still
+needed; neither mocks nor successful TypeScript checks prove production sandbox
+behavior.
 
 Container controls follow Docker's [create options](https://docs.docker.com/reference/cli/docker/container/create/),
 [resource limits](https://docs.docker.com/engine/containers/resource_constraints/),

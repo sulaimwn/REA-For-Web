@@ -1,4 +1,4 @@
-FROM node:24.18.0-bookworm-slim AS build
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
 WORKDIR /build
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/package.json
@@ -8,9 +8,10 @@ COPY packages/rea-adapter ./packages/rea-adapter
 RUN npm ci --ignore-scripts --workspace=@rea-studio/worker --include-workspace-root --no-audit --no-fund \
     && npm run build:packages && npm run build --workspace=@rea-studio/worker
 
-FROM node:24.18.0-bookworm-slim
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
 WORKDIR /opt/rea
-RUN npm install --ignore-scripts --no-audit --no-fund --save-exact rea-agents@6.4.0 \
+COPY apps/worker/rea-runtime/package.json apps/worker/rea-runtime/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
     && node -e "if (require('./node_modules/rea-agents/package.json').version !== '6.4.0') process.exit(1)"
 COPY --from=build /build/apps/worker/dist /opt/worker/
 COPY apps/worker/package.json /opt/worker/package.json
