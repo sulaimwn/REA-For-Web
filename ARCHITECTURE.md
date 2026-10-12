@@ -147,6 +147,20 @@ adaptReaResult(rawReaJson, { reaVersion }): { project: StudioProject; report: Ad
 - `AdapterReport` (not part of the schema) counts dropped and merged nodes and edges, for logs.
 - Measured on GitHub Desktop: 50 MB REA JSON → 4.5 MB StudioProject; 0.4 s to parse, 19 ms to adapt.
 
+### Studio heuristics
+
+Heuristics only **add** edges; they never change or remove REA facts. Every
+heuristic edge has `origin: { source: 'studio-heuristic', heuristic, basis }`,
+`inferred` evidence, and `authority: 'studio-heuristic'`. `AdapterReport.heuristicEdges`
+counts them by name.
+
+| Heuristic | Adds | Rule | Confidence |
+|---|---|---|---|
+| `bridge-member-read` | `<file> --calls--> <bridge-api>` | REA's semantic graph records a property read `[apiKey, member]` (from `window.notesApi.save`) in that file, and a `bridge-api` exposes that `apiKey` with that member. Location = the read site. | `medium` (name match only) |
+
+This is the only use of REA's semantic graph; the graph itself is still not
+copied into `StudioProject`.
+
 ### Example (from the tiny-electron fixture, abbreviated)
 
 ```json
