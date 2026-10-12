@@ -16,6 +16,13 @@ const DEMOS = [
     blurb: 'A real, webpack-bundled Electron app (open source, MIT).',
   },
   {
+    slug: 'vscode-core',
+    title: 'VS Code (core)',
+    file: 'vscode-core-1.141.0.trimmed.rea-6.4.0.json',
+    blurb: 'VS Code 1.141’s main process and preload scripts: windows, contextBridge APIs, named IPC channels.',
+    note: 'Core subset: out/main.js, out/mainImpl.js and three preload scripts (VS Code ships no source maps)',
+  },
+  {
     slug: 'tiny-electron',
     title: 'Tiny Electron sample',
     file: 'tiny-electron.rea-6.4.0.json',
@@ -24,7 +31,7 @@ const DEMOS = [
 ];
 
 mkdirSync(out, { recursive: true });
-const index = DEMOS.map(({ slug, title, file, blurb }) => {
+const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
   const raw = JSON.parse(readFileSync(new URL(file, samples), 'utf8'));
   const project = toStudioProject(raw, { reaVersion: REA_VERSION });
   writeFileSync(new URL(`${slug}.json`, out), JSON.stringify(project));
@@ -38,7 +45,9 @@ const index = DEMOS.map(({ slug, title, file, blurb }) => {
     nodes: project.nodes.length,
     edges: project.edges.length,
     coverage: project.analysis.coverage.status,
-    sample: trim ? `Trimmed fixture: ${trim.nodes_kept} of ${trim.nodes_original} REA nodes kept` : null,
+    sample: [note, trim && trim.nodes_kept < trim.nodes_original ? `Trimmed fixture: ${trim.nodes_kept} of ${trim.nodes_original} REA nodes kept` : null]
+      .filter(Boolean)
+      .join('. ') || null,
   };
 });
 writeFileSync(new URL('index.json', out), JSON.stringify(index, null, 2));

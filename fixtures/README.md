@@ -37,6 +37,7 @@ rea analyze-javascript-application <path> --format json
 | `sample-apps/tiny-electron/` | Hand-written 7-file Electron app with a known `GROUND_TRUTH.md`. Never run. |
 | `samples/tiny-electron.rea-6.4.0.json` | **Complete, untrimmed** REA output for the tiny app (0.6 MB). |
 | `samples/github-desktop-3.6.5.trimmed.rea-6.4.0.json` | GitHub Desktop 3.6.5 (open source, MIT) output, **trimmed** from 50 MB to 7 MB. |
+| `samples/vscode-core-1.141.0.trimmed.rea-6.4.0.json` | VS Code 1.141.0 core subset (`package.json`, `out/main.js`, `out/mainImpl.js`, 3 preload scripts; no source maps shipped). App graph complete (149 nodes, 292 edges); only the semantic graph is trimmed (28.7 MB → 2 MB). |
 | `tools/measure.ps1` | Runs REA and records time, sizes, gzip size, peak process-tree memory. Set `REA_MJS`. |
 | `tools/shape.mjs` | Prints JSON structure with byte share per key. |
 | `tools/render.mjs` | Prints the application graph as readable `node --relation--> node` lines. |
