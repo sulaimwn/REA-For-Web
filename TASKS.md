@@ -15,7 +15,7 @@ Details for a task go under its heading below the table.
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
-| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
+| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | claude | in progress | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | —     | todo   | T001       |
 
 ---
