@@ -53,7 +53,8 @@ app (.asar or folder) ──► REA analyze-javascript-application ──► REA
 - **[`apps/web`](apps/web)** is the Next.js explorer (React Flow + dagre). The demo pages are
   static HTML.
 - **[`apps/worker`](apps/worker)** runs REA in a locked-down container (no network, non-root,
-  resource limits) for analyzing uploaded apps. It's in progress and not deployed yet.
+  resource limits) and normalizes the result with the adapter. It's verified locally with Docker
+  but not deployed yet; see [its README](apps/worker/README.md).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design and
 [fixtures/README.md](fixtures/README.md) for what REA's output actually contains,
@@ -62,7 +63,8 @@ including measurements and known limitations.
 ## Status
 
 This is an early preview. The demo shows **pre-analyzed open-source apps**.
-Uploading your own app is planned once the worker is verified.
+Uploading your own app comes next: the sandboxed worker is verified locally, and the upload
+pipeline (T007) is the remaining piece.
 
 Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
 - Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
@@ -100,7 +102,7 @@ build locally, run `npm run build` followed by `npm start`.
 | `@rea-studio/web` | Next.js explorer and demo pages |
 | `@rea-studio/schema` | `StudioProject` types, derived from real REA fixtures |
 | `@rea-studio/rea-adapter` | REA JSON → `StudioProject`, with fixture tests (`npm test -w @rea-studio/rea-adapter`) |
-| `@rea-studio/worker` | Sandboxed REA runner (in progress; see `apps/worker/README.md`) |
+| `@rea-studio/worker` | Sandboxed REA runner that outputs `StudioProject` (Docker; see `apps/worker/README.md`) |
 
 All workspaces extend `tsconfig.base.json`. Root builds run schema, adapter,
 worker and web in dependency order. After changing a shared package while

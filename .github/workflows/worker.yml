@@ -1,0 +1,46 @@
+name: Worker verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.18.0'
+          cache: npm
+      - name: Install workspace dependencies without package scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+      - name: Worker unit and lifecycle tests
+        run: npm test --workspace=@rea-studio/worker
+      - name: Adapter fixture and file-boundary tests
+        run: npm test --workspace=@rea-studio/rea-adapter
+      - name: Build the pinned REA image
+        run: docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
+      - name: Real Docker directory, ASAR, and failure checks
+        run: npm run test:docker --workspace=@rea-studio/worker
+      - name: Assert no worker containers remain
+        if: always()
+        run: |
+          remaining="$(docker ps -aq --filter label=rea-studio.worker=true)"
+          if [ -n "$remaining" ]; then
+            docker ps -a --filter label=rea-studio.worker=true
+            exit 1
+          fi

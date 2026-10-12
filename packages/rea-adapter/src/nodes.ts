@@ -23,9 +23,9 @@ export type ConvertedNode =
 const REA: Origin = { source: 'rea' };
 const IPC_OPERATIONS: readonly string[] = ['send', 'send-sync', 'invoke', 'on', 'handle'];
 
-const toSide = (v: string | null): IpcSide => (v === 'renderer' ? 'renderer' : 'main');
-const toOperation = (v: string | null): IpcOperation =>
-  v !== null && IPC_OPERATIONS.includes(v) ? (v as IpcOperation) : 'on';
+const toSide = (v: string | null): IpcSide | null => (v === 'renderer' || v === 'main' ? v : null);
+const toOperation = (v: string | null): IpcOperation | null =>
+  v !== null && IPC_OPERATIONS.includes(v) ? (v as IpcOperation) : null;
 
 function fileKindOf(v: string | null): FileNode['fileKind'] {
   return v === 'javascript' || v === 'html' || v === 'json' || v === 'package-json' ? v : 'other';
@@ -176,8 +176,18 @@ export function convertNode(n: ReaNode): ConvertedNode {
       };
 
     case 'ipc-channel': {
-      const usages: IpcChannelNode['usages'] = obs.map((o) => ({ side: toSide(str(o.properties, 'side')), operation: toOperation(str(o.properties, 'operation')) }));
+      const usages: IpcChannelNode['usages'] = [];
+      for (const o of obs) {
+        const side = toSide(str(o.properties, 'side'));
+        const operation = toOperation(str(o.properties, 'operation'));
+        const resolution = str(o.properties, 'resolution');
+        if (side === null || operation === null || (resolution !== 'literal' && resolution !== 'dynamic')) {
+          return unrecognized(n, base(null));
+        }
+        usages.push({ side, operation });
+      }
       const dynamic = obs.some((o) => str(o.properties, 'resolution') === 'dynamic');
+      if (!dynamic && firstStr(obs, 'channel') === null) return unrecognized(n, base(null));
       return {
         type: 'node',
         node: {
@@ -191,34 +201,41 @@ export function convertNode(n: ReaNode): ConvertedNode {
       };
     }
 
-    case 'ipc-handler':
+    case 'ipc-handler': {
+      const side = toSide(str(p, 'side'));
+      const operation = toOperation(str(p, 'operation'));
+      if (side === null || operation === null) return unrecognized(n, base(null));
       return {
         type: 'node',
         node: {
           ...base(null),
           kind: 'ipc-handler',
-          side: toSide(str(p, 'side')),
-          operation: toOperation(str(p, 'operation')),
+          side,
+          operation,
           channel: str(p, 'channel'),
           channelExpression: str(p, 'channel_expression'),
           handlerKind: str(p, 'handler_kind') ?? 'unknown',
         },
       };
+    }
 
     case 'native-addon':
       return { type: 'node', node: { ...base(null), kind: 'native-addon', path: str(p, 'path') ?? firstLabel ?? '', bytes: num(p, 'bytes') } };
 
-    case 'endpoint':
+    case 'endpoint': {
+      const endpointKind = str(p, 'endpoint_kind');
+      if (endpointKind !== 'route' && endpointKind !== 'network') return unrecognized(n, base(null));
       return {
         type: 'node',
         node: {
           ...base(null),
           kind: 'endpoint',
-          endpointKind: str(p, 'endpoint_kind') === 'route' ? 'route' : 'network',
+          endpointKind,
           value: str(p, 'value') ?? firstLabel ?? '',
           mechanism: str(p, 'mechanism') ?? 'unknown',
         },
       };
+    }
 
     case 'storage':
       return { type: 'node', node: { ...base(null), kind: 'storage', storageKind: str(p, 'storage_kind') ?? 'unknown', name: str(p, 'name'), mechanism: str(p, 'mechanism') ?? 'unknown' } };
