@@ -19,5 +19,5 @@ export default async function ExplorePage({ params }: { params: Promise<Params> 
   const { slug } = await params;
   const demo = loadDemos().find((d) => d.slug === slug);
   if (!demo) notFound();
-  return <Explorer demo={demo} />;
+  return <Explorer key={demo.slug} demo={demo} />;
 }
