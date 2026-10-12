@@ -18,6 +18,7 @@ Details for a task go under its heading below the table.
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
+| T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | in progress | T004, T005 |
 
 ---
 
