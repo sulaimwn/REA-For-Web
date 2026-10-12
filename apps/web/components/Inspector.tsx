@@ -93,6 +93,18 @@ function EvidenceCard({ ev }: { ev: Evidence }) {
 
 const SHOW = 25;
 
+function EvidenceList({ records }: { records: Evidence[] }) {
+  const [shown, setShown] = useState(20);
+  return <>
+    <ul className="evidence-list">
+      {records.slice(0, shown).map((ev, i) => <EvidenceCard key={i} ev={ev} />)}
+    </ul>
+    {shown < records.length && <button type="button" className="link muted" onClick={() => setShown(count => count + 20)}>
+      Show more evidence ({records.length - shown} remaining)
+    </button>}
+  </>;
+}
+
 function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; title: string; edges: StudioEdge[]; other: (e: StudioEdge) => string; onSelect: (id: string) => void }) {
   const [all, setAll] = useState(false);
   const sorted = useMemo(() => {
@@ -172,12 +184,7 @@ export function Inspector({ ix, node, onSelect, onFocus }: Props) {
       <h4>
         Evidence <span className="muted">({node.evidence.length})</span>
       </h4>
-      <ul className="evidence-list">
-        {node.evidence.slice(0, 20).map((ev, i) => (
-          <EvidenceCard key={i} ev={ev} />
-        ))}
-      </ul>
-      {node.evidence.length > 20 && <p className="muted">+{node.evidence.length - 20} more evidence records</p>}
+      <EvidenceList key={node.id} records={node.evidence} />
 
       <Relations key={`out-${node.id}`} ix={ix} title="Outgoing" edges={out} other={(e) => e.target} onSelect={onSelect} />
       <Relations key={`in-${node.id}`} ix={ix} title="Incoming" edges={inc} other={(e) => e.source} onSelect={onSelect} />
