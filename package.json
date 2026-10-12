@@ -10,6 +10,7 @@
   "workspaces": [
     "apps/web",
     "apps/worker",
+    "apps/cli",
     "packages/schema",
     "packages/rea-adapter"
   ],

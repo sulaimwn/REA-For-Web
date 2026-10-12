@@ -25,6 +25,17 @@ Results store (compressed StudioProject, keyed by file hash)
 Graph API  →  Browser UI (tree · graph · evidence)
 ```
 
+### Local mode (no upload, no server)
+
+```
+user's machine:  rea-studio analyze <app>  ──►  REA (rea-agents@6.4.0)  ──►  rea-adapter  ──►  <app>.studio.json
+browser:         /open  ──  file read with FileReader, shape-checked, rendered by the same explorer
+```
+
+The CLI (`apps/cli`) uses the same adapter as the worker, so a local project and an
+uploaded one are identical `StudioProject`s. The `/open` page never sends the file
+anywhere, which also makes it work on a static deploy.
+
 ## Repo layout
 
 ```
