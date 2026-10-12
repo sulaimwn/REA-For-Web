@@ -35,12 +35,13 @@ async function main() {
   if ((installed as { version?: unknown }).version !== REA_VERSION) {
     throw new WorkerError("invalid_input", "Unexpected REA version in worker image.");
   }
-  await preflightTarget("/input/target", kind as TargetKind, limits);
+  const targetPath = kind === "asar" ? "/input/target.asar" : "/input/target";
+  await preflightTarget(targetPath, kind as TargetKind, limits);
   const temp = await mkdtemp("/tmp/rea-analysis-");
   const rawPath = join(temp, "raw.json");
   const child = spawn(process.execPath, [
     `--max-old-space-size=${limits.heapMb}`,
-    "/opt/rea/node_modules/rea-agents/scripts/rea.mjs", "analyze-javascript-application", "/input/target",
+    "/opt/rea/node_modules/rea-agents/scripts/rea.mjs", "analyze-javascript-application", targetPath,
     "--artifact-format", kind, "--format", "json", "--max-heap-mb", String(limits.heapMb),
     "--analysis-timeout-ms", String(limits.timeoutMs),
   ], {
