@@ -42,6 +42,13 @@ export const KIND_META: Record<StudioNodeKind, KindMeta> = {
   'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', color: 'var(--k-gap)', overview: false },
 };
 
+/** Which kinds to show first in grids and neighborhoods. Noisy, unfiltered kinds go last. */
+export const KIND_ORDER: readonly StudioNodeKind[] = [
+  'process', 'window', 'bridge-api', 'ipc-channel', 'ipc-handler', 'native-addon', 'worker', 'storage',
+  'package', 'file', 'module', 'bundle-chunk', 'external-module', 'source-map', 'source-file', 'endpoint', 'analysis-gap',
+];
+
+
 export interface ProjectIndex {
   project: StudioProject;
   byId: Map<string, StudioNode>;
@@ -86,7 +93,7 @@ export function displayName(n: StudioNode): string {
     case 'bridge-api':
       return `window.${n.apiKey ?? '?'}`;
     case 'storage':
-      return n.name ?? n.storageKind;
+      return n.name ?? `${n.storageKind} (key not resolved)`;
     case 'worker':
       return n.resolvedPath ?? n.expression ?? 'worker';
     case 'file':

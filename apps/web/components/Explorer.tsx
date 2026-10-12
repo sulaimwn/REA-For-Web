@@ -31,6 +31,26 @@ export function Explorer({ demo }: { demo: DemoEntry }) {
   }, [demo.slug]);
 
   const ix = useMemo(() => (project ? indexProject(project) : null), [project]);
+
+  // Shareable links: ?node=<selected id>&focus=<neighborhood id> restore the view.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    if (!ix || restored) return;
+    const params = new URLSearchParams(window.location.search);
+    const node = params.get('node');
+    const focusId = params.get('focus');
+    if (node && ix.byId.has(node)) setSelectedId(node);
+    if (focusId && ix.byId.has(focusId)) setFocus({ mode: 'node', id: focusId });
+    setRestored(true);
+  }, [ix, restored]);
+  useEffect(() => {
+    if (!restored) return;
+    const params = new URLSearchParams();
+    if (selectedId) params.set('node', selectedId);
+    if (focus.mode === 'node') params.set('focus', focus.id);
+    const query = params.toString();
+    window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
+  }, [restored, selectedId, focus]);
   const select = useCallback((id: string) => setSelectedId(id), []);
   const selectAndFocus = useCallback((id: string) => {
     setSelectedId(id);

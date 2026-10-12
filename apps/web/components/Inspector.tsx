@@ -1,9 +1,9 @@
 'use client';
 
 import type { Evidence, StudioEdge, StudioNode } from '@rea-studio/schema';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Focus } from '../lib/graph-view';
-import { displayName, KIND_META, type ProjectIndex } from '../lib/project';
+import { displayName, KIND_META, KIND_ORDER, type ProjectIndex } from '../lib/project';
 
 interface Props {
   ix: ProjectIndex;
@@ -95,8 +95,12 @@ const SHOW = 25;
 
 function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; title: string; edges: StudioEdge[]; other: (e: StudioEdge) => string; onSelect: (id: string) => void }) {
   const [all, setAll] = useState(false);
+  const sorted = useMemo(() => {
+    const rank = (e: StudioEdge) => KIND_ORDER.indexOf(ix.byId.get(other(e))?.kind ?? 'analysis-gap');
+    return [...edges].sort((a, b) => rank(a) - rank(b));
+  }, [edges, ix, other]);
   if (edges.length === 0) return null;
-  const shown = all ? edges : edges.slice(0, SHOW);
+  const shown = all ? sorted : sorted.slice(0, SHOW);
   return (
     <div className="relations">
       <h4>

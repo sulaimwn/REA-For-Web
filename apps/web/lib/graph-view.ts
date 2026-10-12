@@ -3,7 +3,7 @@
 import { Graph, layout } from '@dagrejs/dagre';
 import type { Relation, StudioEdge, StudioNode } from '@rea-studio/schema';
 import type { Edge, Node } from '@xyflow/react';
-import { KIND_META, type ProjectIndex } from './project';
+import { KIND_META, KIND_ORDER, type ProjectIndex } from './project';
 
 export type Focus = { mode: 'overview' } | { mode: 'node'; id: string };
 
@@ -58,7 +58,7 @@ function neighborhoodIds(ix: ProjectIndex, focusId: string): { ids: Set<string>;
     const other = e.source === focusId ? e.target : e.source;
     const n = ix.byId.get(other);
     if (!n) continue;
-    const rank = (e.relation === 'contains' ? 2 : 0) + (KIND_META[n.kind].overview ? 0 : 1);
+    const rank = (e.relation === 'contains' ? 100 : 0) + KIND_ORDER.indexOf(n.kind);
     ranked.set(other, Math.min(rank, ranked.get(other) ?? Infinity));
   }
   const sorted = [...ranked.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
@@ -107,7 +107,8 @@ function dagreBlockDir(ids: string[], edges: StudioEdge[], dir: Dir): Block {
 
 /** Lays out unconnected nodes as a grid, grouped by kind. */
 function gridBlock(ix: ProjectIndex, ids: string[]): Block {
-  const sorted = [...ids].sort((a, b) => (ix.byId.get(a)?.kind ?? '').localeCompare(ix.byId.get(b)?.kind ?? ''));
+  const order = (id: string) => KIND_ORDER.indexOf(ix.byId.get(id)?.kind ?? 'analysis-gap');
+  const sorted = [...ids].sort((a, b) => order(a) - order(b));
   // Roughly square on screen: nodes are much wider than tall.
   const cols = Math.max(1, Math.ceil(Math.sqrt((sorted.length * (NODE_H + 20)) / (NODE_W + 24))));
   const pos = new Map<string, { x: number; y: number }>();
