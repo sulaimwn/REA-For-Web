@@ -16,6 +16,14 @@ jobs:
   worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,6 +40,12 @@ jobs:
         run: npm test --workspace=@rea-studio/worker
       - name: Adapter fixture and file-boundary tests
         run: npm test --workspace=@rea-studio/rea-adapter
+      - name: Upload storage and admission tests
+        run: npm test --workspace=@rea-studio/pipeline
+      - name: Real Redis upload queue checks
+        env:
+          PIPELINE_TEST_REDIS_URL: redis://127.0.0.1:6379
+        run: npm run test:integration --workspace=@rea-studio/pipeline
       - name: Build the pinned REA image
         run: docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
       - name: Real Docker directory, ASAR, and failure checks

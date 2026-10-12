@@ -28,6 +28,13 @@
   color-scheme: dark;
 }
 
+.landing { max-width: 760px; margin: 60px auto; padding: 24px; }
+.upload-form { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); background: var(--panel); border-radius: 12px; }
+.upload-form input { max-width: 100%; color: var(--text); }
+.upload-form input[type="password"] { display: block; margin-top: 12px; padding: 10px; background: var(--bg); border: 1px solid var(--border); }
+.upload-form button { justify-self: start; }
+.upload-form button:disabled { opacity: .5; cursor: default; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {

@@ -15,6 +15,8 @@ export default function HomePage() {
         </p>
       </section>
 
+      <p><Link href="/upload" className="chip">Upload your own app →</Link></p>
+
       <section className="demos" aria-label="Demo apps">
         {demos.length === 0 && <p className="empty">No demo data yet. Run <code>npm run demo-data --workspace=@rea-studio/web</code>.</p>}
         {demos.map((d) => (
@@ -39,7 +41,7 @@ export default function HomePage() {
         <ul>
           <li>Every node shows REA’s evidence: file and line, whether it was observed or inferred, and REA’s confidence category.</li>
           <li>“Not found” never means “doesn’t exist.” Static analysis can miss things, especially in minified bundles.</li>
-          <li>Upload-your-own-app is coming. This preview shows pre-analyzed open-source apps.</li>
+          <li>Explore the pre-analyzed demos, or upload an .asar archive when the upload service is configured.</li>
         </ul>
       </section>
     </main>

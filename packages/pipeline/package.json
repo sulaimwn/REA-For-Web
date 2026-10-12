@@ -1,0 +1,25 @@
+{
+  "name": "@rea-studio/pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./contracts": { "types": "./dist/contracts.d.ts", "default": "./dist/contracts.js" },
+    "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
+    "./processor": { "types": "./dist/processor.d.ts", "default": "./dist/processor.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
+    "test:integration": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/queue.integration.js",
+    "test:http": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/http.integration.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1150.0",
+    "@aws-sdk/s3-request-presigner": "3.1150.0",
+    "bullmq": "6.3.13",
+    "ioredis": "6.0.0"
+  },
+  "devDependencies": { "@electron/asar": "4.3.1", "@rea-studio/schema": "0.0.0" }
+}

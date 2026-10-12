@@ -10,13 +10,14 @@ import { GraphPane } from './GraphPane';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
 
-export function Explorer({ demo }: { demo: DemoEntry }) {
-  const [project, setProject] = useState<StudioProject | null>(null);
+export function Explorer({ demo, initialProject }: { demo: DemoEntry; initialProject?: StudioProject }) {
+  const [project, setProject] = useState<StudioProject | null>(initialProject ?? null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>({ mode: 'overview' });
 
   useEffect(() => {
+    if (initialProject) return;
     let live = true;
     fetch(`/projects/${demo.slug}.json`)
       .then((r) => {
@@ -28,7 +29,7 @@ export function Explorer({ demo }: { demo: DemoEntry }) {
     return () => {
       live = false;
     };
-  }, [demo.slug]);
+  }, [demo.slug, initialProject]);
 
   const ix = useMemo(() => (project ? indexProject(project) : null), [project]);
 

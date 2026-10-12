@@ -5,6 +5,7 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/worker ./apps/worker
 COPY packages/schema ./packages/schema
 COPY packages/rea-adapter ./packages/rea-adapter
+COPY packages/pipeline ./packages/pipeline
 RUN npm ci --ignore-scripts --workspace=@rea-studio/worker --include-workspace-root --no-audit --no-fund \
     && npm run build:packages && npm run build --workspace=@rea-studio/worker
 

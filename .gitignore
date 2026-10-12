@@ -19,6 +19,9 @@ fixtures/raw/
 targets/
 worker-results/
 .worker-test-*/
+.pipeline-data/
+.pipeline-work/
+.pipeline-test-*/
 
 # generated demo data (apps/web/scripts/build-demo-projects.mjs)
 apps/web/public/projects/

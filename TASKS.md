@@ -13,7 +13,7 @@ Details for a task go under its heading below the table.
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | claude | done   | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | claude | done | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
-| T007 | Upload pipeline: presigned upload → queue → worker | codex | in progress | T006       |
+| T007 | Upload pipeline: presigned upload → queue → worker | codex | review | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
@@ -68,6 +68,13 @@ Ready for cross-review. See
 ### T007 — Upload pipeline
 Presigned upload to object storage (Cloudflare R2), SHA-256 dedupe, job queue,
 results stored compressed, raw upload deleted after analysis.
+
+**Ready for cross-review:** private upload API and UI, local signed storage plus
+an R2 implementation, persistent Redis/BullMQ queue, verified-byte cache reuse,
+existing Docker analysis runner, compressed normalized results, token-protected
+progress/results, and raw/staging cleanup. Local HTTP and browser flows pass with
+the real Docker worker. Live R2 and hosted deployment are not connected yet.
+See `docs/uploads.md` and `notes/handoffs/2026-10-12-T007-codex.md`.
 
 ### T008 — Per-file analysis of big bundles
 In whole-app runs, 139/156 GitHub Desktop files lost their relationships to REA's

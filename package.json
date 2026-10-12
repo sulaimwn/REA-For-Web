@@ -11,14 +11,17 @@
     "apps/web",
     "apps/worker",
     "packages/schema",
-    "packages/rea-adapter"
+    "packages/rea-adapter",
+    "packages/pipeline"
   ],
   "scripts": {
     "dev": "npm run build:packages && npm run dev --workspace=@rea-studio/web",
-    "build:packages": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter",
+    "build:packages": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && npm run build --workspace=@rea-studio/pipeline",
     "build": "npm run build:packages && npm run build --workspace=@rea-studio/worker && npm run build --workspace=@rea-studio/web",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces",
-    "start": "npm run start --workspace=@rea-studio/web"
+    "start": "npm run start --workspace=@rea-studio/web",
+    "dev:uploads": "node scripts/dev-uploads.mjs",
+    "worker:queue": "npm run queue --workspace=@rea-studio/worker"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
