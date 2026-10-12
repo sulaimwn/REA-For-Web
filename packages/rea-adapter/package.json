@@ -9,10 +9,13 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "test": "npm run build --workspace=@rea-studio/schema && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js"
   },
   "dependencies": {
     "@rea-studio/schema": "0.0.0"
