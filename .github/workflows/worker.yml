@@ -30,6 +30,8 @@ jobs:
         run: npm run typecheck
       - name: Worker unit and lifecycle tests
         run: npm test --workspace=@rea-studio/worker
+      - name: Adapter fixture and file-boundary tests
+        run: npm test --workspace=@rea-studio/rea-adapter
       - name: Build the pinned REA image
         run: docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
       - name: Real Docker directory, ASAR, and failure checks

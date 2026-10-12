@@ -2,8 +2,9 @@
 
 This package runs **only static Electron/JavaScript analysis** with
 `rea-agents@6.4.0`. It is an internal runner, not an upload API. It currently
-returns an **opaque raw-result file**; T004 must validate and normalize that file
-before it reaches any API or UI.
+returns a **StudioProject file** using T004's adapter. Raw REA output stays in
+private container temporary storage and is removed after normalization. Only
+`packages/rea-adapter` reads that raw JSON.
 
 ## Build and run
 
@@ -42,13 +43,15 @@ npm run analyze --workspace=@rea-studio/worker -- fixtures/sample-apps/tiny-elec
 ```
 
 For an ASAR, replace the first argument with its path. stdout is a final artifact
-descriptor (`rawResultPath`, `reaVersion`, `elapsedMs`); stderr is bounded progress
+descriptor (`projectPath`, `projectId`, `adapterReport`, `reaVersion`, `elapsedMs`);
+the file is normalized StudioProject JSON. stderr is bounded progress
 metadata or a structured error. Ctrl+C/SIGTERM cancel the job and force container
 removal. The CLI never invokes REA on the host.
 
 Backend callers can use `runAnalysis({ targetPath, outputRoot, limits?, signal?,
 onProgress? })`. Options and artifact types belong to this worker package only;
-they are not a shared StudioProject schema or public API contract.
+they are not a public HTTP API contract. `AnalysisArtifact.projectId` uses the
+shared StudioProject id type; `adapterReport` records dropped/merged graph items.
 
 ## Limits and lifecycle
 
@@ -57,9 +60,9 @@ they are not a shared StudioProject schema or public API contract.
 | Whole-job deadline | 5 minutes (plus at most 10 seconds for container removal) |
 | Packed/unpacked files | 5,000 |
 | Physical input and logical ASAR contents | 512 MiB each |
-| stdout artifact | 128 MiB |
+| Raw REA output / normalized artifact | 128 MiB each |
 | Container memory / swap total | 2 GiB / 2 GiB (no swap) |
-| REA heap | 1 GiB |
+| Analyzer / normalizer V8 heap | 1 GiB |
 | CPU quota | 1 CPU |
 | Processes | 128 |
 | Writable temporary memory | 256 MiB |
@@ -75,7 +78,9 @@ The container is non-root, has no capabilities, uses no-new-privileges, a
 read-only root filesystem, a non-executable tmpfs, and one read-only input mount
 with recursive submounts disabled. It has no writable host mounts or Docker
 socket access. Docker's log driver is disabled to prevent duplicate unbounded
-disk logs; stdout is streamed with backpressure into a capped private job file.
+disk logs; normalized stdout is streamed with backpressure into a capped private
+job file. REA analysis and adapter normalization share container CPU/RAM and the
+whole-job deadline. Neither phase runs an uploaded target.
 
 File-count/size/header checks happen inside the same resource-limited container
 before REA starts. ASAR files are inspected without extracting or executing them.
@@ -92,11 +97,14 @@ leave daemon state uncertain; this is reported explicitly, never as confirmed
 cleanup. A deployment needs an operator/reaper policy for labeled orphaned
 containers when the Docker daemon is unreachable.
 
-Output is published only after successful container completion and confirmed
-removal. Failed/truncated/empty output is discarded. REA exit-zero output can
-still contain partial coverage, warnings, and unknowns: it is preserved byte for
-byte for T004, not interpreted as complete analysis. No raw REA JSON is parsed by
-the worker. It parses only Docker state and stderr orchestration envelopes.
+Output is published only after successful analysis/normalization, a validated
+normalization receipt, and confirmed container removal. Failed/truncated/empty
+output is discarded. REA exit-zero output can still contain partial coverage,
+warnings, and unknowns: the adapter preserves these in StudioProject. The worker
+does not interpret exit zero as complete coverage. No raw REA JSON is parsed by
+worker code: its bounded file reader is the Node-only adapter subpath
+`@rea-studio/rea-adapter/file`. The host parses only Docker state and orchestration
+envelopes; it transports normalized bytes unchanged.
 
 ## Caller responsibilities
 
@@ -108,8 +116,8 @@ the worker. It parses only Docker state and stderr orchestration envelopes.
   Per-job quotas do not constitute a global storage or compute budget.
 - Use a local Docker engine that can see the host input path. Remote Docker hosts
   and runtime image building are not supported by this runner.
-- Connect T004 at the raw-result boundary and retain its coverage/limitations.
-  Avoid exposing internal diagnostic paths/messages directly through T007's API.
+- Retain the normalized project's coverage/limitations. Avoid exposing internal
+  artifact paths or diagnostic messages directly through T007's API.
 
 ## Verification
 
@@ -119,9 +127,9 @@ npm test --workspace=@rea-studio/worker
 npm run test:docker --workspace=@rea-studio/worker
 ```
 
-The normal suite uses real T001 fixture bytes, genuine archives produced by the
-official Electron packager, and trusted fake Docker processes to exercise
-lifecycle failures. It does not execute any uploaded application.
+The normal suite uses T004 to convert real T001 fixture bytes, genuine archives
+produced by the official Electron packager, and trusted fake Docker processes to
+exercise lifecycle failures. It does not execute any uploaded application.
 
 `test:docker` is opt-in and requires the built image and a suitable engine. Five
 checks inspect the actual container configuration, analyze the inert sample as
@@ -131,7 +139,7 @@ partial results. No uploaded target is executed. The suite fails when Docker is
 missing; real container/image verification is still pending.
 
 `.github/workflows/worker.yml` installs dependencies, typechecks all workspaces,
-runs worker tests, builds the image, runs those Docker checks on a Linux GitHub
+runs worker and adapter tests, builds the image, runs those Docker checks on a Linux GitHub
 runner, and fails if worker containers remain. It runs on push/pull request and
 can be dispatched manually after the workflow reaches GitHub. Actions are pinned
 to commits, repository credentials are not persisted, and token permissions are

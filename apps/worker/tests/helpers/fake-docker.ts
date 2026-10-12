@@ -1,8 +1,7 @@
 // Trusted test program simulating only Docker orchestration. It never runs REA
-// or the target. Successful stdout is the genuine T001 fixture, byte for byte.
-import { createReadStream } from "node:fs";
+// or the target. Successful stdout is produced by the real adapter/T001 fixture.
 import { readFile, writeFile } from "node:fs/promises";
-import { pipeline } from "node:stream/promises";
+import { adaptReaFile } from "@rea-studio/rea-adapter/file";
 
 const [configPath, command, ...args] = process.argv.slice(2);
 if (!configPath || !command) throw new Error("Missing test helper arguments.");
@@ -27,7 +26,13 @@ if (command === "info") {
     process.stderr.write('{"studio_worker_error":{"code":"input_limit_exceeded","message":"File count exceeded."}}\n');
     process.exitCode = 1;
   } else if (config.mode !== "empty") {
-    await pipeline(createReadStream(config.fixture), process.stdout);
+    const result = await adaptReaFile(config.fixture, { reaVersion: "6.4.0", maxBytes: 128 * 1024 * 1024 });
+    process.stdout.write(JSON.stringify(result.project));
+    if (config.mode !== "no-receipt") {
+      process.stderr.write(`${JSON.stringify({ studio_worker_result: {
+        projectId: result.project.id, reaVersion: config.mode === "wrong-receipt" ? "0.0.0" : "6.4.0", report: result.report,
+      } })}\n`);
+    }
   }
 } else if (command === "inspect") {
   console.log(JSON.stringify({

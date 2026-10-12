@@ -1,6 +1,5 @@
 // Opt-in: requires the built worker image and a Linux Docker engine. This test
-// analyzes inert source only, then verifies the resulting JSON at the adapter
-// boundary once T004 exists. For now it checks opaque output/progress only.
+// analyzes inert source only and verifies normalized StudioProject output.
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -11,6 +10,7 @@ import { createPackage } from "@electron/asar";
 import { DEFAULT_LIMITS, runAnalysis, WorkerError, type AnalysisProgress } from "../src/index.js";
 import { executeDocker } from "../src/command.js";
 import { containerArgs } from "../src/run-analysis.js";
+import type { StudioProject } from "@rea-studio/schema";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const sample = join(repo, "fixtures/sample-apps/tiny-electron");
@@ -78,7 +78,13 @@ test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async 
       targetPath, outputRoot: join(temp, "results"), limits: { timeoutMs: 60_000 },
       onProgress: value => events.push(value),
     });
-    assert.ok((await readFile(output.rawResultPath)).length > 100);
+    const project: StudioProject = JSON.parse(await readFile(output.projectPath, "utf8"));
+    assert.equal(project.schemaVersion, "0.1.0");
+    assert.equal(project.id, output.projectId);
+    assert.equal(project.target.name, "tiny-electron");
+    assert.equal(project.nodes.filter(n => n.kind === "process").length, 3);
+    assert.equal(project.nodes.filter(n => n.kind === "ipc-channel").length, 3);
+    assert.ok(project.findings.every(f => f.status !== "confirmed-absent"));
     assert.equal(output.reaVersion, "6.4.0");
     assert.ok(events.length > 0);
   }

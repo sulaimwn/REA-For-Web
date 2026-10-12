@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readdir, readFile, writeFile, rm, symlink } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { adaptReaFile } from "@rea-studio/rea-adapter/file";
 import { runWithDocker, containerArgs, assertEngine } from "../src/run-analysis.js";
 import { executeCommand, type CommandOptions } from "../src/command.js";
 import { DEFAULT_LIMITS, resolveLimits } from "../src/limits.js";
@@ -31,17 +32,20 @@ async function context(t: TestContext, mode = "success") {
   };
 }
 
-test("streams real fixture unchanged, reports progress, and removes the container before publishing", async t => {
+test("streams the real adapter project unchanged and removes the container before publishing", async t => {
   const ctx = await context(t);
   const events: AnalysisProgress[] = [];
   const result = await runWithDocker({ ...ctx.options, onProgress: e => events.push(e) }, ctx.docker);
-  const expected = await readFile(fixture);
-  const actual = await readFile(result.rawResultPath);
+  const normalized = await adaptReaFile(fixture, { reaVersion: "6.4.0", maxBytes: DEFAULT_LIMITS.maxOutputBytes });
+  const expected = Buffer.from(JSON.stringify(normalized.project));
+  const actual = await readFile(result.projectPath);
   assert.equal(createHash("sha256").update(actual).digest("hex"), createHash("sha256").update(expected).digest("hex"));
   assert.equal(result.reaVersion, "6.4.0");
+  assert.equal(result.projectId, normalized.project.id);
+  assert.deepEqual(result.adapterReport, normalized.report);
   assert.equal(events.length, 1);
   assert.equal(events[0]!.phase, "parse");
-  assert.deepEqual(await readdir(dirname(result.rawResultPath)), ["rea-result.json"]);
+  assert.deepEqual(await readdir(dirname(result.projectPath)), ["studio-project.json"]);
   const args = JSON.parse(await readFile(ctx.config.createArgs, "utf8"));
   const removal = JSON.parse(await readFile(ctx.config.removed, "utf8"));
   assert.equal(args[args.indexOf("--name") + 1], removal[1]);
@@ -67,7 +71,8 @@ test("refuses an engine that cannot enforce resource limits", async t => {
 
 for (const [mode, code] of [["failure", "analysis_failed"], ["oom", "out_of_memory"],
   ["container-timeout", "timeout"],
-  ["empty", "analysis_failed"], ["limit-error", "input_limit_exceeded"], ["cleanup-failure", "cleanup_failed"]]) {
+  ["empty", "analysis_failed"], ["no-receipt", "analysis_failed"], ["wrong-receipt", "analysis_failed"],
+  ["limit-error", "input_limit_exceeded"], ["cleanup-failure", "cleanup_failed"]]) {
   test(`${mode} never publishes a result and performs container cleanup`, async t => {
     const ctx = await context(t, mode);
     await assert.rejects(runWithDocker(ctx.options, ctx.docker), { code });

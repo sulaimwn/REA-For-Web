@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { join } from "node:path";
+import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { adaptReaFile } from "@rea-studio/rea-adapter/file";
 import { ByteLimit } from "./command.js";
 import { preflightTarget, type TargetKind } from "./preflight.js";
 import { REA_VERSION, WorkerError, resolveLimits } from "./limits.js";
@@ -32,7 +36,10 @@ async function main() {
     throw new WorkerError("invalid_input", "Unexpected REA version in worker image.");
   }
   await preflightTarget("/input/target", kind as TargetKind, limits);
+  const temp = await mkdtemp("/tmp/rea-analysis-");
+  const rawPath = join(temp, "raw.json");
   const child = spawn(process.execPath, [
+    `--max-old-space-size=${limits.heapMb}`,
     "/opt/rea/node_modules/rea-agents/scripts/rea.mjs", "analyze-javascript-application", "/input/target",
     "--artifact-format", kind, "--format", "json", "--max-heap-mb", String(limits.heapMb),
     "--analysis-timeout-ms", String(limits.timeoutMs),
@@ -47,14 +54,24 @@ async function main() {
   });
   child.stderr.pipe(process.stderr, { end: false });
   try {
-    await pipeline(child.stdout, new ByteLimit(limits.maxOutputBytes), process.stdout);
+    await pipeline(child.stdout, new ByteLimit(limits.maxOutputBytes), createWriteStream(rawPath, { flags: "wx", mode: 0o600 }));
     const code = await closed;
     if (spawnError !== undefined) throw spawnError;
     if (code !== 0) throw new WorkerError("analysis_failed", `REA exited with code ${code}.`);
+    // Both phases share Docker's CPU/RAM limits and the whole-container deadline.
+    // Only the adapter reads raw JSON; stdout now contains StudioProject only.
+    const result = await adaptReaFile(rawPath, { reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes });
+    await rm(rawPath);
+    await pipeline(Readable.from([JSON.stringify(result.project)]), new ByteLimit(limits.maxOutputBytes), process.stdout);
+    process.stderr.write(`${JSON.stringify({ studio_worker_result: {
+      projectId: result.project.id, reaVersion: REA_VERSION, report: result.report,
+    } })}\n`);
   } catch (error) {
     child.kill("SIGKILL");
     await closed.catch(() => undefined);
     throw error;
+  } finally {
+    await rm(temp, { recursive: true, force: true });
   }
 }
 

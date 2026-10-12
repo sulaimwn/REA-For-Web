@@ -5,6 +5,8 @@ import { executeDocker, type DockerExecutor } from "./command.js";
 import { ProgressDecoder, type AnalysisProgress } from "./progress.js";
 import { REA_VERSION, WORKER_IMAGE, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
 import type { TargetKind } from "./preflight.js";
+import type { StudioProject } from "@rea-studio/schema";
+import type { AdapterReport } from "@rea-studio/rea-adapter";
 
 export type AnalysisOptions = {
   targetPath: string;
@@ -14,9 +16,14 @@ export type AnalysisOptions = {
   onProgress?: (progress: AnalysisProgress) => void;
 };
 
-// Internal worker artifact only. T004 must validate/normalize it before any API
-// or UI uses it. Exit zero does not mean complete analysis coverage.
-export type RawAnalysisArtifact = { rawResultPath: string; reaVersion: string; elapsedMs: number };
+// The file contains StudioProject only. Exit zero does not imply complete coverage.
+export type AnalysisArtifact = {
+  projectPath: string;
+  projectId: StudioProject["id"];
+  adapterReport: AdapterReport;
+  reaVersion: string;
+  elapsedMs: number;
+};
 
 function safeMountPath(path: string) {
   if (/[\x00-\x1f,"]/u.test(path)) {
@@ -50,6 +57,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
     "--security-opt=no-new-privileges=true", "--init", "--pids-limit=128",
     `--memory=${limits.memoryMb}m`, `--memory-swap=${limits.memoryMb}m`, `--cpus=${limits.cpus}`,
     "--ulimit=nofile=512:512", "--log-driver=none", "--workdir=/tmp",
+    `--env=NODE_OPTIONS=--max-old-space-size=${limits.heapMb}`,
     "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=268435456",
     "--mount", `type=bind,source=${target},target=/input/target,bind-recursive=disabled,readonly`,
     WORKER_IMAGE, kind, String(limits.maxFiles), String(limits.maxInputBytes),
@@ -76,7 +84,7 @@ export const runAnalysis = (options: AnalysisOptions) => runWithDocker(options, 
 
 // Dependency injection is kept internal to this module's test/integration seam;
 // production callers use runAnalysis, which always invokes the Docker CLI.
-export async function runWithDocker(options: AnalysisOptions, docker: DockerExecutor): Promise<RawAnalysisArtifact> {
+export async function runWithDocker(options: AnalysisOptions, docker: DockerExecutor): Promise<AnalysisArtifact> {
   const limits = resolveLimits(options.limits);
   if (options.signal?.aborted) throw new WorkerError("cancelled", "Analysis was cancelled.");
   const input = resolve(options.targetPath);
@@ -98,8 +106,8 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     throw new WorkerError("invalid_input", "Output root must be outside the analyzed directory.");
   }
   const jobDir = await mkdtemp(join(realRoot, "rea-job-"));
-  const partialPath = join(jobDir, "rea-result.json.partial");
-  const resultPath = join(jobDir, "rea-result.json");
+  const partialPath = join(jobDir, "studio-project.json.partial");
+  const resultPath = join(jobDir, "studio-project.json");
   const name = `rea-studio-${randomUUID()}`;
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -145,6 +153,9 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     if (!output.isFile() || output.isSymbolicLink() || output.size === 0 || output.size > limits.maxOutputBytes) {
       throw new WorkerError("analysis_failed", "REA produced no usable output artifact.");
     }
+    if (progress.result?.reaVersion !== REA_VERSION) {
+      throw new WorkerError("analysis_failed", "Worker produced no valid normalization receipt.");
+    }
     controller.signal.throwIfAborted();
   } catch (error) {
     const systemCode = (error as NodeJS.ErrnoException | undefined)?.code;
@@ -177,5 +188,8 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     if (dirname(jobDir) === realRoot) await rm(jobDir, { recursive: true, force: true });
     throw new WorkerError("analysis_failed", "Could not publish the analysis artifact.", { cause: error });
   }
-  return { rawResultPath: resultPath, reaVersion: REA_VERSION, elapsedMs: Date.now() - startedAt };
+  return {
+    projectPath: resultPath, projectId: progress.result!.projectId,
+    adapterReport: progress.result!.report, reaVersion: REA_VERSION, elapsedMs: Date.now() - startedAt,
+  };
 }

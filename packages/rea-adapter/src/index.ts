@@ -45,7 +45,7 @@ export interface AdapterReport {
   droppedEdgesUnknownRelation: Record<string, number>;
   /** Edges dropped because an endpoint id wasn't in REA's node list. */
   droppedEdgesDanglingEndpoint: number;
-  /** REA node kinds the adapter didn't recognize (kept as `analysis-gap`). */
+  /** REA node kinds or unsupported property shapes (kept as `analysis-gap`). */
   unrecognizedNodeKinds: Record<string, number>;
 }
 
@@ -59,7 +59,9 @@ function assertReaResult(raw: unknown): asserts raw is ReaResult {
   if (!g || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) {
     throw new ReaOutputError('REA output has no normalized_result.graph with nodes and edges');
   }
-  if (typeof r.subject?.digest?.sha256 !== 'string') throw new ReaOutputError('REA output has no subject.digest.sha256');
+  if (typeof r.subject?.digest?.sha256 !== 'string' || !/^[a-f0-9]{64}$/iu.test(r.subject.digest.sha256)) {
+    throw new ReaOutputError('REA output has no valid subject.digest.sha256');
+  }
 }
 
 const isRelation = (v: string): v is Relation => (RELATIONS as readonly string[]).includes(v);

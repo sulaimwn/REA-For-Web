@@ -12,7 +12,7 @@ Details for a task go under its heading below the table.
 | T003 | Define `StudioProject` schema from fixtures       | claude | done   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | claude | review | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
-| T006 | Worker: run REA on an `.asar` in a sandbox        | codex | in progress | T002, T004 |
+| T006 | Worker: run REA on an `.asar` in a sandbox        | codex | blocked | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
@@ -53,13 +53,15 @@ No backend.
 Container that receives a file path, runs REA with CPU/RAM/time limits, no
 network, non-root, and writes the adapter output. Never executes the target.
 
-**Foundation ready for review:** Docker-only REA 6.4.0 runner, bounded input
-preflight, streamed progress/raw artifacts, cancellation, and container cleanup.
-REA's dependency lock and the Node image digest are pinned. A GitHub workflow
-builds the image and runs five real Docker checks after push. 29 worker tests and
-root typecheck pass. Full task remains blocked on a successful real Docker run
-(local WSL/Docker setup is still pending) and T004 integration to produce
-`StudioProject`. See `notes/handoffs/2026-10-12-T006-codex-container-checks.md`.
+**Integration ready for review:** Docker-only REA 6.4.0 runner, bounded input
+preflight, streamed progress, T004 normalization inside the container,
+`StudioProject` artifacts, cancellation, and container cleanup. Raw JSON stays
+inside the container and is read only by the adapter. REA's dependency lock and
+the Node image digest are pinned. A GitHub workflow builds the image and runs
+five real Docker checks after push. 31 worker tests, 27 adapter tests, root
+typecheck, and root build pass. Full task remains blocked on a successful real
+Docker run (local WSL/Docker setup is still pending). See
+`notes/handoffs/2026-10-12-T006-codex-integration.md`.
 
 ### T007 — Upload pipeline
 Presigned upload to object storage (Cloudflare R2), SHA-256 dedupe, job queue,
