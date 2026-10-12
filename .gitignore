@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# raw REA output can be hundreds of MB — commit trimmed samples instead
+fixtures/raw/
+
+# local test targets
+targets/
