@@ -2,6 +2,9 @@ node_modules/
 .next/
 dist/
 build/
+.npm-cache/
+*.tsbuildinfo
+apps/web/next-env.d.ts
 .env
 .env.*
 !.env.example

@@ -1,0 +1,14 @@
+{
+  "name": "@rea-studio/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rea-studio/rea-adapter": "0.0.0",
+    "@rea-studio/schema": "0.0.0"
+  }
+}
