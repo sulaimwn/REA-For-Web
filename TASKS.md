@@ -12,7 +12,7 @@ Details for a task go under its heading below the table.
 | T003 | Define `StudioProject` schema from fixtures       | claude | done   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | claude | review | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
-| T006 | Worker: run REA on an `.asar` in a sandbox        | codex | blocked | T002, T004 |
+| T006 | Worker: run REA on an `.asar` in a sandbox        | codex | in progress | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
