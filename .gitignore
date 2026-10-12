@@ -1,6 +1,7 @@
 node_modules/
 .next/
 dist/
+dist-tests/
 build/
 .npm-cache/
 *.tsbuildinfo
@@ -16,3 +17,5 @@ fixtures/raw/
 
 # local test targets
 targets/
+worker-results/
+.worker-test-*/

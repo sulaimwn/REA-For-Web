@@ -1,0 +1,15 @@
+.git
+.claude
+**/node_modules
+**/.next
+**/dist
+**/dist-tests
+**/.npm-cache
+**/*.tsbuildinfo
+**/*.log
+**/.env*
+fixtures
+targets
+notes
+worker-results
+.worker-test-*
