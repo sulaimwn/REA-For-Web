@@ -133,7 +133,8 @@ VS Code linear extrapolation is ~30+ min; not verified.
    `application_projection_failure: resource_constraint` ("Expanded application relationships …
    exceed the parent's result budget; complete static facts were retained on the file node"),
    with tiny required sizes (e.g. 2.9 MB) against a reported 2 GB budget. Analyzed alone,
-   main.js has 0 such failures, so the budget appears to be shared across files. Not
+   main.js has 0 such failures, and other failures say "The parent reserved its remaining
+   result capacity for static observations", so the budget is shared across files. Not
    fixable with `--max-heap-mb`. Possibly worth an upstream issue.
 3. **Heap exhaustion on big bundles.** `renderer.js` (3.2 MB), `cli.js`, and `copilot/app.js`
    (8.5 MB) exhausted the analyzer heap during the semantic phase; `renderer.js` is `parse_status: partial`.
