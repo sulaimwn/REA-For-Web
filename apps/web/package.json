@@ -4,13 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "demo-data": "node scripts/build-demo-projects.mjs",
+    "predev": "npm run demo-data",
     "dev": "next dev",
+    "prebuild": "npm run demo-data",
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@dagrejs/dagre": "3.1.1",
+    "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",
+    "@xyflow/react": "12.12.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"

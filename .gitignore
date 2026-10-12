@@ -17,3 +17,6 @@ fixtures/raw/
 
 # local test targets
 targets/
+
+# generated demo data (apps/web/scripts/build-demo-projects.mjs)
+apps/web/public/projects/

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "REA Studio Web",
+  title: "REA Studio",
   description: "A visual, evidence-backed explorer for Electron applications.",
 };
 
