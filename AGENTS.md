@@ -39,8 +39,15 @@ analysis only.**
 2. Update your task's status in `TASKS.md` (`review` or `blocked`).
 3. Write a handoff note: `notes/handoffs/YYYY-MM-DD-<task-id>-<agent>.md` using
    `notes/handoffs/_TEMPLATE.md`.
-4. Commit everything on your branch. Don't merge to `main` — the human merges
-   after review.
+4. Commit everything on your branch.
+5. **Merging (agents do it; the human doesn't review merges):**
+   - The *other* agent reviews the branch (reads the diff + handoff, reruns checks).
+   - After that review passes, either agent merges into `main` in the main
+     checkout with `git merge --no-ff`, resolving any `TASKS.md` conflict by keeping
+     every task's latest row. Set the task to `done` in the merge.
+   - Run the full checks on `main` after merging. If they fail, fix forward right away.
+   - Never push. The human pushes from GitHub Desktop.
+   - Trivial doc/process-only changes (no code) can be merged without review.
 
 ## Conventions
 

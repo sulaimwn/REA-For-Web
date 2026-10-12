@@ -9,7 +9,7 @@ Details for a task go under its heading below the table.
 | ---- | ------------------------------------------------- | ----- | ------ | ---------- |
 | T001 | Generate real REA fixtures from open-source Electron apps | claude | done   | —          |
 | T002 | Scaffold npm-workspaces monorepo (web, worker, packages) | codex | done   | —          |
-| T003 | Define `StudioProject` schema from fixtures       | claude | review | T001       |
+| T003 | Define `StudioProject` schema from fixtures       | claude | done   | T001       |
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | —     | todo   | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | —     | todo   | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | —     | todo   | T002       |
