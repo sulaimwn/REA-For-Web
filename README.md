@@ -1,11 +1,77 @@
-# REA Studio Web
+# REA Studio
 
-Drop in an application. See how it works.
+**See how an Electron app is put together, with the evidence behind every fact.**
 
-A visual, evidence-backed explorer for applications, powered by
-[REA](https://github.com/morluto/rea).
+REA Studio turns [REA](https://github.com/morluto/rea) static analysis into an
+interactive map of an application: its processes, IPC channels, preload
+bridges, native add-ons, storage keys, and the original source tree recovered
+from source maps. Click anything to see exactly where REA found it
+(`file:line:column`), whether it was observed or inferred, and what REA
+couldn't determine.
 
-Early development — see `ARCHITECTURE.md` and `TASKS.md`.
+Nothing is executed. REA reads the shipped files as data.
+
+![The tiny sample app: package → main process → window → preload → IPC handlers and channels, with the notes:save channel's evidence in the inspector](docs/screenshots/tiny-overview.png)
+
+## What you can explore
+
+| | |
+|---|---|
+| **Architecture overview** | Main, preload and renderer processes, windows, `contextBridge` APIs, IPC channels and handlers, native `.node` add-ons, storage keys and workers, laid out as a graph. |
+| **Evidence inspector** | Every node and link carries REA's evidence: location, observed vs. inferred, REA's confidence category, the extractor that produced it, and REA's own limitations. |
+| **Recovered source tree** | Original files such as `app/src/ui/history/compare.tsx`, recovered from shipped source maps. |
+| **Neighborhoods** | Double-click any node to see everything connected to it. |
+| **Honest gaps** | Partial coverage, unresolved IPC channel names and files REA couldn't fully analyze are shown, not hidden. "Not found" never means "doesn't exist." |
+| **Shareable links** | The URL records the selected node and view. |
+
+### A real app: GitHub Desktop
+
+![GitHub Desktop overview: the renderer process with its storage keys, dynamic IPC channels and worker, a grid of native add-ons, and the main and crash processes](docs/screenshots/ghd-overview.png)
+
+GitHub Desktop is a large, webpack-bundled app, and the demo shows what static
+analysis can and can't recover from it. REA finds the processes, native
+add-ons, storage keys and 1,777 original source files (the demo uses a trimmed
+sample of the output). But GitHub Desktop passes IPC channel names as
+variables, so they're marked **unresolved** rather than guessed.
+
+![The neighborhood of renderer.js: IPC channels, the worker, storage keys and imports, with REA's unfiltered endpoint candidates last](docs/screenshots/ghd-renderer.png)
+
+## How it works
+
+```
+app (.asar or folder) ──► REA analyze-javascript-application ──► REA evidence JSON
+                                                                     │
+                                            @rea-studio/rea-adapter  ▼
+                                                              StudioProject JSON ──► web explorer
+```
+
+- **[`packages/schema`](packages/schema/src/index.ts)** defines `StudioProject`, the format
+  the UI reads. It's derived from real REA 6.4.0 output: categorical confidence, evidence on
+  everything, and explicit gaps.
+- **[`packages/rea-adapter`](packages/rea-adapter/src/index.ts)** is the only code that reads
+  raw REA output. On GitHub Desktop it turns 50 MB of REA JSON into 4.5 MB in under half a second.
+- **[`apps/web`](apps/web)** is the Next.js explorer (React Flow + dagre). The demo pages are
+  static HTML.
+- **[`apps/worker`](apps/worker)** runs REA in a locked-down container (no network, non-root,
+  resource limits) and normalizes the result with the adapter. It's verified locally with Docker
+  but not deployed yet; see [its README](apps/worker/README.md).
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design and
+[fixtures/README.md](fixtures/README.md) for what REA's output actually contains,
+including measurements and known limitations.
+
+## Status
+
+This is an early preview. The demo shows **pre-analyzed open-source apps**.
+Uploading your own app comes next: the sandboxed worker is verified locally, and the upload
+pipeline (T007) is the remaining piece.
+
+Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
+- Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
+  so windows and handlers in bundled apps are often "not found."
+- IPC channels passed as variables can't be named statically.
+- REA's endpoint detection is noisy; endpoints are shown as unfiltered candidates.
+- In whole-app runs, REA's shared result budget drops relationship detail for many files.
 
 ## Development
 
@@ -27,32 +93,28 @@ Start the web app at http://localhost:3000:
 npm run dev
 ```
 
-To serve a production build locally, run `npm run build` followed by
-`npm start`.
-
-## Workspaces
+`npm run dev` and `npm run build` regenerate the demo data in
+`apps/web/public/projects/` from the committed fixtures. To serve a production
+build locally, run `npm run build` followed by `npm start`.
 
 | Workspace | Purpose |
 | --- | --- |
-| `@rea-studio/web` | Next.js App Router frontend; currently a starter page |
-| `@rea-studio/worker` | Sandboxed static-analysis runner; see `apps/worker/README.md` |
-| `@rea-studio/schema` | Empty entry point for fixture-derived types (T003) |
-| `@rea-studio/rea-adapter` | Empty entry point for REA normalization (T004) |
+| `@rea-studio/web` | Next.js explorer and demo pages |
+| `@rea-studio/schema` | `StudioProject` types, derived from real REA fixtures |
+| `@rea-studio/rea-adapter` | REA JSON → `StudioProject`, with fixture tests (`npm test -w @rea-studio/rea-adapter`) |
+| `@rea-studio/worker` | Sandboxed REA runner that outputs `StudioProject` (Docker; see `apps/worker/README.md`) |
 
-All workspaces extend `tsconfig.base.json`. The web app uses browser types and
-bundler resolution; the other packages use Node-compatible ES modules. Root
-builds run schema, adapter, worker, and web in dependency order. Shared packages
-export their compiled JavaScript and declarations from `dist/`.
+All workspaces extend `tsconfig.base.json`. Root builds run schema, adapter,
+worker and web in dependency order. After changing a shared package while
+`npm run dev` is running, run `npm run build:packages` to refresh its output.
 
-Root typechecking also builds shared packages first so their declarations are
-available in a fresh checkout. The web typecheck generates Next.js route types
-before checking TypeScript; generated files are ignored by Git.
+### Deploying the static demo
 
-`npm run dev` builds the shared packages before starting Next.js. After changing
-a shared package, run `npm run build:packages` again to refresh its output.
+The demo needs no backend. On Vercel (not yet tested): set the project's root
+directory to `apps/web`, the install command to `npm ci` and the build command
+to `cd ../.. && npm run build:packages && npm run build -w @rea-studio/web`.
 
-REA installation, analysis, graphs, uploads, and storage are separate tasks.
+## Credits
 
-The worker foundation has a Docker image and an opt-in integration check:
-see [worker setup and limitations](apps/worker/README.md). Raw-result normalization
-awaits T004; uploaded applications are never executed.
+- [REA](https://github.com/morluto/rea) (MIT) does the analysis.
+- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5 and a hand-written sample app.
