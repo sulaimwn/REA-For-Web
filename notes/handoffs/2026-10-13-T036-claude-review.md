@@ -24,3 +24,7 @@
 
 ## Notes
 - Live R2 and systemd stay unverified until the analysis host exists (T038).
+
+## Main after merge (`445317b`)
+- `npm test --workspaces --if-present`: 247 tests, 246 pass, 0 fail. The one skip is the host JADX test (`REA_JADX_MCP_JAR` unset).
+- T036 doesn't touch `apps/web`; typecheck passed on the identical code above.
