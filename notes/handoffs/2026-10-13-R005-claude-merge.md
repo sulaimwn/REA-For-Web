@@ -16,3 +16,6 @@
 - **8,000-byte conversation cap:** `FREE_ASK_LIMITS.maxTotalBytes` is 8,000 bytes, which allows only one or two lookups per free answer.
   - Fix before enabling the free tier: budget by JSON-escaped wire size (`wireBytes`) with about 36,000 bytes.
   - Drafted on `claude/R005-followup` (`b9047af`, untested). Its `ASK_FREE_TIER` flag part is superseded by `eab9d58`.
+
+## Main after merge (`b608765`)
+- `npm run typecheck` passes. All 247 workspace tests pass, 0 skipped. The production web build passes (15 pages).
