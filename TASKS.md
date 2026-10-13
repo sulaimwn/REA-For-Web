@@ -19,7 +19,7 @@ Details for a task go under its heading below the table.
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
-| T018 | Cloudflare deploy prep: OpenNext + Wrangler config, GitHub Actions deploy, setup guide | claude | in progress | T005       |
+| T018 | Cloudflare deploy prep: OpenNext + Wrangler config, GitHub Actions deploy, setup guide | claude | review | T005       |
 
 ---
 

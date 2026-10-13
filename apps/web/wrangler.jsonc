@@ -1,0 +1,26 @@
+// Cloudflare Workers config for the REA Studio website (built with @opennextjs/cloudflare).
+// Deploy with `npm run cf:deploy -w @rea-studio/web` (Linux/CI; see docs/deploy-cloudflare.md).
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "reaforweb",
+  "main": ".open-next/worker.js",
+  // 2025-05-05 or later avoids "FinalizationRegistry is not defined" (OpenNext troubleshooting).
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "reaforweb"
+    }
+  ],
+  // Attach the domain once it's on your Cloudflare account (docs/deploy-cloudflare.md, step 4):
+  // "routes": [
+  //   { "pattern": "reaforweb.com", "custom_domain": true },
+  //   { "pattern": "www.reaforweb.com", "custom_domain": true }
+  // ],
+  "observability": { "enabled": true }
+}
