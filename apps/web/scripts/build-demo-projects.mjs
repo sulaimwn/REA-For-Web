@@ -49,6 +49,12 @@ const DEMOS = [
     blurb: 'A hand-written C program read with Ghidra: its functions, the Windows APIs each one calls, a URL, a file and a registry key.',
   },
   {
+    slug: 'tiny-linux',
+    title: 'Tiny Linux program',
+    file: 'tiny-linux.rea-6.4.0.json',
+    blurb: 'The same idea as a Linux ELF, read with Ghidra: its functions, the C library calls each one makes, a URL and two files.',
+  },
+  {
     slug: 'tiny-android',
     title: 'Tiny Android app',
     file: 'tiny-android.rea-6.4.0.json',

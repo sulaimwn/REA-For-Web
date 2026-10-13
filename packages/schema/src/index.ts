@@ -362,7 +362,10 @@ export interface ManagedMethodNode extends NodeBase<'managed-method'> {
 
 /** A P/Invoke declaration: managed code calling a native library (REA `managed-pinvoke-import`). */
 export interface NativeImportNode extends NodeBase<'native-import'> {
-  /** e.g. `user32.dll`. REA proves the declaration only, not that the library or export exists. */
+  /**
+   * e.g. `user32.dll`. REA proves the declaration only, not that the library or export exists.
+   * Empty for ELF programs, whose imports name only the symbol (the dynamic linker picks the library).
+   */
   library: string;
   /** Native export name, e.g. `MessageBoxW` or `seal_note`. */
   entryPoint: string;
@@ -553,10 +556,10 @@ export interface TargetInfo {
   sha256: string;
   /**
    * Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a
-   * Windows program (.NET or native) executable or DLL; `apk` for an Android package; `url` for a
-   * website captured through a browser.
+   * Windows program (.NET or native) executable or DLL; `elf` for a Linux program or shared library;
+   * `macho` for a macOS program; `apk` for an Android package; `url` for a website captured through a browser.
    */
-  format: 'asar' | 'directory' | 'pe' | 'apk' | 'url';
+  format: 'asar' | 'directory' | 'pe' | 'elf' | 'macho' | 'apk' | 'url';
   /**
    * `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`.
    * `dotnet` for managed PE/CLI programs; `native` for machine-code programs; `android` for an
