@@ -9,8 +9,9 @@ For the separate Docker analysis site and the optional `REA_UPLOAD_ORIGIN`
 navigation setting, see [hosted uploads](hosted-uploads.md). Keep R2/Redis/Docker
 credentials on that service, not the Cloudflare frontend.
 
-**What goes live:** the demos, the explorer, `/open` (local mode) and Ask (bring
-your own key). **Not yet:** uploading apps to the site. That needs the analysis
+**What goes live:** the demos, the explorer, `/open` (local mode) and Ask (the
+configured free tier plus bring your own key). Verify a real free question after
+deploying the AI binding. **Not yet:** uploading apps to the site. That needs the analysis
 worker hosted somewhere (Cloudflare Containers or a small server); it's a separate step.
 
 ## One-time setup (about 15 minutes, all in your browser)
