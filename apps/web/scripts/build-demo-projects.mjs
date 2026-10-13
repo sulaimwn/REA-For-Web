@@ -3,6 +3,7 @@
 // before dev/build). Requires @rea-studio/rea-adapter to be built first.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { toStudioProject } from '@rea-studio/rea-adapter';
+import { publishTourFile } from './tour-data.mjs';
 
 const REA_VERSION = '6.4.0';
 const samples = new URL('../../../fixtures/samples/', import.meta.url);
@@ -30,12 +31,22 @@ const DEMOS = [
   },
 ];
 
+/**
+ * Copies committed guided tours (apps/web/tours/<slug>.json, from scripts/generate-tours.mjs)
+ * next to the project, but only if they were generated for this exact project: tour answers
+ * link node ids, which change when the fixture or adapter output changes.
+ */
+function publishTours(slug, project) {
+  return publishTourFile(slug, project, new URL(`../tours/${slug}.json`, import.meta.url), new URL(`${slug}.tours.json`, out));
+}
+
 mkdirSync(out, { recursive: true });
 const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
   const raw = JSON.parse(readFileSync(new URL(file, samples), 'utf8'));
   const project = toStudioProject(raw, { reaVersion: REA_VERSION });
   writeFileSync(new URL(`${slug}.json`, out), JSON.stringify(project));
   const trim = raw._fixture_trim?.graph;
+  const tours = publishTours(slug, project);
   return {
     slug,
     title,
@@ -48,6 +59,7 @@ const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
     sample: [note, trim && trim.nodes_kept < trim.nodes_original ? `Trimmed fixture: ${trim.nodes_kept} of ${trim.nodes_original} REA nodes kept` : null]
       .filter(Boolean)
       .join('. ') || null,
+    tours,
   };
 });
 writeFileSync(new URL('index.json', out), JSON.stringify(index, null, 2));

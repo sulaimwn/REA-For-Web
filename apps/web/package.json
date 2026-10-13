@@ -11,7 +11,8 @@
     "prebuild": "npm run demo-data",
     "build": "next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "tours": "node scripts/generate-tours.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",

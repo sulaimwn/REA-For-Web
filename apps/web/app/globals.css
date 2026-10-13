@@ -240,3 +240,6 @@ button { font: inherit; color: inherit; }
 .answer h5 { margin: 12px 0 4px; font-size: 13px; }
 .answer code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
 .answer__node { display: inline; font-family: var(--mono); font-size: 12.5px; text-decoration: underline dotted; }
+.ask__tours { margin-bottom: 14px; }
+.ask__ideas .link.is-on { color: var(--text); font-weight: 600; }
+.ask__tour { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }

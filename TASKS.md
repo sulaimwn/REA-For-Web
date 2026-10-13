@@ -13,16 +13,18 @@ Details for a task go under its heading below the table.
 | T004 | `rea-adapter`: REA JSON → `StudioProject`         | claude | done   | T003       |
 | T005 | Web: static demo page rendering a fixture graph   | claude | done | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
-| T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
+| T007 | Upload pipeline: presigned upload → queue → worker | codex | review | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
-| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | claude | review | T004       |
+| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking; endpoint filtering is T012 | claude | done | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
 | T012 | Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
-| T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | review | T004, T005 |
-| T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | review | T005       |
-| T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | review | T013       |
+| T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | done | T004, T005 |
+| T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |
+| T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
+| T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
+| T018 | Cloudflare deploy preparation | claude | in progress | T007, T013 |
 
 ---
 
@@ -92,6 +94,8 @@ Write issue drafts with minimal repros for: (1) `new r.BrowserWindow()` /
 result budget dropping per-file relationships. The human decides whether to file.
 
 ### T012 — Endpoint plausibility
-Blocked on agreeing a schema field (see `notes/handoffs/2026-10-12-T009-claude.md`).
+Schema proposal agreed in `notes/handoffs/2026-10-12-T015-codex-review.md`
+on `codex/T007-upload-pipeline`: preserve every REA endpoint candidate, add an
+optional Studio heuristic assessment, and keep unassessed candidates visible.
 Rule validated on full GitHub Desktop output: 2 of 89 endpoint candidates plausible,
 exactly the two real ones. UI then hides `unlikely` endpoints by default.

@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ASK_MODELS, DEFAULT_ASK_MODEL, askProject, describeAskError, type AskModel, type AskResult, type AskStep } from '@rea-studio/ask';
 import type { StudioProject } from '@rea-studio/schema';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Tour } from '../lib/project';
 import { AnswerMarkdown } from './AnswerMarkdown';
 
 const KEY_STORAGE = 'rea-studio:anthropic-api-key';
@@ -69,12 +70,14 @@ function stepLabel(s: AskStep): string {
 
 interface Props {
   project: StudioProject;
+  /** Pre-generated answers, readable without a key. */
+  tours?: Tour[];
   onSelect: (id: string) => void;
   /** Show the answer's cited nodes in the graph. */
   onShowNodes: (ids: string[]) => void;
 }
 
-export function AskPanel({ project, onSelect, onShowNodes }: Props) {
+export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) {
   const [apiKey, setApiKey] = useState(readStoredKey);
   const [draftKey, setDraftKey] = useState('');
   const [remember, setRemember] = useState(false);
@@ -88,6 +91,54 @@ export function AskPanel({ project, onSelect, onShowNodes }: Props) {
   const abort = useRef<AbortController | null>(null);
   const ids = useMemo(() => new Set(project.nodes.map((n) => n.id)), [project]);
   const ideas = useMemo(() => suggestions(project), [project]);
+  const [tour, setTour] = useState<Tour | null>(null);
+
+  function openTour(t: Tour) {
+    stop();
+    setTour(t);
+    setAsked('');
+    setSteps([]);
+    setResult(null);
+    setError(null);
+    if (t.citedNodeIds.length) onShowNodes(t.citedNodeIds.filter((id) => ids.has(id)));
+  }
+
+  const toursBlock = tours.length > 0 && (
+    <section className="ask__tours">
+      <h4>
+        Guided tours <span className="muted">· no key needed</span>
+      </h4>
+      <ul className="ask__ideas">
+        {tours.map((t) => (
+          <li key={t.question}>
+            <button type="button" className={`link ${tour === t ? 'is-on' : ''}`} onClick={() => openTour(t)}>
+              {t.question}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+
+  const tourBlock = tour && (
+    <div className="ask__tour">
+      <p className="ask__asked">{tour.question}</p>
+      {tour.steps.length > 0 && (
+        <ol className="ask__steps">
+          {tour.steps.map((s, i) => (
+            <li key={i}>{stepLabel({ type: 'tool', name: s.name, input: s.input })}</li>
+          ))}
+        </ol>
+      )}
+      <AnswerMarkdown text={tour.answer} onNode={onSelect} known={(id) => ids.has(id)} />
+      {tour.citedNodeIds.length > 0 && (
+        <button type="button" className="chip" onClick={() => onShowNodes(tour.citedNodeIds.filter((id) => ids.has(id)))}>
+          Show the cited nodes in the graph
+        </button>
+      )}
+      <p className="muted ask__fine">Pre-generated answer ({tour.model}). Add an API key to ask your own questions.</p>
+    </div>
+  );
 
   useEffect(() => {
     setResult(null);
@@ -114,6 +165,7 @@ export function AskPanel({ project, onSelect, onShowNodes }: Props) {
     abort.current = controller;
     setRunning(true);
     setAsked(text);
+    setTour(null);
     setSteps([]);
     setResult(null);
     setError(null);
@@ -138,10 +190,12 @@ export function AskPanel({ project, onSelect, onShowNodes }: Props) {
   if (!apiKey) {
     return (
       <div className="ask">
-        <h4>Ask about this app</h4>
+        {toursBlock}
+        {tourBlock}
+        <h4>Ask your own question</h4>
         <p className="muted">
           Ask questions in plain English and get answers grounded in REA’s evidence, with every step linked to the graph.
-          It uses your own Anthropic API key, which goes only from this browser to Anthropic.
+          Your question and the relevant analysis details go from this browser to Anthropic, using your own API key.
         </p>
         <form
           onSubmit={(e) => {
@@ -228,6 +282,8 @@ export function AskPanel({ project, onSelect, onShowNodes }: Props) {
         </ul>
       )}
 
+      {!asked && !tour && toursBlock}
+      {tourBlock}
       {asked && <p className="ask__asked">{asked}</p>}
       {steps.length > 0 && (
         <ol className={`ask__steps ${running ? 'is-running' : ''}`}>
