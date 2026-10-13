@@ -373,6 +373,18 @@ button { font: inherit; color: inherit; }
 .answer code { background: var(--surface-2); padding: 1px 4px; border-radius: 2px; }
 .answer__node { display: inline; font-family: var(--mono); font-size: 13px; text-decoration: underline dotted; text-underline-offset: 3px; }
 
+/* Upload and analysis stages */
+.upload-form { display: flex; flex-direction: column; gap: 12px; padding: 24px; border: 1px solid var(--rule-strong); background: var(--surface); }
+.upload-form > label { font-weight: 700; }
+.upload-form > p { margin: 0; }
+.upload-form > button { align-self: flex-start; }
+.upload-form input { max-width: 100%; font: inherit; }
+.upload-form input[type="password"] { display: block; width: min(100%, 24rem); margin-top: 8px; padding: 7px 9px; border: 1px solid var(--rule-strong); border-radius: 3px; background: var(--canvas); color: var(--ink); }
+.upload-form summary { cursor: pointer; }
+.upload-progress { display: block; width: 100%; height: 0.75rem; accent-color: var(--link); }
+.analysis-stages { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; padding-left: 1.25rem; color: var(--ink-3); }
+.analysis-stages [aria-current="step"] { color: var(--ink); font-weight: 600; }
+
 /* ───────────── narrow screens ───────────── */
 @media (max-width: 1100px) {
   .panes { grid-template-columns: 250px minmax(0, 1fr); }

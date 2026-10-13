@@ -1,5 +1,5 @@
 import { lstat, mkdir, mkdtemp, realpath, rename, rm } from "node:fs/promises";
-import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import { executeDocker, type DockerExecutor } from "./command.js";
 import { ProgressDecoder, type AnalysisProgress } from "./progress.js";
@@ -10,6 +10,8 @@ import type { AdapterReport } from "@rea-studio/rea-adapter";
 
 export type AnalysisOptions = {
   targetPath: string;
+  /** Original archive filename, used only when REA has no package name. */
+  targetName?: string;
   outputRoot: string;
   limits?: Partial<AnalysisLimits>;
   signal?: AbortSignal;
@@ -49,8 +51,11 @@ async function plannedRoot(path: string): Promise<string> {
   }
 }
 
-export function containerArgs(name: string, target: string, kind: TargetKind, limits: AnalysisLimits): string[] {
+export function containerArgs(name: string, target: string, kind: TargetKind, limits: AnalysisLimits, targetName = basename(target)): string[] {
   safeMountPath(target);
+  if (!targetName || targetName.length > 200 || /[\x00-\x1f/\\]/u.test(targetName)) {
+    throw new WorkerError("invalid_input", "Target name must be a filename up to 200 characters.");
+  }
   return [
     "create", "--pull=never", "--name", name, "--label", "rea-studio.worker=true",
     "--network=none", "--user=1000:1000", "--read-only", "--cap-drop=ALL",
@@ -61,7 +66,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
     "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=268435456",
     "--mount", `type=bind,source=${target},target=/input/target${kind === "asar" ? ".asar" : ""},bind-recursive=disabled,readonly`,
     WORKER_IMAGE, kind, String(limits.maxFiles), String(limits.maxInputBytes),
-    String(limits.maxOutputBytes), String(limits.heapMb), String(limits.timeoutMs),
+    String(limits.maxOutputBytes), String(limits.heapMb), String(limits.timeoutMs), String(limits.sourceTimeoutMs), targetName,
   ];
 }
 
@@ -127,8 +132,9 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     const info = await docker(["info", "--format", "{{json .}}"], { signal: controller.signal });
     if (info.code !== 0) throw new WorkerError("docker_unavailable", "Docker engine is unavailable.");
     assertEngine(jsonRecord(info.stdout));
+    const args = containerArgs(name, target, kind, limits, options.targetName);
     createAttempted = true;
-    const creation = await docker(containerArgs(name, target, kind, limits), { signal: controller.signal });
+    const creation = await docker(args, { signal: controller.signal });
     if (creation.code !== 0) throw new WorkerError("docker_failed", `Could not create worker container: ${creation.stderr}`);
     created = true;
     const attached = await docker(["start", "--attach", name], {

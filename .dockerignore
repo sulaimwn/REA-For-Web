@@ -13,3 +13,6 @@ targets
 notes
 worker-results
 .worker-test-*
+.pipeline-data
+.pipeline-work
+.pipeline-test-*

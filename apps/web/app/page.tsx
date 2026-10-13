@@ -7,11 +7,15 @@ import { loadDemos } from '../lib/demos';
 /** The demo shown first: small enough that its overview is readable at a glance. */
 const FIRST = 'tiny-electron';
 
+// Upload availability comes from the running service, rather than the build machine.
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
   const demos = loadDemos().sort((a, b) => Number(b.slug === FIRST) - Number(a.slug === FIRST));
+  const uploadsAvailable = ['local', 'r2'].includes(process.env.PIPELINE_STORAGE ?? '');
   return (
     <>
-      <SiteHeader />
+      <SiteHeader uploadsAvailable={uploadsAvailable} />
       <main className="frontpage">
         <section className="intro">
           <div>
@@ -46,11 +50,13 @@ export default function HomePage() {
           </dl>
         </section>
 
+        {uploadsAvailable && <p><Link className="btn btn--primary" href="/upload">Upload your own app</Link></p>}
+
         {demos.length > 0 ? (
           <LandingDemo demos={demos} />
         ) : (
           <p className="empty">
-            No demo data yet. Run <code>npm run demo-data --workspace=@rea-studio/web</code>.
+            Demo maps are unavailable right now. You can still <Link href="/open">open a local analysis</Link>.
           </p>
         )}
 

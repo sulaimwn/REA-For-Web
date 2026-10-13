@@ -8,11 +8,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
     "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
     "test:docker": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/docker.integration.js",
-    "analyze": "node dist/cli.js"
+    "analyze": "node dist/cli.js",
+    "queue": "node dist/queue.js"
   },
   "dependencies": {
     "@rea-studio/rea-adapter": "0.0.0",
-    "@rea-studio/schema": "0.0.0"
+    "@rea-studio/schema": "0.0.0",
+    "@rea-studio/pipeline": "0.0.0"
   },
   "devDependencies": {
     "@electron/asar": "4.3.1"

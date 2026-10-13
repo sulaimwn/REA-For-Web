@@ -1,0 +1,282 @@
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  PipelineError,
+  SIGNED_UPLOAD_SECONDS,
+  UPLOAD_TTL_SECONDS,
+  type UploadRequest,
+} from './contracts.js';
+
+export type ObjectInfo = { bytes: number; metadata: Record<string, string> };
+export interface ObjectStore {
+  kind: 'local' | 'r2';
+  signUpload(
+    id: string,
+    request: UploadRequest,
+    origin: string,
+  ): Promise<{ url: string; headers: Record<string, string> }>;
+  head(key: string): Promise<ObjectInfo | null>;
+  read(key: string): Promise<Readable>;
+  put(
+    key: string,
+    path: string,
+    metadata: Record<string, string>,
+  ): Promise<void>;
+  delete(key: string): Promise<void>;
+  expireUploads(): Promise<void>;
+}
+export const uploadKey = (id: string) => `uploads/${id}.asar`;
+export const resultKey = (hash: string) =>
+  `results/schema-0.1.0-rea-6.4.0-adapter-5/${hash}.json.gz`;
+function safeKey(key: string) {
+  if (
+    !/^(uploads\/[a-f0-9-]+\.asar|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-[2345]\/[a-f0-9]{64}\.json\.gz)$/u.test(
+      key,
+    )
+  ) {
+    throw new PipelineError(400, 'Invalid storage key.');
+  }
+  return key;
+}
+
+export class VerifiedBytes extends Transform {
+  private bytes = 0;
+  private hash = createHash('sha256');
+  constructor(private expected: Pick<UploadRequest, 'bytes' | 'sha256'>) {
+    super();
+  }
+  override _transform(
+    chunk: Buffer,
+    _: BufferEncoding,
+    next: (error?: Error | null, data?: Buffer) => void,
+  ) {
+    this.bytes += chunk.length;
+    if (this.bytes > this.expected.bytes) {
+      next(new PipelineError(413, 'Upload exceeds its declared size.'));
+      return;
+    }
+    this.hash.update(chunk);
+    next(null, chunk);
+  }
+  override _flush(next: (error?: Error | null) => void) {
+    next(
+      this.bytes !== this.expected.bytes ||
+        this.hash.digest('hex') !== this.expected.sha256
+        ? new PipelineError(400, 'Upload size or SHA-256 does not match.')
+        : null,
+    );
+  }
+}
+
+export class LocalStore implements ObjectStore {
+  readonly kind = 'local';
+  constructor(
+    public readonly root: string,
+    private secret: string,
+  ) {
+    if (secret.length < 32)
+      throw new Error('Local upload secret must be at least 32 characters.');
+    this.root = resolve(root);
+  }
+  private path(key: string) {
+    return join(this.root, safeKey(key));
+  }
+  private signature(id: string, request: UploadRequest, expiry: number) {
+    return createHmac('sha256', this.secret)
+      .update(`${id}:${request.bytes}:${request.sha256}:${expiry}`)
+      .digest('hex');
+  }
+  async signUpload(id: string, request: UploadRequest, origin: string) {
+    const expiry = Math.floor(Date.now() / 1000) + SIGNED_UPLOAD_SECONDS;
+    return {
+      url: `${origin}/api/uploads/${id}/file?expires=${expiry}&signature=${this.signature(id, request, expiry)}`,
+      headers: { 'Content-Type': 'application/octet-stream' },
+    };
+  }
+  async receive(
+    id: string,
+    request: UploadRequest,
+    expiry: number,
+    signature: string,
+    body: Readable,
+  ) {
+    const expected = this.signature(id, request, expiry);
+    if (
+      !Number.isSafeInteger(expiry) ||
+      expiry <= Date.now() / 1000 ||
+      expiry > Date.now() / 1000 + SIGNED_UPLOAD_SECONDS + 5 ||
+      !/^[a-f0-9]{64}$/u.test(signature) ||
+      !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+    ) {
+      throw new PipelineError(403, 'Upload link has expired or is invalid.');
+    }
+    const path = this.path(uploadKey(id));
+    await mkdir(dirname(path), { recursive: true });
+    const partial = `${path}.${randomUUID()}.partial`;
+    try {
+      await pipeline(
+        body,
+        new VerifiedBytes(request),
+        createWriteStream(partial, { flags: 'wx', mode: 0o600 }),
+      );
+      await rename(partial, path);
+    } finally {
+      await rm(partial, { force: true });
+    }
+  }
+  async head(key: string) {
+    try {
+      const path = this.path(key);
+      const s = await stat(path);
+      let metadata: Record<string, string> = {};
+      if (key.startsWith('results/'))
+        metadata = JSON.parse(
+          await (
+            await import('node:fs/promises')
+          ).readFile(`${path}.meta`, 'utf8'),
+        );
+      return { bytes: s.size, metadata };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+  async read(key: string) {
+    return createReadStream(this.path(key));
+  }
+  async put(key: string, path: string, metadata: Record<string, string>) {
+    const dest = this.path(key);
+    await mkdir(dirname(dest), { recursive: true });
+    const partial = `${dest}.${randomUUID()}.partial`;
+    try {
+      await pipeline(
+        createReadStream(path),
+        createWriteStream(partial, { flags: 'wx', mode: 0o600 }),
+      );
+      await rename(partial, dest);
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(`${dest}.meta`, JSON.stringify(metadata), {
+        mode: 0o600,
+      });
+    } finally {
+      await rm(partial, { force: true });
+    }
+  }
+  async delete(key: string) {
+    await rm(this.path(key), { force: true });
+  }
+  async expireUploads() {
+    const root = join(this.root, 'uploads');
+    const files = await readdir(root).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    });
+    for (const name of files) {
+      if (!/^[a-f0-9-]+\.asar(?:\.[a-f0-9-]+\.partial)?$/u.test(name)) continue;
+      const path = join(root, name);
+      if ((await stat(path)).mtimeMs < Date.now() - UPLOAD_TTL_SECONDS * 1000)
+        await rm(path, { force: true });
+    }
+  }
+}
+
+export class R2Store implements ObjectStore {
+  readonly kind = 'r2';
+  constructor(
+    private client: S3Client,
+    private bucket: string,
+  ) {}
+  async signUpload(id: string, request: UploadRequest, _origin: string) {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: uploadKey(id),
+      ContentType: 'application/octet-stream',
+      ContentLength: request.bytes,
+    });
+    return {
+      url: await getSignedUrl(this.client, command, {
+        expiresIn: SIGNED_UPLOAD_SECONDS,
+        signableHeaders: new Set(['content-type', 'content-length']),
+      }),
+      headers: { 'Content-Type': 'application/octet-stream' },
+    };
+  }
+  async head(key: string) {
+    try {
+      const v = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
+      );
+      return { bytes: v.ContentLength ?? 0, metadata: v.Metadata ?? {} };
+    } catch (error) {
+      if (
+        (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+          ?.httpStatusCode === 404
+      )
+        return null;
+      throw error;
+    }
+  }
+  async read(key: string) {
+    const r = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
+    );
+    if (!(r.Body instanceof Readable))
+      throw new Error('Object storage did not return a stream.');
+    return r.Body;
+  }
+  async put(key: string, path: string, metadata: Record<string, string>) {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: safeKey(key),
+        Body: createReadStream(path),
+        ContentLength: (await stat(path)).size,
+        ContentType: 'application/gzip',
+        Metadata: metadata,
+      }),
+    );
+  }
+  async delete(key: string) {
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
+    );
+  }
+  async expireUploads() {
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: 'uploads/',
+          ...(token ? { ContinuationToken: token } : {}),
+        }),
+      );
+      for (const object of page.Contents ?? [])
+        if (
+          object.Key &&
+          object.LastModified &&
+          object.LastModified.getTime() < Date.now() - UPLOAD_TTL_SECONDS * 1000
+        )
+          await this.delete(object.Key);
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+  }
+}

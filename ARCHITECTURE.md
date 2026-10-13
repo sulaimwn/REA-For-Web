@@ -240,3 +240,30 @@ All other values are copied from the fixture.)
 - `GET  /api/jobs/:id` → `{ status, projectId? , error? }`
 - `GET  /api/projects/:id/graph` → `{ nodes, edges }` (paginated/collapsed)
 - `GET  /api/projects/:id/nodes/:nodeId` → node detail + evidence
+
+## Implemented upload API (T007)
+
+The draft hash-first cache lookup is intentionally deferred: knowing a hash must
+not grant access to someone else's private result. Each upload receives a random
+job token, kept out of URLs. Cache reuse occurs only after actual file bytes are
+verified. Uploaded file hashes and REA project ids are stored separately.
+
+- `POST /api/uploads` accepts `{name, bytes, sha256}` and returns
+  `{uploadUrl, headers, jobId, jobToken, expiresAt}`.
+- `POST /api/uploads/:id/complete` queues the finalized upload idempotently.
+- `GET /api/jobs/:id` returns status, bounded REA progress text, and projectId on
+  success. Job reads and completion require a bearer job token.
+- `GET /api/jobs/:id/project` streams compressed StudioProject JSON to the
+  existing explorer. Paginated graph/node endpoints remain future work.
+
+`packages/pipeline` contains browser-safe API contracts, local/R2 object storage,
+Redis/BullMQ job control, and the trusted orchestration processor. The web and
+queue host use its separate entry points. Only the existing adapter handles REA
+JSON inside the sandbox; the upload pipeline moves bytes and StudioProject.
+The analysis image has no storage credentials or network access. See
+`docs/uploads.md` for setup, private-beta access and retention guarantees.
+Upload job status may include `uploadName`, returned only after authorizing that
+job. Shared cached projects use `target.asar` when package metadata is missing;
+the viewer applies the current job's filename as the adapter's fallback. Package
+names recovered from the artifact stay unchanged. An uploader's filename is
+never reused as another uploader's cache label.

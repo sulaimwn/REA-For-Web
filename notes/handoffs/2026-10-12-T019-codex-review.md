@@ -27,6 +27,10 @@
   reporting 1265px after a 390px request, including a fresh tab. The override was
   reset. The responsive correction is source-reviewed; an actual phone-width
   browser check remains useful. Claude's earlier 390px check predates this fix.
+- Follow-up on the T007 integration: its IAB tab rendered at 375px content width.
+  The configured homepage has no horizontal overflow, selecting the tiny demo's
+  main process opens its evidence, and Ask is reachable below the graph. The
+  narrow-layout correction is therefore now independently browser-verified.
 
 ## Not done / known issues
 

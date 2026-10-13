@@ -16,11 +16,14 @@ async function main() {
   if (process.platform !== "linux" || process.getuid?.() === 0) {
     throw new WorkerError("invalid_input", "Container entry point requires non-root Linux.");
   }
-  const [kind, files, inputBytes, outputBytes, heap, timeout] = process.argv.slice(2);
+  const [kind, files, inputBytes, outputBytes, heap, timeout, sourceTimeout, targetName] = process.argv.slice(2);
   if (kind !== "asar" && kind !== "directory") throw new WorkerError("invalid_input", "Invalid target kind.");
+  if (!targetName || targetName.length > 200 || /[\x00-\x1f/\\]/u.test(targetName)) {
+    throw new WorkerError("invalid_input", "Target name must be a filename up to 200 characters.");
+  }
   const limits = resolveLimits({
     maxFiles: Number(files), maxInputBytes: Number(inputBytes), maxOutputBytes: Number(outputBytes),
-    heapMb: Number(heap), timeoutMs: Number(timeout),
+    heapMb: Number(heap), timeoutMs: Number(timeout), sourceTimeoutMs: Number(sourceTimeout),
     // Runtime memory is enforced by Docker; permit operator-selected heap sizes.
     memoryMb: 8_192,
   });
@@ -43,7 +46,7 @@ async function main() {
     `--max-old-space-size=${limits.heapMb}`,
     "/opt/rea/node_modules/rea-agents/scripts/rea.mjs", "analyze-javascript-application", targetPath,
     "--artifact-format", kind, "--format", "json", "--max-heap-mb", String(limits.heapMb),
-    "--analysis-timeout-ms", String(limits.timeoutMs),
+    "--analysis-timeout-ms", String(limits.sourceTimeoutMs),
   ], {
     shell: false, stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, NODE_OPTIONS: "", NODE_PATH: "" },
@@ -58,10 +61,16 @@ async function main() {
     await pipeline(child.stdout, new ByteLimit(limits.maxOutputBytes), createWriteStream(rawPath, { flags: "wx", mode: 0o600 }));
     const code = await closed;
     if (spawnError !== undefined) throw spawnError;
-    if (code !== 0) throw new WorkerError("analysis_failed", `REA exited with code ${code}.`);
+    if (code !== 0 && code !== 1) throw new WorkerError("analysis_failed", `REA exited with code ${code}.`);
     // Both phases share Docker's CPU/RAM limits and the whole-container deadline.
     // Only the adapter reads raw JSON; stdout now contains StudioProject only.
-    const result = await adaptReaFile(rawPath, { reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes });
+    const result = await adaptReaFile(rawPath, {
+      reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes,
+      targetName,
+      // A nonzero exit must carry valid, explicitly partial timeout Evidence.
+      // Other errors and cleanup failures can never publish an artifact.
+      retainedTimeoutEvidence: code === 0 ? 'allow' : 'require',
+    });
     await rm(rawPath);
     await pipeline(Readable.from([JSON.stringify(result.project)]), new ByteLimit(limits.maxOutputBytes), process.stdout);
     process.stderr.write(`${JSON.stringify({ studio_worker_result: {

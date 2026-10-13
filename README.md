@@ -99,9 +99,11 @@ including measurements and known limitations.
 ## Status
 
 This is an early preview. The demo shows **pre-analyzed open-source apps**, and
-**local mode** lets you analyze your own app today. Uploading an app to the site
-comes next: the sandboxed worker is verified locally, and the upload pipeline (T007)
-is the remaining piece.
+local mode lets you analyze and view an app entirely on your own machine.
+Uploading your own app is available locally with `npm run dev:uploads` while T007
+is in review. The full upload → queue → Docker analysis → explorer flow is tested
+with a real archive. Cloudflare R2 and remote deployment are not connected yet.
+See [upload setup and API](docs/uploads.md).
 
 Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
 - Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,

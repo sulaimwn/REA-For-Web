@@ -1,8 +1,8 @@
 // OpenNext adapter config for Cloudflare Workers.
-// Every page is prerendered at build time (no ISR/revalidation), so serve those
-// prerendered pages from Workers static assets via the read-only static-assets cache.
-// If server features later need revalidation (e.g. the upload pipeline), switch to an
-// R2 incremental cache.
+// The demo routes are prerendered without ISR/revalidation, so use the read-only
+// static-assets cache for them. Upload/job routes are dynamic and do not use ISR.
+// Hosting uploads still needs separate storage, queue and analysis-host setup.
+// Add a writable incremental cache only if routes later need revalidation.
 import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 import staticAssetsIncrementalCache from '@opennextjs/cloudflare/overrides/incremental-cache/static-assets-incremental-cache';
 

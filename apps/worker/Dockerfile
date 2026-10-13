@@ -7,9 +7,11 @@ COPY packages/ask/package.json ./packages/ask/package.json
 COPY apps/worker ./apps/worker
 COPY packages/schema ./packages/schema
 COPY packages/rea-adapter ./packages/rea-adapter
+COPY packages/pipeline ./packages/pipeline
 RUN npm ci --ignore-scripts --workspace=@rea-studio/worker --include-workspace-root --no-audit --no-fund \
     && npm run build --workspace=@rea-studio/schema \
     && npm run build --workspace=@rea-studio/rea-adapter \
+    && npm run build --workspace=@rea-studio/pipeline \
     && npm run build --workspace=@rea-studio/worker
 
 FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
