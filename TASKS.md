@@ -20,6 +20,7 @@ Details for a task go under its heading below the table.
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
 | T012 | Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
+| T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | review | T004, T005 |
 
 ---
 

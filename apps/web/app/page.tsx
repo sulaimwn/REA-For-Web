@@ -32,6 +32,14 @@ export default function HomePage() {
             <span className="demo-card__cta">Explore →</span>
           </Link>
         ))}
+        <Link href="/open" className="demo-card demo-card--local">
+          <div className="demo-card__head">
+            <strong>Your own app</strong>
+            <span className="badge badge--ok">local mode</span>
+          </div>
+          <p>Analyze an Electron app on your machine, then open the result here. Nothing is uploaded.</p>
+          <span className="demo-card__cta">Open a project file →</span>
+        </Link>
       </section>
 
       <section className="honesty">
@@ -39,7 +47,7 @@ export default function HomePage() {
         <ul>
           <li>Every node shows REA’s evidence: file and line, whether it was observed or inferred, and REA’s confidence category.</li>
           <li>“Not found” never means “doesn’t exist.” Static analysis can miss things, especially in minified bundles.</li>
-          <li>Upload-your-own-app is coming. This preview shows pre-analyzed open-source apps.</li>
+          <li>You can explore your own app today in local mode. Uploading apps to the site is coming.</li>
         </ul>
       </section>
     </main>

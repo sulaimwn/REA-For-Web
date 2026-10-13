@@ -195,3 +195,22 @@ button { font: inherit; color: inherit; }
   .sidebar { border-right: 0; max-height: 40vh; }
   .graph-pane { height: 60vh; }
 }
+
+/* local mode (/open) */
+.steps { padding-left: 20px; color: var(--muted); }
+.steps li { margin: 10px 0; }
+.steps strong { color: var(--text); }
+.code {
+  margin: 8px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel); color: var(--text); font-family: var(--mono); font-size: 13px; overflow-x: auto;
+}
+.dropzone {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px; padding: 48px 20px; border: 2px dashed var(--border); border-radius: 14px;
+  background: var(--panel); cursor: pointer; text-align: center; transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover, .dropzone--over { border-color: var(--k-process); background: color-mix(in srgb, var(--k-process) 8%, var(--panel)); }
+.dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.dropzone__title { font-size: 17px; font-weight: 600; }
+.error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; color: #fecaca; background: color-mix(in srgb, var(--k-gap) 15%, var(--bg)); border: 1px solid color-mix(in srgb, var(--k-gap) 40%, transparent); }
+.demo-card--local { border-style: dashed; }
