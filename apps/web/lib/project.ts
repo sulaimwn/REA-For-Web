@@ -24,33 +24,38 @@ export interface Tour {
   model: string;
 }
 
+/**
+ * Kinds are drawn by family, each with its own shape and color, so they stay
+ * distinguishable without color: runtime ■, boundary ◆, system ●, code □, gap (hatched).
+ */
+export type KindFamily = 'runtime' | 'boundary' | 'system' | 'code' | 'gap';
+
 export interface KindMeta {
   label: string;
   plural: string;
-  /** CSS custom property holding the kind's accent color. */
-  color: string;
+  family: KindFamily;
   /** Shown in the architecture overview graph. */
   overview: boolean;
 }
 
 export const KIND_META: Record<StudioNodeKind, KindMeta> = {
-  process: { label: 'Process', plural: 'Processes', color: 'var(--k-process)', overview: true },
-  window: { label: 'Window', plural: 'Windows', color: 'var(--k-window)', overview: true },
-  'bridge-api': { label: 'Bridge API', plural: 'Bridge APIs', color: 'var(--k-bridge)', overview: true },
-  'ipc-channel': { label: 'IPC channel', plural: 'IPC channels', color: 'var(--k-ipc)', overview: true },
-  'ipc-handler': { label: 'IPC handler', plural: 'IPC handlers', color: 'var(--k-handler)', overview: true },
-  'native-addon': { label: 'Native add-on', plural: 'Native add-ons', color: 'var(--k-native)', overview: true },
-  storage: { label: 'Storage key', plural: 'Storage', color: 'var(--k-storage)', overview: true },
-  worker: { label: 'Worker', plural: 'Workers', color: 'var(--k-worker)', overview: true },
-  endpoint: { label: 'Endpoint candidate', plural: 'Endpoint candidates', color: 'var(--k-endpoint)', overview: false },
-  package: { label: 'Package', plural: 'Packages', color: 'var(--k-file)', overview: false },
-  file: { label: 'File', plural: 'Shipped files', color: 'var(--k-file)', overview: false },
-  module: { label: 'Module', plural: 'Modules', color: 'var(--k-module)', overview: false },
-  'external-module': { label: 'External module', plural: 'External modules', color: 'var(--k-external)', overview: false },
-  'bundle-chunk': { label: 'Bundle chunk', plural: 'Bundle chunks', color: 'var(--k-module)', overview: false },
-  'source-file': { label: 'Source file', plural: 'Source files', color: 'var(--k-source)', overview: false },
-  'source-map': { label: 'Source map', plural: 'Source maps', color: 'var(--k-source)', overview: false },
-  'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', color: 'var(--k-gap)', overview: false },
+  process: { label: 'Process', plural: 'Processes', family: 'runtime', overview: true },
+  window: { label: 'Window', plural: 'Windows', family: 'runtime', overview: true },
+  'bridge-api': { label: 'Bridge API', plural: 'Bridge APIs', family: 'boundary', overview: true },
+  'ipc-channel': { label: 'IPC channel', plural: 'IPC channels', family: 'boundary', overview: true },
+  'ipc-handler': { label: 'IPC handler', plural: 'IPC handlers', family: 'boundary', overview: true },
+  'native-addon': { label: 'Native add-on', plural: 'Native add-ons', family: 'system', overview: true },
+  storage: { label: 'Storage key', plural: 'Storage', family: 'system', overview: true },
+  worker: { label: 'Worker', plural: 'Workers', family: 'runtime', overview: true },
+  endpoint: { label: 'Endpoint candidate', plural: 'Endpoint candidates', family: 'system', overview: false },
+  package: { label: 'Package', plural: 'Packages', family: 'code', overview: false },
+  file: { label: 'File', plural: 'Shipped files', family: 'code', overview: false },
+  module: { label: 'Module', plural: 'Modules', family: 'code', overview: false },
+  'external-module': { label: 'External module', plural: 'External modules', family: 'code', overview: false },
+  'bundle-chunk': { label: 'Bundle chunk', plural: 'Bundle chunks', family: 'code', overview: false },
+  'source-file': { label: 'Source file', plural: 'Source files', family: 'code', overview: false },
+  'source-map': { label: 'Source map', plural: 'Source maps', family: 'code', overview: false },
+  'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', family: 'gap', overview: false },
 };
 
 /** Which kinds to show first in grids and neighborhoods. Noisy, unfiltered kinds go last. */

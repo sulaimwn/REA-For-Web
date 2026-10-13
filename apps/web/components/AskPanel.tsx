@@ -132,7 +132,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
       )}
       <AnswerMarkdown text={tour.answer} onNode={onSelect} known={(id) => ids.has(id)} />
       {tour.citedNodeIds.length > 0 && (
-        <button type="button" className="chip" onClick={() => onShowNodes(tour.citedNodeIds.filter((id) => ids.has(id)))}>
+        <button type="button" className="btn" onClick={() => onShowNodes(tour.citedNodeIds.filter((id) => ids.has(id)))}>
           Show the cited nodes in the graph
         </button>
       )}
@@ -211,7 +211,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
           <label className="ask__remember">
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember on this device
           </label>
-          <button type="submit" className="chip chip--on">
+          <button type="submit" className="btn btn--primary">
             Use this key
           </button>
         </form>
@@ -260,11 +260,11 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
           aria-label="Question"
         />
         {running ? (
-          <button type="button" className="chip" onClick={stop}>
+          <button type="button" className="btn" onClick={stop}>
             Stop
           </button>
         ) : (
-          <button type="submit" className="chip chip--on" disabled={!question.trim()}>
+          <button type="submit" className="btn btn--primary" disabled={!question.trim()}>
             Ask
           </button>
         )}
@@ -303,7 +303,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
           <AnswerMarkdown text={result.answer} onNode={onSelect} known={(id) => ids.has(id)} />
           {result.stopReason === 'max_tokens' && <p role="note" className="muted">The answer reached its length limit and may be incomplete.</p>}
           {result.citedNodeIds.length > 0 && (
-            <button type="button" className="chip" onClick={() => onShowNodes(result.citedNodeIds)}>
+            <button type="button" className="btn" onClick={() => onShowNodes(result.citedNodeIds)}>
               Show the {result.citedNodeIds.length} cited nodes in the graph
             </button>
           )}
