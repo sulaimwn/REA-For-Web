@@ -8,6 +8,7 @@ and where to file it.
 |---|---|---|
 | [issue-webpack-electron-externals.md](issue-webpack-electron-externals.md) | New issue | Not covered. PR #2094 handles Electron APIs passed through wrapper *parameters*; it doesn't mention webpack module factories. |
 | [comment-result-budget.md](comment-result-budget.md) | Comment on PR #2092 | Already being fixed in PRs #2092 and #2097, which quote the same messages. This draft only adds a public, reproducible data point. |
+| [issue-timeout-skips-file.md](issue-timeout-skips-file.md) | New issue | Not checked yet (T027, 2026-10-13). Lets a slow vendored file be skipped instead of ending the analysis. |
 
 The webpack repro is in [`repro-webpack-electron/`](repro-webpack-electron): two
 3-file apps that are identical except for how `electron` is reached.
