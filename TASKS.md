@@ -45,6 +45,7 @@ Details for a task go under its heading below the table.
 | T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | in progress | T031 |
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | in progress | T030, T031, T033 |
+| T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 
 ---
 
