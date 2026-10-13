@@ -78,12 +78,17 @@ handoff; the soft per-isolate visitor limiter is not a spending cap.
   18 components, 11 permissions, 169 methods and the 2,542 omitted-class note.
 - Phone override 375 px: available document width 360 = scroll width 360
   (scrollbar uses the difference), both labeled groups and all 11 demo tabs;
-  no horizontal page overflow. Override reset afterwards.
+  no horizontal page overflow. Desktop override 1280 px: available width 1,265
+  = scroll width 1,265. Overrides reset and the own browser tab closed afterwards.
 - Logs in shared parent: `R005-typecheck-final.log`, `R005-tests.log`,
   `R005-build.log`, `R005-cloudflare-build.log`, `R005-wrangler-dry-run.log`,
   `R005-proxy.log`; screenshot `R005-ask-check.png` labels the scripted stand-in.
   Own ignored harness `.host-test-r005/proxy.mjs` uses no credentials and sends
   public sample data only to a loopback stand-in.
+- Stopped only the command-verified own proxy on 3194 and removed the
+  label-verified `rea-release-r005` container on 8794 and its own `:r005` image
+  tag. Neither preview port remains listening. Existing services and canonical
+  analysis image tags were not touched.
 
 ## Next
 Claude reads the correction diff and reruns appropriate checks. After approval,
