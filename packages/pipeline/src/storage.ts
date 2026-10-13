@@ -207,7 +207,38 @@ export class R2Store implements ObjectStore {
   constructor(
     private client: S3Client,
     private bucket: string,
-  ) {}
+    private requestTimeoutMs = 60000,
+  ) {
+    if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1)
+      throw new Error('Invalid storage request deadline.');
+  }
+  private async request<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // SDK retry backoff does not immediately respond to abort. Settle our
+      // caller on time as well as canceling any current/future HTTP attempt.
+      return await Promise.race([
+        send(controller.signal),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(Object.assign(new Error('Object storage request timed out.'), {
+              code: 'storage_unavailable',
+            }));
+          }, this.requestTimeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      if (['AbortError', 'TimeoutError'].includes((error as Error).name))
+        throw Object.assign(new Error('Object storage request timed out.'), {
+          code: 'storage_unavailable',
+        });
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   async signUpload(id: string, request: UploadRequest, _origin: string) {
     const kind = uploadKind(request.name);
     if (!kind) throw new PipelineError(400, 'Unsupported upload format.');
@@ -227,9 +258,10 @@ export class R2Store implements ObjectStore {
   }
   async head(key: string) {
     try {
-      const v = await this.client.send(
+      const v = await this.request((abortSignal) => this.client.send(
         new HeadObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
-      );
+        { abortSignal },
+      ));
       return { bytes: v.ContentLength ?? 0, metadata: v.Metadata ?? {} };
     } catch (error) {
       if (
@@ -241,40 +273,50 @@ export class R2Store implements ObjectStore {
     }
   }
   async read(key: string) {
-    const r = await this.client.send(
+    const r = await this.request((abortSignal) => this.client.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
-    );
+      { abortSignal },
+    ));
     if (!(r.Body instanceof Readable))
       throw new Error('Object storage did not return a stream.');
     return r.Body;
   }
   async put(key: string, path: string, metadata: Record<string, string>) {
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: safeKey(key),
-        Body: createReadStream(path),
-        ContentLength: (await stat(path)).size,
-        ContentType: 'application/gzip',
-        Metadata: metadata,
-      }),
-    );
+    const bytes = (await stat(path)).size;
+    const body = createReadStream(path);
+    try {
+      await this.request((abortSignal) => this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: safeKey(key),
+          Body: body,
+          ContentLength: bytes,
+          ContentType: 'application/gzip',
+          Metadata: metadata,
+        }),
+        { abortSignal },
+      ));
+    } finally {
+      body.destroy();
+    }
   }
   async delete(key: string) {
-    await this.client.send(
+    await this.request((abortSignal) => this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
-    );
+      { abortSignal },
+    ));
   }
   async expireUploads() {
     let token: string | undefined;
     do {
-      const page = await this.client.send(
+      const page = await this.request((abortSignal) => this.client.send(
         new ListObjectsV2Command({
           Bucket: this.bucket,
           Prefix: 'uploads/',
           ...(token ? { ContinuationToken: token } : {}),
         }),
-      );
+        { abortSignal },
+      ));
       for (const object of page.Contents ?? [])
         if (
           object.Key &&

@@ -153,7 +153,8 @@ than disabling that test guard.
 - Preserve Redis/R2 data and the queue prefix across releases. Never use
   `docker compose down --volumes` during an update; that destroys queue state.
 - Let the current job finish before stopping/updating the queue. The systemd
-  stop timeout covers the maximum configured job deadline plus cleanup. Build
+  37-minute stop grace includes the 30-minute maximum analysis setting, five
+  one-minute storage/transfer steps and two minutes of shutdown headroom. Build
   images and compiled host code before replacing a reviewed release.
 - Tag the web image with its reviewed commit, keep the previous image and host
   checkout, then recreate only the web service and restart the queue. Keep the
@@ -178,6 +179,19 @@ than disabling that test guard.
 This kit keeps one global analysis job at a time, 1 CPU / 2 GiB per analysis,
 512 MiB input cap and the existing 15-minute deadline. No settings were increased
 based on guesses about upload speed. Measure real stages before changing limits.
+
+Each R2 operation has a 60-second deadline covering SDK attempts and retry
+backoff, including metadata reads, download response headers, result publication,
+raw deletion and expiry-list requests. The downloaded byte stream also has its
+existing 60-second limit. A storage timeout fails the job and releases its local
+staging directory. If raw deletion itself times out, the job reports cleanup
+failure and R2's lifecycle rule/expiry sweep must remove the remaining object.
+An interrupted PUT can have reached storage even when its response was lost;
+the job does not receive a successful result receipt in that case.
+
+`npm run test:storage --workspace=@rea-studio/pipeline` checks these cases using
+the real S3 SDK against an isolated loopback HTTP service, with inert test keys.
+It does not connect to R2 or verify a production bucket's permissions.
 
 Local packaged-service checks and remaining deployment limitations are recorded
 in `notes/handoffs/2026-10-13-T026-codex.md`. Real server/systemd installation,
