@@ -68,6 +68,8 @@ export function nodeName(n: StudioNode): string {
       return `${n.library}!${n.entryPoint}`;
     case 'external-member':
       return `${n.name}(${n.parameterTypes.join(', ')})`;
+    case 'native-function':
+      return `${n.name} @ ${n.address}`;
   }
 }
 
@@ -79,7 +81,7 @@ export function searchableText(n: StudioNode): string {
   if (n.kind === 'bridge-api') parts.push(...n.members);
   if (n.kind === 'endpoint' || n.kind === 'storage') parts.push(n.mechanism);
   if (n.kind === 'managed-type') parts.push(...n.fields);
-  if (n.kind === 'native-import') parts.push(n.managedName);
+  if (n.kind === 'native-import') parts.push(n.library, n.entryPoint, n.managedName ?? '');
   return parts.join(' ').toLowerCase();
 }
 

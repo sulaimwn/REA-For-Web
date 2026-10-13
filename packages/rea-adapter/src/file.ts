@@ -1,7 +1,7 @@
 // Node-only worker boundary. Keep JSON parsing and interpretation in this package.
 import { open } from 'node:fs/promises';
 import { adaptReaResult, ReaOutputError, type AdapterOptions } from './index.js';
-import { assertManagedArtifact } from './managed.js';
+import { assertManagedArtifact, NOT_MANAGED_MESSAGE } from './managed.js';
 
 /** Reads a finalized, private REA output file as JSON, with a byte cap. */
 async function readReaJson(path: string, maxBytes: number): Promise<unknown> {
@@ -54,6 +54,17 @@ export interface ManagedReaFiles {
   members: string;
   /** `rea inspect-managed-native-boundaries` */
   boundaries: string;
+}
+
+/** True for a .NET program, false for a native one (REA: `not-managed`); throws for anything else REA reported. */
+export async function isManagedArtifactFile(path: string, maxBytes: number): Promise<boolean> {
+  try {
+    assertManagedArtifact(await readReaJson(path, maxBytes));
+    return true;
+  } catch (error) {
+    if (error instanceof ReaOutputError && error.message === NOT_MANAGED_MESSAGE) return false;
+    throw error;
+  }
 }
 
 /** Throws a readable ReaOutputError unless REA classified the file as a .NET program (e.g. a native .exe). */

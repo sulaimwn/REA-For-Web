@@ -10,7 +10,8 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
-import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
+import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, isManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
+import { collectNative, ghidraConfigured } from './native.js';
 import type { StudioProject } from '@rea-studio/schema';
 import { findChrome, openPage } from './browser.js';
 import { pipeBoundedOutput } from './output.js';
@@ -194,7 +195,18 @@ async function main() {
         projection: join(work, 'managed-graph.json'),
       };
       await runRea(rea.script, ['inspect-managed-artifact', opts.target], files.artifact);
-      await checkManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES); // e.g. a native .exe stops here
+      if (!(await isManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES)) && ghidraConfigured()) {
+        // A native program: REA's Ghidra provider maps its functions, imports, calls and strings.
+        process.stderr.write('  native program: analyzing with Ghidra through REA\n');
+        const bundle = join(work, 'native-bundle.json');
+        await writeFile(bundle, JSON.stringify(await collectNative(rea.script, opts.target, (m) => process.stderr.write(`  ${m}\n`))));
+        ({ project } = await adaptReaFile(bundle, adapterOptions));
+        await destination.writeFile(JSON.stringify(project));
+        complete = true;
+        process.stdout.write(`${summarize(project, opts.out, (Date.now() - started) / 1000)}\n`);
+        return;
+      }
+      await checkManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES); // a native .exe without Ghidra stops here
       await runRea(rea.script, ['inspect-managed-members', opts.target], files.members);
       await runRea(rea.script, ['inspect-managed-native-boundaries', opts.target], files.boundaries);
       const input = join(work, 'managed-graph-input.json');

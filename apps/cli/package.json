@@ -18,6 +18,7 @@
     "test": "npm run preanalyze && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",
     "rea-agents": "6.4.0"

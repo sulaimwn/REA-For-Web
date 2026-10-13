@@ -99,7 +99,10 @@ export const DOTNET_FINDING_CATEGORIES = ['types', 'methods', 'native-imports', 
  * Areas the UI reports on. Each gets a FindingCoverage entry. A project lists only
  * the categories for its kind of app (see the two lists above).
  */
-export const FINDING_CATEGORIES = [...JAVASCRIPT_FINDING_CATEGORIES, ...DOTNET_FINDING_CATEGORIES] as const;
+/** Finding categories of a native program (REA with Ghidra, T021), in display order. */
+export const NATIVE_FINDING_CATEGORIES = ['functions', 'native-imports', 'endpoints', 'storage'] as const;
+
+export const FINDING_CATEGORIES = [...JAVASCRIPT_FINDING_CATEGORIES, ...DOTNET_FINDING_CATEGORIES, 'functions'] as const;
 export type FindingCategory = (typeof FINDING_CATEGORIES)[number];
 
 /**
@@ -347,7 +350,8 @@ export interface NativeImportNode extends NodeBase<'native-import'> {
   /** Native export name, e.g. `MessageBoxW` or `seal_note`. */
   entryPoint: string;
   /** Managed method that declares it, e.g. `SealNote`. */
-  managedName: string;
+  /** .NET: the managed method that declares it (e.g. `SealNote`); null for a native program's own imports. */
+  managedName: string | null;
   /** e.g. `winapi`, `cdecl`. */
   callingConvention: string | null;
   charSet: string | null;
@@ -358,6 +362,16 @@ export interface NativeImportNode extends NodeBase<'native-import'> {
  * target from REA `inspect_managed_members.call_edges`). REA 6.4.0 doesn't resolve the
  * declaring type, so only the member name and signature are known.
  */
+/** A function in a native program, as Ghidra analyzed it through REA (T021). Import thunks are folded into their import. */
+export interface NativeFunctionNode extends NodeBase<'native-function'> {
+  /** Entry address, e.g. `0x1400016a0`. */
+  address: string;
+  /** Symbol name, or Ghidra's `FUN_<address>` when the binary has no symbol. */
+  name: string;
+  /** The program's entry point (`entry`, or a C runtime start symbol). */
+  entryPoint: boolean;
+}
+
 export interface ExternalMemberNode extends NodeBase<'external-member'> {
   name: string;
   parameterTypes: string[];
@@ -393,6 +407,7 @@ export type StudioNode =
   | ManagedMethodNode
   | NativeImportNode
   | ExternalMemberNode
+  | NativeFunctionNode
   | AnalysisGapNode;
 
 export type StudioNodeKind = StudioNode['kind'];
@@ -419,6 +434,7 @@ export const NODE_KINDS = [
   'managed-method',
   'native-import',
   'external-member',
+  'native-function',
   'analysis-gap',
 ] as const satisfies readonly StudioNodeKind[];
 
@@ -497,7 +513,7 @@ export interface TargetInfo {
    * `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`.
    * `dotnet` for managed PE/CLI programs; `web` for a website (T021).
    */
-  appKind: 'electron' | 'javascript' | 'dotnet' | 'web';
+  appKind: 'electron' | 'javascript' | 'dotnet' | 'web' | 'native';
 }
 
 export interface AnalysisInfo {

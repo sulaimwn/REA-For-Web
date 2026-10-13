@@ -94,3 +94,12 @@ function write(name, inputPath, bundle) {
   }
   write('tiny-android', apk, bundle);
 }
+
+// Native: REA's Ghidra provider in one MCP session (GHIDRA_INSTALL_DIR = Ghidra 12.1.x, plus JDK 21),
+// using the CLI's collector so the fixture is exactly what `rea-studio analyze` reads.
+if (process.env.GHIDRA_INSTALL_DIR) {
+  const exe = join(fixtures, 'sample-apps', 'tiny-native', 'tiny-notes.exe');
+  const { collectNative } = await import(new URL('../../apps/cli/dist/native.js', import.meta.url).href);
+  const bundle = await collectNative(reaScript, exe);
+  write('tiny-native', exe, JSON.parse(JSON.stringify(bundle).split(JSON.stringify(process.env.GHIDRA_INSTALL_DIR).slice(1, -1)).join('<GHIDRA_INSTALL_DIR>')));
+}

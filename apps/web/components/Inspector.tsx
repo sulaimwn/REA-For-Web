@@ -90,6 +90,8 @@ function facts(n: StudioNode): Fact[] {
         ['Native (P/Invoke)', n.pinvoke],
         ['Entry point', n.entryPoint || null],
       ];
+    case 'native-function':
+      return [['Function', n.name], ['Address', n.address], ['Entry point', n.entryPoint || null]];
     case 'native-import':
       return [
         ['Library', n.library],
@@ -97,7 +99,9 @@ function facts(n: StudioNode): Fact[] {
         ['Declared as', n.managedName],
         ['Calling convention', n.callingConvention],
         ['Character set', n.charSet],
-        ['Note', 'REA proves the declaration only, not that the library or export exists'],
+        ['Note', n.managedName === null
+          ? 'From the program’s import table; the library itself wasn’t analyzed'
+          : 'A P/Invoke declaration: REA proves the declaration only, not that the library or export exists'],
       ];
     case 'external-member':
       return [

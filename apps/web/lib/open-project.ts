@@ -31,7 +31,7 @@ export function parseStudioProject(text: string): StudioProject {
   }
   const a = p.analysis;
   if (typeof p.id !== 'string' || !object(p.target) || typeof p.target.name !== 'string' ||
-      !['electron', 'javascript', 'dotnet', 'web'].includes(p.target.appKind) || !object(a) || !object(a.coverage) ||
+      !['electron', 'javascript', 'dotnet', 'web', 'native'].includes(p.target.appKind) || !object(a) || !object(a.coverage) ||
       !COVERAGE_STATUSES.includes(a.coverage.status) || !Array.isArray(a.coverage.limits) ||
       !object(a.engine) || typeof a.engine.package !== 'string' || typeof a.engine.version !== 'string' ||
       !strings(a.limitations) || !strings(a.omitted) || !object(a.statistics) ||

@@ -59,15 +59,17 @@ export const KIND_META: Record<StudioNodeKind, KindMeta> = {
   assembly: { label: '.NET assembly', plural: 'Assemblies', family: 'runtime', overview: true },
   'managed-type': { label: 'Type', plural: 'Types', family: 'code', overview: true },
   'managed-method': { label: 'Method', plural: 'Methods', family: 'code', overview: true },
-  'native-import': { label: 'Native call (P/Invoke)', plural: 'Native calls', family: 'boundary', overview: true },
+  'native-import': { label: 'Native library call', plural: 'Native library calls', family: 'boundary', overview: true },
   'external-member': { label: 'External API', plural: 'External APIs', family: 'system', overview: false },
+  // Native programs (T021): functions found by Ghidra; their imports are `native-import` (boundary).
+  'native-function': { label: 'Function', plural: 'Functions', family: 'code', overview: true },
   'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', family: 'gap', overview: false },
 };
 
 /** Which kinds to show first in grids and neighborhoods. Noisy, unfiltered kinds go last. */
 export const KIND_ORDER: readonly StudioNodeKind[] = [
   'process', 'window', 'bridge-api', 'ipc-channel', 'ipc-handler', 'native-addon', 'worker', 'storage',
-  'assembly', 'native-import', 'managed-type', 'managed-method',
+  'assembly', 'native-import', 'managed-type', 'managed-method', 'native-function',
   'package', 'file', 'module', 'bundle-chunk', 'external-module', 'external-member', 'source-map', 'source-file', 'endpoint', 'analysis-gap',
 ];
 
@@ -147,6 +149,8 @@ export function displayName(n: StudioNode): string {
       return `${n.library}!${n.entryPoint}`;
     case 'external-member':
       return `${n.name}(${n.parameterTypes.join(', ')})`;
+    case 'native-function':
+      return n.name;
   }
 }
 

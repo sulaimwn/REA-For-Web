@@ -20,6 +20,7 @@ const CATEGORY_KIND: Record<FindingCategory, StudioNodeKind> = {
   methods: 'managed-method',
   'native-imports': 'native-import',
   'external-apis': 'external-member',
+  functions: 'native-function',
 };
 
 const CATEGORY_LABEL: Record<FindingCategory, string> = {
@@ -35,8 +36,9 @@ const CATEGORY_LABEL: Record<FindingCategory, string> = {
   'source-files': 'Recovered source files',
   types: 'Types',
   methods: 'Methods',
-  'native-imports': 'Native calls (P/Invoke)',
+  'native-imports': 'Native library calls',
   'external-apis': 'External APIs called',
+  functions: 'Functions',
 };
 
 type Tab = 'findings' | 'source' | 'files';
@@ -155,7 +157,7 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
       ) : (
         <>
           <div className="tabs" role="tablist">
-            {(['findings', 'source', 'files'] as const).filter((t) => t === 'findings' || (t === 'source' ? sourceTree.count : fileTree.count) > 0 || ix.project.target.appKind !== 'dotnet').map((t) => (
+            {(['findings', 'source', 'files'] as const).filter((t) => t === 'findings' || (t === 'source' ? sourceTree.count : fileTree.count) > 0 || !['dotnet', 'native'].includes(ix.project.target.appKind)).map((t) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'tab--on' : ''}`} onClick={() => setTab(t)}>
                 {t === 'findings' ? 'Findings' : t === 'source' ? `Source (${sourceTree.count})` : `Files (${fileTree.count})`}
               </button>

@@ -19,8 +19,8 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 |---|---|---|---|---|
 | **Electron / JS app** | `analyze-javascript-application` | none | yes | `tiny-electron`, GitHub Desktop, VS Code |
 | **.NET (.exe/.dll, managed)** | `inspect-managed-artifact`, `inspect-managed-members`, `inspect-managed-native-boundaries`, then `project-managed-application-graph` | none (REA's own managed provider) | **yes, complete** | `tiny-dotnet.rea-6.4.0.json` |
-| **Android (.apk)** | `inspect-artifact` → `project-android-application-graph`; deep: `inspect-android-package`, `search-android-classes`, `inspect-android-method`, `trace-android-references` | jadx-headless-mcp 0.7.1 JAR (`REA_JADX_MCP_JAR`); apktool for `decode-android-resources` | inventory only | `tiny-android.rea-6.4.0.json` |
-| **Native (.exe/.dll/ELF/Mach-O)** | `analyze`, `inspect`, `function`, `decompile`, `xrefs`, `search`, `trace` | Ghidra 12.1.x + Java (`GHIDRA_INSTALL_DIR`); or Hopper / IDA | no (`provider_unavailable`) | none yet |
+| **Android (.apk)** | `inspect-artifact` → `project-android-application-graph`; deep: `inspect-android-package`, `search-android-classes`, `inspect-android-class`, `trace-android-references` | jadx-headless-mcp 0.7.1 JAR (`REA_JADX_MCP_JAR`) + a JDK; apktool for `decode-android-resources` | **yes, with the JAR** (data collected; adapter next) | `tiny-android.rea-6.4.0.json` |
+| **Native (.exe/.dll/ELF/Mach-O)** | REA's MCP server (one Ghidra session): `open_binary`, `binary_overview`, `list_procedures`, `list_strings`, `procedure_callees`, `xrefs`, `resolve_containing_procedure` | Ghidra 12.1.x + JDK 21 (`GHIDRA_INSTALL_DIR`); or Hopper / IDA | **yes, with Ghidra** | `tiny-native.rea-6.4.0.json` |
 | **Apple (.ipa / .app)** | `inspect-artifact` → `project-apple-application-graph`; plist / Mach-O / signature tools | inventory works anywhere; `inspect_macho`, `inspect_plist`, `inspect_signature` need a macOS host | inventory only | none yet |
 | **Website by URL** | headless browser with a loopback CDP port → `list-browser-targets` → `analyze-web-bundle` | a Chromium the worker controls | **yes** (tested on our own local site) | `reaforweb-dev-landing.web-bundle.rea-6.4.0.json` |
 
@@ -41,13 +41,25 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - permissions
   - `addJavascriptInterface` bridges (Android's version of Electron preloads)
   - URLs
-- **Decision for the human:** approve downloading jadx-headless-mcp 0.7.1 into the worker image.
+- **Approved and downloaded:** jadx-headless-mcp 0.7.1 (SHA-256 matches the one pinned in REA's `JadxRelease.js`). With it, the fixture now also holds `inspect_android_package` (manifest, permissions, components), `search_android_classes` and `inspect_android_class` for every class.
 
-### Native executables (needs Ghidra)
-- `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
-- Ghidra (free, Apache-2.0) runs headless on Linux, so it fits the existing Docker worker: Java 21 plus a Ghidra 12.1.x release, roughly 1 GB more image.
-- Native analysis is much slower than JS analysis, so it needs its own time and CPU limits.
-- **Decision for the human:** approve adding Ghidra to the worker image (a separate image tag is recommended, e.g. `rea-studio-worker-native`).
+### Native executables (Ghidra) — working
+- Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
+- **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
+  - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`apps/cli/src/native.ts`).
+  - The collector asks for the overview, all procedures and strings, then each function's callees. For strings that look like a URL, a registry key or a data file, it asks for their references and the function that contains them.
+- **Adapter** (`packages/rea-adapter/src/native.ts`):
+  - functions become `native-function` nodes;
+  - imports (`KERNEL32.DLL::CreateFileW`) become `native-import` nodes, reached through their thunks;
+  - callees become `calls` edges;
+  - strings become `endpoint`/`storage` nodes linked from the function that uses them.
+- **Result on the sample:** `tiny-notes.exe` matches its answer key exactly (`fixtures/sample-apps/tiny-native/ANSWER-KEY.md`):
+  - 49 functions and 43 imports;
+  - `sync_notes` → WinINet + `https://api.example.com/notes`;
+  - `remember_last` → the Reg* APIs + `Software\TinyNotes`.
+  - The CLI takes about 70 s end to end. Demo: `/explore/tiny-native`.
+- Not yet: decompiled code (`procedure_pseudo_code`), and limits for large binaries. Every function costs one `procedure_callees` call, so very large programs need a cap or REA's `get_call_graph`.
+- For the worker: Ghidra (Apache-2.0) runs headless on Linux, so it fits a Docker image: JDK 21 + Ghidra 12.1.x, roughly 1 GB more. Native analysis is slower than JS, so it needs its own time and CPU limits. A separate image tag is recommended (`rea-studio-worker-native`).
 
 ### Apple
 - Inventory projection works on any host. Mach-O, plist and code-signature details need macOS tools that a Linux worker doesn't have.

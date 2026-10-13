@@ -16,6 +16,7 @@ const APP_KIND_LABEL: Record<StudioProject['target']['appKind'], string> = {
   javascript: 'JavaScript app',
   dotnet: '.NET program',
   web: 'Website',
+  native: 'Native program',
 };
 
 /** Loads a pre-built demo project by slug, then shows it. */
