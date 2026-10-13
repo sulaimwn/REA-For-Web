@@ -1,6 +1,6 @@
-# Upload pipeline (T007)
+# Upload pipeline (T007, T025)
 
-The browser hashes an .asar file in 4 MB chunks, requests a signed upload ticket,
+The browser hashes an .asar, .exe, .dll or .apk file in 4 MB chunks, requests a signed upload ticket,
 uploads it, and explicitly completes the upload. Redis/BullMQ holds the job until
 a separate trusted worker downloads and verifies its size and SHA-256. The worker
 calls the existing Docker sandbox and stores only compressed StudioProject JSON.
@@ -23,10 +23,13 @@ npm ci --ignore-scripts
 npm run dev:uploads
 ```
 
-Open http://localhost:3104/upload and choose an .asar file (up to 512 MB).
-The helper builds the web app and analysis image, starts a Redis container bound
+Open http://localhost:3104/upload and choose an application file (up to 512 MB).
+The helper builds the web app and both analysis images, starts a Redis container bound
 to 127.0.0.1:6380, and runs the web app and trusted queue worker. Ctrl+C stops its
 services. Use UPLOAD_DEV_PORT / UPLOAD_REDIS_PORT if those ports are occupied.
+Alternate Redis ports use their own persistent volume; the default port keeps the original volume.
+The helper defaults to `REA_NATIVE_WORKER=1` for Ghidra/JADX support. Set it to `0`
+to build/run only the smaller image (.NET and Electron); native programs and APKs then fail clearly.
 
 Local objects and the signing secret live in gitignored `.pipeline-data/`;
 private staging is in `.pipeline-work/`. Redis uses the named Docker volume
@@ -38,7 +41,8 @@ generated once and never logged.
 ## API
 
 - POST /api/uploads, JSON `{name, bytes, sha256}` → `{jobId, jobToken, uploadUrl,
-  headers, expiresAt}`. Only .asar files are supported in this first upload flow.
+  headers, expiresAt}`. Names must end in .asar, .exe, .dll or .apk (case-insensitive).
+  Request/response fields are unchanged; unknown request fields are discarded.
 - PUT the file bytes to uploadUrl, with the returned headers. A ticket expires
   after ten minutes. The local endpoint verifies bytes before publication; R2
   signatures bind Content-Type and Content-Length, and the worker independently
@@ -60,15 +64,17 @@ The server admits at most 100 upload tickets per UTC day for the private beta.
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys
-include schema 0.1.0, REA 6.4.0 and adapter/cache revision 5. Increment the cache revision
+include schema 0.1.0, REA 6.4.0, adapter/cache revision 7 and the analysis file kind. Increment the cache revision
 when adapter semantics or analysis settings change. Cache reuse happens only
 after the worker has downloaded and verified a fresh upload with the same hash.
 This proves possession before exposing a cached result.
+Different file kinds have separate cache paths. A PE uploaded as .asar must reach
+ASAR validation rather than reuse a cached .exe result with the same hash.
 
-Cached projects use a canonical archive fallback name, never another uploader's
+Cached projects use a canonical `target.<kind>` fallback name, never another uploader's
 filename. The viewer applies its own authorized uploadName when the app has no
-root package.json; a real package name still takes precedence. Older authorized
-jobs from cache revisions 2–4 remain readable. Terminal queue states reload the
+artifact package/assembly name; a recovered name still takes precedence. Older authorized
+ASAR jobs from cache revisions 2–6 remain readable. Terminal queue states reload the
 job record before returning a result, including very fast cache hits.
 
 Analysis concurrency is globally one per queue. A job is acknowledged as complete
@@ -83,6 +89,9 @@ Analysis has a 15-minute whole-job deadline, enforced by both the host and the
 container. On slower machines the operator can set `REA_ANALYSIS_TIMEOUT_MS`
 on the trusted queue worker (1,000–1,800,000 ms; maximum 30 minutes). Upload
 requests cannot change it. CPU, memory, file and output caps still apply.
+APK admission checks its bounded ZIP directory and caps both its entry count and
+declared expanded bytes. Its individual class/method collection also has caps,
+and missing method bodies remain visible as partial analysis.
 Each source has a separate three-minute deadline (`REA_SOURCE_TIMEOUT_MS` on the
 trusted worker; it must fit within the whole-job deadline). REA reports a source
 timeout as `provider_timeout` with retained application Evidence. The adapter
@@ -115,6 +124,9 @@ Configure the web server and trusted worker using `.env.example`:
   browser bundles. Public anonymous uploads need a separate admission/auth design.
 - PIPELINE_QUEUE_PREFIX must match on web and worker; PIPELINE_WORK_ROOT is a
   private writable staging directory on the Docker host.
+- Build both worker images and set `REA_NATIVE_WORKER=1` on the trusted queue
+  service to analyze native Windows programs and Android APKs. .NET works in the
+  standard image. Upload requests cannot choose an image or resource limits.
 
 Keep secrets in deployment settings or ignored environment files, never Git.
 The Next.js service hosts the API; a long-running Node service with a Linux Docker
@@ -150,5 +162,8 @@ The HTTP test requires the running local web app, Redis and real Docker worker.
 It uploads only generated public fixtures and refuses non-loopback destinations.
 It covers a fresh archive, cached duplicate, wrong hash, missing/wrong access,
 repeated completion, cross-origin requests and a malformed archive failure.
+It also uploads the public .NET EXE/DLL, native EXE and Android APK fixtures,
+checks their normalized facts and duplicate results, and rejects a cached PE
+renamed to ASAR. Those checks require the native queue setting/image.
 CI runs storage/unit tests, real Redis queue checks and the existing real Docker
 tests; HTTP/browser checks are currently local.

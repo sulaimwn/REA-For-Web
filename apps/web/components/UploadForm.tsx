@@ -4,6 +4,9 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import {
   MAX_UPLOAD_BYTES,
+  UPLOAD_ACCEPT,
+  UPLOAD_FILE_ERROR,
+  uploadKind,
   type UploadTicket,
 } from '@rea-studio/pipeline/contracts';
 import { useRouter } from 'next/navigation';
@@ -22,11 +25,11 @@ export function UploadForm() {
   async function start() {
     if (!file || controller.current) return;
     if (
-      !/\.asar$/iu.test(file.name) ||
+      !uploadKind(file.name) ||
       file.size < 1 ||
       file.size > MAX_UPLOAD_BYTES
     ) {
-      setMessage('Choose an .asar file up to 512 MB.');
+      setMessage(UPLOAD_FILE_ERROR);
       return;
     }
     const abort = new AbortController();
@@ -109,11 +112,11 @@ export function UploadForm() {
   }
   return (
     <section className="upload-form" aria-label="Upload an app">
-      <label htmlFor="app-file">Choose an Electron app archive</label>
+      <label htmlFor="app-file">Choose an application file</label>
       <input
         id="app-file"
         type="file"
-        accept=".asar"
+        accept={UPLOAD_ACCEPT}
         disabled={busy}
         onChange={(event) => {
           setFile(event.target.files?.[0] ?? null);
@@ -122,7 +125,7 @@ export function UploadForm() {
         }}
       />
       <p className="muted">
-        .asar files up to 512 MB. Static analysis only. The uploaded app is
+        Electron .asar, Windows .exe/.dll, or Android .apk files up to 512 MB. The uploaded app is
         never run.
       </p>
       <details>

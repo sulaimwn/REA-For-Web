@@ -2,6 +2,14 @@
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 export const UPLOAD_TTL_SECONDS = 24 * 60 * 60;
 export const SIGNED_UPLOAD_SECONDS = 10 * 60;
+export const UPLOAD_KINDS = ['asar', 'exe', 'dll', 'apk'] as const;
+export type UploadKind = (typeof UPLOAD_KINDS)[number];
+export const UPLOAD_ACCEPT = UPLOAD_KINDS.map((kind) => `.${kind}`).join(',');
+export const UPLOAD_FILE_ERROR = 'Choose an .asar, .exe, .dll or .apk file up to 512 MB.';
+export function uploadKind(name: string): UploadKind | null {
+  const extension = /\.(asar|exe|dll|apk)$/iu.exec(name)?.[1]?.toLowerCase();
+  return (extension as UploadKind | undefined) ?? null;
+}
 export type UploadRequest = { name: string; bytes: number; sha256: string };
 export type UploadTicket = {
   jobId: string;
@@ -36,7 +44,7 @@ export function validateUpload(value: unknown): UploadRequest {
     !v ||
     typeof v.name !== 'string' ||
     v.name.length > 200 ||
-    !/\.asar$/iu.test(v.name) ||
+    !uploadKind(v.name) ||
     /[\x00-\x1f/\\]/u.test(v.name) ||
     !Number.isSafeInteger(v.bytes) ||
     (v.bytes ?? 0) < 1 ||
@@ -44,9 +52,9 @@ export function validateUpload(value: unknown): UploadRequest {
     typeof v.sha256 !== 'string' ||
     !/^[a-f0-9]{64}$/u.test(v.sha256)
   ) {
-    throw new PipelineError(400, 'Choose an .asar file up to 512 MB.');
+    throw new PipelineError(400, UPLOAD_FILE_ERROR);
   }
-  return v as UploadRequest;
+  return { name: v.name, bytes: v.bytes as number, sha256: v.sha256 };
 }
 export function validateJobId(id: string): string {
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(id))

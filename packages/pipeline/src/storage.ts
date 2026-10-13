@@ -22,6 +22,8 @@ import {
   PipelineError,
   SIGNED_UPLOAD_SECONDS,
   UPLOAD_TTL_SECONDS,
+  uploadKind,
+  type UploadKind,
   type UploadRequest,
 } from './contracts.js';
 
@@ -43,12 +45,12 @@ export interface ObjectStore {
   delete(key: string): Promise<void>;
   expireUploads(): Promise<void>;
 }
-export const uploadKey = (id: string) => `uploads/${id}.asar`;
-export const resultKey = (hash: string) =>
-  `results/schema-0.1.0-rea-6.4.0-adapter-6/${hash}.json.gz`;
+export const uploadKey = (id: string, kind: UploadKind = 'asar') => `uploads/${id}.${kind}`;
+export const resultKey = (hash: string, kind: UploadKind = 'asar') =>
+  `results/schema-0.1.0-rea-6.4.0-adapter-7/${kind}/${hash}.json.gz`;
 function safeKey(key: string) {
   if (
-    !/^(uploads\/[a-f0-9-]+\.asar|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-[23456]\/[a-f0-9]{64}\.json\.gz)$/u.test(
+    !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk)|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
       key,
     )
   ) {
@@ -128,7 +130,9 @@ export class LocalStore implements ObjectStore {
     ) {
       throw new PipelineError(403, 'Upload link has expired or is invalid.');
     }
-    const path = this.path(uploadKey(id));
+    const kind = uploadKind(request.name);
+    if (!kind) throw new PipelineError(400, 'Unsupported upload format.');
+    const path = this.path(uploadKey(id, kind));
     await mkdir(dirname(path), { recursive: true });
     const partial = `${path}.${randomUUID()}.partial`;
     try {
@@ -190,7 +194,7 @@ export class LocalStore implements ObjectStore {
       throw error;
     });
     for (const name of files) {
-      if (!/^[a-f0-9-]+\.asar(?:\.[a-f0-9-]+\.partial)?$/u.test(name)) continue;
+      if (!/^[a-f0-9-]+\.(?:asar|exe|dll|apk)(?:\.[a-f0-9-]+\.partial)?$/u.test(name)) continue;
       const path = join(root, name);
       if ((await stat(path)).mtimeMs < Date.now() - UPLOAD_TTL_SECONDS * 1000)
         await rm(path, { force: true });
@@ -205,9 +209,11 @@ export class R2Store implements ObjectStore {
     private bucket: string,
   ) {}
   async signUpload(id: string, request: UploadRequest, _origin: string) {
+    const kind = uploadKind(request.name);
+    if (!kind) throw new PipelineError(400, 'Unsupported upload format.');
     const command = new PutObjectCommand({
       Bucket: this.bucket,
-      Key: uploadKey(id),
+      Key: safeKey(uploadKey(id, kind)),
       ContentType: 'application/octet-stream',
       ContentLength: request.bytes,
     });

@@ -14,6 +14,7 @@ import {
   UPLOAD_TTL_SECONDS,
   validateUpload,
   validateJobId,
+  uploadKind,
   type UploadRequest,
   type UploadTicket,
   type JobStatus,
@@ -188,14 +189,14 @@ export class UploadControl {
   async complete(id: string, token: string) {
     const r = await this.authorize(id, token);
     if (await this.queue.getJob(id)) return this.status(id, token);
-    const info = await this.config.store.head(uploadKey(id));
+    const info = await this.config.store.head(uploadKey(id, uploadKind(r.name)!));
     if (!info) throw new PipelineError(409, 'Upload has not finished.');
     if (info.bytes !== r.bytes)
       throw new PipelineError(400, 'Upload size does not match.');
     // Job id makes repeated completion requests idempotent. One global analysis
     // slot makes cache publication/reuse deterministic across worker processes.
     await this.queue.setGlobalConcurrency(1);
-    await this.queue.add('analyze-asar', r, { jobId: id });
+    await this.queue.add('analyze-app', r, { jobId: id });
     return this.status(id, token);
   }
   async status(id: string, token: string): Promise<JobStatus> {

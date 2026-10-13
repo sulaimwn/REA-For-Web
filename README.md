@@ -1,6 +1,6 @@
 # REA Studio
 
-**See how an Electron app is put together, with the evidence behind every fact.**
+**See how an application is put together, with the evidence behind every fact.**
 
 REA Studio turns [REA](https://github.com/morluto/rea) static analysis into an
 interactive map of an application: its processes, IPC channels, preload
@@ -9,7 +9,13 @@ from source maps. Click anything to see exactly where REA found it
 (`file:line:column`), whether it was observed or inferred, and what REA
 couldn't determine.
 
-Nothing is executed. REA reads the shipped files as data.
+Supported targets include Electron apps, .NET assemblies, native Windows
+programs, Android APKs and website captures. Each target has its own findings:
+.NET types and calls, native functions and imports, Android components and
+permissions, or website scripts and frameworks.
+
+Program files are never executed. Website capture loads the requested page in a
+fresh browser.
 
 ![The tiny sample app: package → main process → window → preload → IPC handlers and channels, with the notes:save channel's evidence in the inspector](docs/screenshots/tiny-overview.png)
 
@@ -73,7 +79,7 @@ pairing them.
 ## How it works
 
 ```
-app (.asar or folder) ──► REA analyze-javascript-application ──► REA evidence JSON
+app / program / APK ──► target-specific REA analysis ──► REA evidence JSON
                                                                      │
                                             @rea-studio/rea-adapter  ▼
                                                               StudioProject JSON ──► web explorer
@@ -100,17 +106,23 @@ including measurements and known limitations.
 
 This is an early preview. The demo shows **pre-analyzed open-source apps**, and
 local mode lets you analyze and view an app entirely on your own machine.
-Uploading your own app is available locally with `npm run dev:uploads` while T007
-is in review. The full upload → queue → Docker analysis → explorer flow is tested
-with a real archive. Cloudflare R2 and remote deployment are not connected yet.
+Uploading your own app is available locally with `npm run dev:uploads`.
+Choose an `.asar`, `.exe`, `.dll` or `.apk` file. The full upload → queue → Docker
+analysis → explorer flow is tested with public fixtures for all four file kinds,
+including Ghidra and JADX analysis. The helper builds both worker images by
+default. Cloudflare R2 and the hosted analysis backend are not connected yet.
 See [upload setup and API](docs/uploads.md).
 
 Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
 - Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
   so windows and handlers in bundled apps are often "not found."
 - IPC channels passed as variables can't be named statically.
-- REA's endpoint detection is noisy; endpoints are shown as unfiltered candidates.
-- In whole-app runs, REA's shared result budget drops relationship detail for many files.
+- REA's endpoint detection is noisy; Studio filters unlikely candidates by default
+  and labels that decision as a heuristic. All candidates remain available.
+- In whole-app runs, REA's shared result budget can drop relationship detail.
+  Per-file recovery restores affected relationships within the job's time budget.
+- Ghidra/JADX analysis has collection and resource caps. Missing method bodies
+  and other unresolved facts remain visible as partial coverage.
 
 ## Development
 

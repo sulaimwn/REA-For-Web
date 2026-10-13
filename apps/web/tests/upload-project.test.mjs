@@ -18,3 +18,11 @@ it('preserves the package name from real REA facts when available', () => {
   assert.equal(projectForUpload(project, 'renamed.asar'), project);
   assert.equal(projectForUpload(project, 'renamed.asar').target.name, 'tiny-electron');
 });
+
+it('preserves Android package and .NET assembly names from the artifact', () => {
+  for (const fixture of ['tiny-android.rea-6.4.0.json', 'tiny-dotnet.rea-6.4.0.json']) {
+    const raw = JSON.parse(readFileSync(new URL(`../../../fixtures/samples/${fixture}`, import.meta.url), 'utf8'));
+    const project = toStudioProject(raw, { reaVersion: '6.4.0' });
+    assert.equal(projectForUpload(project, 'some-other-name.exe'), project);
+  }
+});
