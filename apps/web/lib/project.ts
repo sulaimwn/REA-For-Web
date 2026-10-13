@@ -151,7 +151,7 @@ export function displayName(n: StudioNode): string {
     case 'managed-method':
       return `${shortType(n.declaringType)}.${n.name}`;
     case 'native-import':
-      return `${n.library}!${n.entryPoint}`;
+      return n.library ? `${n.library}!${n.entryPoint}` : n.entryPoint;
     case 'external-member':
       return `${n.name}(${n.parameterTypes.join(', ')})`;
     case 'native-function':

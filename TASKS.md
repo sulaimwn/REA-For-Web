@@ -36,11 +36,22 @@ Details for a task go under its heading below the table.
 | T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | done | T007, T024 |
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | done | T025 |
 | T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | in progress | T025 |
-| T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | in progress | T021, T024 |
+| T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | done | T021, T024 |
 | T030 | **Human request.** Free Ask tier: Cloudflare Workers AI open model with tool calls, per-visitor rate limit, no key needed; Claude key stays as the upgrade | claude | review | T016, T018 |
-| T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | review | T025 |
+| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
+| T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | done | T025 |
+| R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
+| T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | in progress | T028, R004, T025 |
 
 ---
+
+### T032 — Linux uploads
+Implement the explicit `.elf`/`.so` admission delegated to Codex in T028 and
+proposed in the merged R004 handoff. Both extensions use the canonical `elf`
+analysis kind. Keep all API fields, SHA possession checks, private storage,
+sandbox limits and cleanup unchanged. Verify a real ELF through HTTP, alias
+deduplication, and renamed PE rejection without cross-kind cache reuse. Bare and
+versioned-library filenames remain outside this upload path.
 
 ### T029 — Queue progress recovery
 Reproduce the processor waiting indefinitely on a Redis progress write, then

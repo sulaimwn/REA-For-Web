@@ -112,7 +112,7 @@ function facts(n: StudioNode, appKind: string): Fact[] {
       return [['Permission', n.name]];
     case 'native-import':
       return [
-        ['Library', n.library],
+        ['Library', n.library || 'not recorded in the collected import evidence'],
         ['Export', n.entryPoint],
         ['Declared as', n.managedName],
         ['Calling convention', n.callingConvention],

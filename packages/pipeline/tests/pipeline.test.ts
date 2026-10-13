@@ -62,6 +62,20 @@ test('failure after the initial snapshot retains the final reason and progress',
   assert.equal(status.errorCode, 'timeout');
   assert.equal(status.progress?.message, '17/38 sources');
 });
+test('a queue progress timeout offers a retry without exposing internal details', async () => {
+  const r = record();
+  const job = { getState: async () => 'failed', failedReason: 'Analysis failed (progress_unavailable).', progress: { phase: 'source', message: '17/38 sources' } };
+  const control = Object.create(UploadControl.prototype) as UploadControl;
+  control.authorize = async () => r;
+  Object.defineProperty(control, 'queue', { value: { getJob: async () => job } });
+  const status = await control.status(r.id, 'authorized by test');
+  assert.equal(status.status, 'failed');
+  assert.match(status.error!, /queue connection/u);
+  assert.match(status.error!, /upload it again/u);
+  assert.doesNotMatch(status.error!, /progress_unavailable/u);
+  assert.equal(status.progress?.message, '17/38 sources');
+});
+
 const testRoot = resolve(import.meta.dirname, '../../../..');
 async function setup(t: import('node:test').TestContext) {
   const root = await mkdtemp(join(testRoot, '.pipeline-test-'));
@@ -272,6 +286,49 @@ test('analysis failures expose no internal paths or secrets and publish no resul
   assert.equal(await store.head(resultKey(r.sha256)), null);
   assert.equal(await store.head(uploadKey(r.id)), null);
 });
+test('a stalled progress write cannot indefinitely retain a failed upload', { timeout: 8000 }, async (t) => {
+  const { config, store } = await setup(t), r = record();
+  await receive(store, r);
+  let writes = 0;
+  await assert.rejects(processUpload(config, {
+    data: r,
+    updateProgress: async () => {
+      writes++;
+      // Redis can keep an offline progress command pending while reconnecting.
+      await new Promise<void>(() => {});
+    },
+  }, async ({ onProgress }) => {
+    onProgress({ phase: 'source', message: 'Parsing source 17/38' });
+    throw Object.assign(new Error('/private/target?secret=token'), { code: 'timeout' });
+  }), /Analysis failed \(timeout\)\./u);
+  assert.equal(writes, 1);
+  assert.equal(await store.head(uploadKey(r.id)), null);
+  assert.equal(await store.head(resultKey(r.sha256)), null);
+  assert.deepEqual(await readdir(config.workRoot), []);
+});
+
+test('a stalled progress write prevents result publication and bounds the queued backlog', { timeout: 8000 }, async (t) => {
+  const { config, store, root } = await setup(t), r = record();
+  await receive(store, r);
+  let writes = 0;
+  await assert.rejects(processUpload(config, {
+    data: r,
+    updateProgress: async () => {
+      writes++;
+      await new Promise<void>(() => {});
+    },
+  }, async ({ onProgress }) => {
+    for (let n = 0; n < 100; n++) onProgress({ phase: 'source', message: `Parsing source ${n}/100` });
+    const projectPath = join(root, 'normalized.json');
+    await writeFile(projectPath, JSON.stringify({ id: projectId }));
+    return { projectPath, projectId };
+  }), /Analysis failed \(progress_unavailable\)\./u);
+  assert.equal(writes, 1, 'a timed-out Redis write must not enqueue its backlog');
+  assert.equal(await store.head(resultKey(r.sha256)), null);
+  assert.equal(await store.head(uploadKey(r.id)), null);
+  assert.deepEqual(await readdir(config.workRoot), []);
+});
+
 test('expiry sweep removes old uploads and retains fresh objects', async (t) => {
   const { store, root } = await setup(t),
     old = record(),

@@ -63,6 +63,14 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 - Not yet tested on a large real APK. Library classes (androidx, Kotlin, OkHttp…) are left out by design; they're listed in `search_android_classes` only.
 
 ### Native executables (Ghidra) — working
+- **Linux ELF (T028):** the same collector and adapter work on Linux programs. `tiny-linux` matches its answer key.
+  - **Host requirement:** REA's Ghidra provider reads ELF only on Linux/macOS hosts. On Windows it refuses with "Windows Ghidra P0 accepts PE targets only".
+    - The fixture is collected inside the native worker image.
+    - The CLI recognizes ELF by its header and explains the host requirement on Windows.
+    - The worker accepts `.elf`/`.so` jobs in the native image.
+  - **Imports:** this collected ELF evidence does not attribute a providing library (Ghidra reports `<EXTERNAL>::name`), so imports are shown by symbol only.
+  - **Entry point:** `_start` is marked as the entry.
+  - Demo: `/explore/tiny-linux`.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
   - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`packages/rea-adapter/src/native-session.ts`).

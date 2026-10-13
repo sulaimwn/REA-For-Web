@@ -5,11 +5,18 @@ import type { FileHandle } from "node:fs/promises";
 
 /**
  * `exe`/`dll` are Windows programs (PE): .NET assemblies, or native code for the native image.
+ * `elf` is a Linux program or shared library, read by REA's Ghidra provider (native image only).
  * `apk` is an Android package, read by REA's JADX provider (native image only).
  */
-export type TargetKind = "asar" | "directory" | "exe" | "dll" | "apk";
+export type TargetKind = "asar" | "directory" | "exe" | "dll" | "elf" | "apk";
 /** Single files read by REA's program providers rather than its JavaScript analyzer. */
-export const PROGRAM_KINDS: readonly TargetKind[] = ["exe", "dll", "apk"];
+export const PROGRAM_KINDS: readonly TargetKind[] = ["exe", "dll", "elf", "apk"];
+const SIGNATURES: Partial<Record<TargetKind, { magic: string; error: string }>> = {
+  exe: { magic: "MZ", error: "Not a Windows program (no MZ header)." },
+  dll: { magic: "MZ", error: "Not a Windows program (no MZ header)." },
+  elf: { magic: "\x7fELF", error: "Not a Linux program (no ELF header)." },
+  apk: { magic: "PK\x03\x04", error: "Not an Android package (no ZIP header)." },
+};
 export const TARGET_KINDS: readonly TargetKind[] = ["asar", "directory", ...PROGRAM_KINDS];
 const MAX_HEADER_BYTES = 8 * 1024 * 1024;
 const MAX_DEPTH = 64;
@@ -173,10 +180,10 @@ async function inspectProgram(target: string, kind: TargetKind, budget: Budget) 
     const stats = await handle.stat();
     budget.archive(stats.size);
     if (kind !== "apk") budget.file(stats.size, false, true);
-    const expected = kind === "apk" ? "PK\x03\x04" : "MZ";
-    const magic = Buffer.alloc(expected.length);
-    if ((await handle.read(magic, 0, magic.length, 0)).bytesRead !== magic.length || magic.toString("latin1") !== expected) {
-      throw new WorkerError("invalid_input", kind === "apk" ? "Not an Android package (no ZIP header)." : "Not a Windows program (no MZ header).");
+    const signature = SIGNATURES[kind]!;
+    const magic = Buffer.alloc(signature.magic.length);
+    if ((await handle.read(magic, 0, magic.length, 0)).bytesRead !== magic.length || magic.toString("latin1") !== signature.magic) {
+      throw new WorkerError("invalid_input", signature.error);
     }
     if (kind === "apk") await inspectApk(handle, stats.size, budget);
   } finally {
