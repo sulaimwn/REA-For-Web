@@ -115,6 +115,46 @@ failures still fail without a project. Failed jobs show the last progress step
 and a link to upload again; they cannot resume because raw uploads and partial
 output files were removed.
 
+## Pre-analyze popular app files
+
+An operator can prepare private results before visitors upload a popular release.
+The tool uploads a local copy through the normal signed-upload and queue path.
+It never imports a demo graph, skips byte verification, or writes a cache key
+directly. The existing worker runs with its existing CPU/memory/deadline limits,
+and global concurrency remains one. Each run uses the existing daily ticket quota.
+
+Build the packages, then load the **same private worker environment** and point
+the tool at one application file:
+
+```sh
+npm run build:packages
+node --env-file=/etc/rea-for-web/worker.env scripts/preanalyze-cache.mjs /srv/app-files/App.asar --sha256 <recorded-release-sha256>
+```
+
+For a local configured environment, `npm run cache:seed -- "path/to/App.asar"`
+builds the packages before running the tool. Configuration must already be
+loaded into that process; npm does not load the web app's environment file.
+Local storage mode needs Redis and the queue worker, but no running web server.
+Hosted mode streams the file to the configured private R2 bucket using its
+generated signed URL. It does not follow upload redirects. No upload URLs,
+tokens or storage credentials are printed or supplied as command-line flags.
+
+`--sha256` is optional, but recommended to ensure the exact expected app release.
+A mismatch fails before admission/upload. Use complete shipped files; a demo
+created from a subset, such as the VS Code core demo, must not seed an entire
+app's hash. Linux files still need an admitted `.elf`/`.so` filename.
+
+When the command reports that the private cache is ready, later uploads of the
+**exact same bytes and analysis kind** can reuse it after download and byte
+verification. Other versions and parser kinds still need their own analysis.
+The normal worker removes raw bytes and staging on completion/failure. Ctrl+C
+stops waiting; an already queued job continues and owns its cleanup. If queue
+completion loses its response, the tool keeps the raw file for the worker or
+expiry sweep, since that job may already be queued.
+
+This is preparation for a configured service, not a deployed cache. The free
+Cloudflare demo website and private upload cache remain separate.
+
 ## Connect Cloudflare R2 later
 
 The provider-independent Linux web/queue setup is in
