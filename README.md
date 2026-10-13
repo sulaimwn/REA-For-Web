@@ -159,3 +159,7 @@ to `cd ../.. && npm run build:packages && npm run build -w @rea-studio/web`.
 - [REA](https://github.com/morluto/rea) (MIT) does the analysis.
 - Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5, a core subset of the
   VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), and a hand-written sample app.
+
+## License
+
+[MIT](LICENSE).
