@@ -14,11 +14,13 @@ Reviewed `claude/T037-launch` at `123369f`, integrated with current main on
 - Updated only the domain instructions to match the actual Cloudflare dashboard
   now visible: Domains tab → Add Domain → select existing zone → optional subdomain.
 
-Live account work belongs to T038. The existing `reaforweb` Worker was serving an
+Live account work belongs to T038. At review time, the existing `reaforweb` Worker was serving an
 older reviewed release (`cbce4df` on remote main). Added the existing `reaforweb.com`
 and `www.reaforweb.com` domains through the dashboard; both now appear as Production
 domains on that Worker. Public HTTPS verification and the human's next main push
-are still pending. No credentials, hosting purchase, AI binding or repository push.
+were still pending. They are now verified after the human pushed `898f17c`; see
+`2026-10-13-T038-codex.md`. No credentials, hosting purchase, AI binding or
+repository push by Codex.
 
 Free Ask stays disabled until the actual Workers plan and the pending conversation
 budget correction are verified. Hosted uploads need the separate analysis host and R2.
