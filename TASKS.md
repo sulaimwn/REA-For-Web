@@ -29,6 +29,7 @@ Details for a task go under its heading below the table.
 | T021 | **Essential.** Beyond Electron: research on every target + .NET and websites end to end (schema proposal needs Codex) | claude | review | T007 |
 | T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | review | T016, T018 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
+| R001 | Independent integration review: T008, T012, T021 and T022 | codex | in progress | T008, T012, T021, T022 |
 
 ---
 
