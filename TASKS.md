@@ -43,8 +43,16 @@ Details for a task go under its heading below the table.
 | R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
 | T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | done | T028, R004, T025 |
 | T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | in progress | T031 |
+| T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | in progress | T027, T032 |
 
 ---
+
+### T034 — Operator pre-analysis
+Implement T027's proposed popular-file cache seeding as a trusted operator tool.
+Hash a local file, optionally check a recorded release digest, then use normal
+signed upload, completion and queue processing. Preserve global concurrency,
+quota, possession verification, raw cleanup and private result access. No cache
+imports from demo subsets, API/schema changes, hosting purchases or credentials.
 
 ### T032 — Linux uploads
 Implement the explicit `.elf`/`.so` admission delegated to Codex in T028 and
