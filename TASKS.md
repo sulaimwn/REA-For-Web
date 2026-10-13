@@ -14,17 +14,20 @@ Details for a task go under its heading below the table.
 | T005 | Web: static demo page rendering a fixture graph   | claude | done | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | codex | review | T006       |
-| T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
+| T008 | **Essential.** Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking; endpoint filtering is T012 | claude | done | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
-| T012 | Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
+| T012 | **Essential.** Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | done | T004, T005 |
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare deploy preparation | claude | review | T007, T013 |
+| T020 | MIT license (the human's choice) | claude | done | — |
+| T021 | **Essential.** Beyond Electron: plan + schema proposal for websites by URL, Android APKs, .NET, then native | —     | todo | T007 |
+| T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | —     | todo | T016, T018 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 
 ---
@@ -106,3 +109,13 @@ The human: the UI looks obviously AI-generated. Research the common tells (purpl
 accents, pill badges, centered hero + card row, glow, eyebrow labels) and redesign
 from the product: a reverse-engineering evidence tool. Landing leads with the real
 explorer. Restyle landing, explorer, inspector, Ask and /open. No behavior changes.
+
+### T021 — Beyond Electron (essential)
+The human: support for more than Electron is required for the final product. REA already has
+tools for web bundles/pages, Android (APK), managed code (.NET) and native binaries. First step:
+generate real REA fixtures for each target, then a schema proposal (new node kinds / appKind values)
+for the other agent to agree before adapter work. Order: websites by URL, APK, .NET, native.
+
+### T022 — MCP connector (essential)
+Expose the Ask tools (`packages/ask`) as a remote MCP server so Claude and other clients can query
+any analyzed project. Likely a Cloudflare Worker next to the site (needs T018).
