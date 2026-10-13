@@ -17,7 +17,7 @@ import {
 import { toEvidence } from './evidence.js';
 import { buildFindings } from './findings.js';
 import { convertNode } from './nodes.js';
-import type { ReaCoverage, ReaEdge, ReaProps, ReaResult } from './rea-types.js';
+import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
 import { num, str } from './read.js';
 
 export const SUPPORTED_OPERATION = 'analyze_javascript_application';
@@ -29,6 +29,12 @@ export class ReaOutputError extends Error {
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
   reaVersion: string;
+  /**
+   * Name to show when REA reports no root package.json, e.g. the uploaded file's
+   * original name. Without it, the name falls back to REA's input path, which in the
+   * sandbox is always `target.asar`.
+   */
+  targetName?: string;
 }
 
 /** What the adapter changed or skipped. Not part of StudioProject; for logs and tests. */
@@ -45,6 +51,10 @@ export interface AdapterReport {
   droppedEdgesUnknownRelation: Record<string, number>;
   /** Edges dropped because an endpoint id wasn't in REA's node list. */
   droppedEdgesDanglingEndpoint: number;
+  /** `.asar` entries folded into the file node they map to (their evidence is kept on that file). */
+  foldedAsarEntries: number;
+  /** Edges dropped because folding made both ends the same node. */
+  droppedSelfEdges: number;
   /** REA node kinds or unsupported property shapes (kept as `analysis-gap`). */
   unrecognizedNodeKinds: Record<string, number>;
 }
@@ -136,6 +146,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     droppedEdgesToDroppedNodes: 0,
     droppedEdgesUnknownRelation: {},
     droppedEdgesDanglingEndpoint: 0,
+    foldedAsarEntries: 0,
+    droppedSelfEdges: 0,
     unrecognizedNodeKinds: {},
   };
 
@@ -145,7 +157,22 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   const dropped = new Set<string>();
   const externals = new Map<string, ExternalModuleNode>(); // dedupeKey → merged node
 
+  // .asar inputs add an `asar-entry` per archived file: root --contains--> entry --maps_to--> file.
+  // Fold each entry into the file it maps to so files aren't listed twice.
+  const reaKind = new Map(r.graph.nodes.map((n) => [n.node_id, n.kind]));
+  const entryTarget = new Map<string, string>();
+  for (const e of r.graph.edges) {
+    if (e.relation === 'maps_to' && reaKind.get(e.source_node_id) === 'asar-entry' && reaKind.get(e.target_node_id) !== 'asar-entry') {
+      entryTarget.set(e.source_node_id, e.target_node_id);
+    }
+  }
+  const foldedEntries: ReaNode[] = [];
+
   for (const reaNode of r.graph.nodes) {
+    if (entryTarget.has(reaNode.node_id)) {
+      foldedEntries.push(reaNode);
+      continue;
+    }
     const c = convertNode(reaNode);
     if (c.type === 'dropped') {
       dropped.add(reaNode.node_id);
@@ -175,6 +202,24 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     nodes.push(c.node);
   }
 
+  const studioById = new Map(nodes.map((n) => [n.id, n]));
+  for (const entry of foldedEntries) {
+    const targetId = idMap.get(entryTarget.get(entry.node_id) ?? '');
+    const target = targetId === undefined ? undefined : studioById.get(targetId);
+    if (target) {
+      target.evidence.push(...(entry.observations ?? []).map((o) => toEvidence(o.evidence)));
+      idMap.set(entry.node_id, target.id);
+      report.foldedAsarEntries++;
+    } else {
+      // The mapped file was dropped; keep the entry visible as a file of its own.
+      const c = convertNode(entry);
+      if (c.type === 'node') {
+        idMap.set(entry.node_id, c.node.id);
+        nodes.push(c.node);
+      }
+    }
+  }
+
   // --- edges
   const edges: StudioEdge[] = [];
   for (const e of r.graph.edges as ReaEdge[]) {
@@ -186,6 +231,12 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     const target = idMap.get(e.target_node_id);
     if (source === undefined || target === undefined) {
       report.droppedEdgesDanglingEndpoint++;
+      continue;
+    }
+    // A folded asar entry's `maps_to` edge now points the file at itself.
+    if (source === target && e.source_node_id !== e.target_node_id &&
+        (entryTarget.has(e.source_node_id) || entryTarget.has(e.target_node_id))) {
+      report.droppedSelfEdges++;
       continue;
     }
     if (!isRelation(e.relation)) {
@@ -207,11 +258,12 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   const rootPackage = nodes.find((n) => n.kind === 'package' && n.path === 'package.json');
   const format = raw.subject.format;
   const target: TargetInfo = {
-    name: rootPackage?.kind === 'package' ? rootPackage.name : basename(raw.subject.name),
+    name: rootPackage?.kind === 'package' ? rootPackage.name : options.targetName ?? basename(raw.subject.name),
     version: rootPackage?.kind === 'package' ? rootPackage.version : null,
     sha256: raw.subject.digest?.sha256 ?? '', // presence checked in assertReaResult
     format: format === 'asar' ? 'asar' : 'directory',
-    appKind: nodes.some((n) => n.kind === 'process' && n.role === 'main') ? 'electron' : 'javascript',
+    // Any Electron process counts: an archive can hold only the renderer half (e.g. Obsidian's obsidian.asar).
+    appKind: nodes.some((n) => n.kind === 'process') ? 'electron' : 'javascript',
   };
 
   const stats = r.statistics ?? {};

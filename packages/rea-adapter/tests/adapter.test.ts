@@ -12,6 +12,7 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { adaptReaResult, ReaOutputError, toStudioProject } from '../src/index.js';
+import type { ReaResult } from '../src/rea-types.js';
 
 // Compiled to dist-tests/tests/, so the repo root is four levels up.
 const samples = new URL('../../../../fixtures/samples/', import.meta.url);
@@ -196,6 +197,80 @@ describe('GitHub Desktop 3.6.5 (trimmed real bundle)', () => {
   it('keeps native add-ons and storage keys', () => {
     assert.equal(ofKind(p, 'native-addon').length, 11);
     assert.ok(ofKind(p, 'storage').some((s) => s.name === 'zoom-factor' && s.storageKind === 'local-storage'));
+  });
+});
+
+describe('.asar input (tiny-electron packed with @electron/asar)', () => {
+  const TINY_ASAR = 'tiny-electron-asar.rea-6.4.0.json';
+  type Raw = { normalized_result: { graph: { nodes: { node_id: string; kind: string }[]; edges: { source_node_id: string; relation: string }[] } } };
+  const kindCounts = (p: StudioProject) => p.nodes.reduce<Record<string, number>>((m, n) => ((m[n.kind] = (m[n.kind] ?? 0) + 1), m), {});
+
+  it('produces the same project as the extracted directory, without gaps', () => {
+    const { project: fromAsar, report } = adaptReaResult(load(TINY_ASAR), opts);
+    const fromDir = toStudioProject(load(TINY), opts);
+    assertInvariants(fromAsar);
+    assert.equal(fromAsar.target.format, 'asar');
+    assert.equal(fromAsar.target.name, 'tiny-electron');
+    assert.deepEqual(kindCounts(fromAsar), kindCounts(fromDir));
+    assert.equal(fromAsar.edges.length, fromDir.edges.length);
+    assert.equal(ofKind(fromAsar, 'analysis-gap').length, 0);
+    assert.deepEqual(report.unrecognizedNodeKinds, {});
+    assert.equal(report.foldedAsarEntries, 7);
+  });
+
+  it('lists each archived file once and keeps the archive evidence on it', () => {
+    const p = toStudioProject(load(TINY_ASAR), opts);
+    const paths = ofKind(p, 'file').map((f) => f.path);
+    assert.equal(paths.length, new Set(paths).size, 'no duplicate files');
+    const main = ofKind(p, 'file').find((f) => f.path === 'src/main/main.js');
+    assert.deepEqual(main?.evidence.map((e) => e.extractor).sort(), ['inventory-asar-entry', 'inventory-relevant-file']);
+    const root = ofKind(p, 'file').find((f) => f.path === '');
+    const containedFiles = p.edges
+      .filter((e) => e.source === root?.id && e.relation === 'contains')
+      .map((e) => p.nodes.find((n) => n.id === e.target))
+      .flatMap((n) => (n?.kind === 'file' ? [n.path] : []))
+      .sort();
+    assert.deepEqual(containedFiles, paths.filter((x) => x !== '').sort(), 'root contains every archived file directly');
+  });
+
+  it('keeps an entry as its own file when it maps to nothing', () => {
+    const raw = structuredClone(load(TINY_ASAR)) as Raw;
+    const g = raw.normalized_result.graph;
+    const entry = g.nodes.find((n) => n.kind === 'asar-entry');
+    assert.ok(entry);
+    g.edges = g.edges.filter((e) => !(e.source_node_id === entry.node_id && e.relation === 'maps_to'));
+    const p = toStudioProject(raw, opts);
+    const kept = p.nodes.find((n) => n.id === entry.node_id);
+    assert.equal(kept?.kind, 'file');
+    assert.equal(kept?.kind === 'file' && kept.fileKind, 'other');
+  });
+
+  it('uses targetName when REA reports no root package', () => {
+    const raw = structuredClone(load(TINY_ASAR)) as Raw;
+    raw.normalized_result.graph.nodes = raw.normalized_result.graph.nodes.filter((n) => n.kind !== 'package');
+    assert.equal(toStudioProject(raw, { ...opts, targetName: 'obsidian.asar' }).target.name, 'obsidian.asar');
+  });
+
+  it('drops archive-folding self links while preserving genuine self relationships', () => {
+    const raw = structuredClone(load(TINY_ASAR)) as ReaResult;
+    const g = raw.normalized_result.graph;
+    const file = g.nodes.find((n) => n.kind === 'javascript-asset');
+    const edge = g.edges[0];
+    assert.ok(file && edge);
+    g.edges.push({ ...edge, edge_id: 'original-self-edge', source_node_id: file.node_id,
+      target_node_id: file.node_id, relation: 'imports' });
+    const { project, report } = adaptReaResult(raw, opts);
+    assert.ok(project.edges.some((e) => e.id === 'original-self-edge' && e.source === e.target));
+    assert.equal(report.droppedSelfEdges, 7);
+  });
+
+  it('calls an app Electron when only renderer/preload processes are found', () => {
+    const raw = structuredClone(load(TINY_ASAR)) as Raw;
+    const g = raw.normalized_result.graph;
+    g.nodes = g.nodes.filter((n) => n.kind !== 'electron-main');
+    assert.equal(toStudioProject(raw, opts).target.appKind, 'electron');
+    g.nodes = g.nodes.filter((n) => !n.kind.startsWith('electron-'));
+    assert.equal(toStudioProject(raw, opts).target.appKind, 'javascript');
   });
 });
 
