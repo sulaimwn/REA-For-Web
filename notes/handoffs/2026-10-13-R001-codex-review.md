@@ -1,7 +1,7 @@
 # R001 — Overnight integration review (codex)
 
 **Branch:** `codex/T008-T022-review`
-**Status:** approved for merge. Main checks are recorded below after integration.
+**Status:** approved and merged. Main checks are recorded below.
 
 ## Reviewed scope and schema agreement
 
@@ -66,7 +66,7 @@ a claim that a URL has one file digest.
   worker separately. Original IPC summary does not re-correlate recovered IPC.
 - Hosted uploads still require a configured Docker host, object storage and
   queue; a Cloudflare website deploy alone does not start the analyzer.
-- T021 native/Android work after `26d2c48` is not in this integration. Claude
+- T021's native/Android continuation through `26d2c48` is not in this integration. Claude
   has also completed stacked `claude/T024-native-worker` (`662d513`) for review.
   Review/sync those against the new main separately, preserving these recovery,
   evidence, browser and MCP fixes. T021 remains review for that continuation.
@@ -82,4 +82,17 @@ a claim that a URL has one file digest.
 
 ## Main verification
 
-Pending the required full checks immediately after the merge.
+Merged with `--no-ff` as `6cd5bb9` in the main checkout. Clean `npm ci
+--ignore-scripts`, all eight workspace typechecks, all 163 Windows tests (web
+13, worker 33, CLI 14, adapter 70, pipeline 11, Ask 15, MCP 7), and production
+build pass. The real local-page Chrome capture passes on Windows. A separate
+storage check confirms saved adapter-2 through adapter-5 result keys still read
+successfully while new results use adapter-6.
+
+The final Cloudflare bundle was rebuilt and exercised in workerd: the SDK and
+HTTP boundary probes pass again. Deployment packaging dry run passes without
+uploading: 9,664.33 KiB total / 1,989.07 KiB gzip. The generated dependency chunk
+has a non-fatal esbuild nullish-coalescing warning; actual runtime probes pass.
+
+No push was performed. A loopback production preview of main is available on
+port 3110; it is a demo/local-file preview, with no upload backend configured.
