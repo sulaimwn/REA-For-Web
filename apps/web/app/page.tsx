@@ -19,18 +19,18 @@ export default function HomePage() {
       <main className="frontpage">
         <section className="intro">
           <div>
-            <h1>See how an Electron app is put together.</h1>
+            <h1>See how an app is put together.</h1>
             <p>
-              REA for Web reads an app’s shipped files and maps its processes, windows, preload bridges, IPC channels, native
-              add-ons and local storage. Each part comes with REA’s evidence, usually down to the file and line. Nothing is
-              executed.
+              REA for Web reads an app’s shipped files and maps how it’s built: an Electron app’s processes, windows, preload
+              bridges and IPC channels, or a .NET program’s types, call graph and calls into native code. Each part comes with
+              REA’s evidence. Nothing is executed.
             </p>
           </div>
           <dl className="spec">
             <div>
               <dt>Reads</dt>
               <dd>
-                An unpacked Electron app, or its <code>.asar</code> archive
+                Electron apps (a folder or <code>.asar</code>) and .NET programs (<code>.exe</code>, <code>.dll</code>)
               </dd>
             </div>
             <div>

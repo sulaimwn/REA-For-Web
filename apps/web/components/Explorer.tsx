@@ -11,6 +11,12 @@ import { AskPanel } from './AskPanel';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
 
+const APP_KIND_LABEL: Record<StudioProject['target']['appKind'], string> = {
+  electron: 'Electron app',
+  javascript: 'JavaScript app',
+  dotnet: '.NET program',
+};
+
 /** Loads a pre-built demo project by slug, then shows it. */
 export function Explorer({ demo, embedded = false, actions }: { demo: DemoEntry; embedded?: boolean; actions?: ReactNode }) {
   const [project, setProject] = useState<StudioProject | null>(null);
@@ -103,7 +109,7 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
         <div className="topbar__app">
           <strong>{title}</strong>
           {project.target.version && <span className="topbar__version">{project.target.version}</span>}
-          <span className="muted">{project.target.appKind === 'electron' ? 'Electron app' : project.target.appKind}</span>
+          <span className="muted">{APP_KIND_LABEL[project.target.appKind]}</span>
           <span className={`status ${complete ? 'status--complete' : 'status--partial'}`}>{complete ? 'Complete analysis' : 'Partial analysis'}</span>
         </div>
         {actions}

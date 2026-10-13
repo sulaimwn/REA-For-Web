@@ -42,6 +42,26 @@ export function isManagedBundle(raw: unknown): boolean {
   return !!raw && typeof raw === 'object' && !Array.isArray(raw) && MANAGED_OPERATION in raw;
 }
 
+export const NOT_MANAGED_MESSAGE =
+  'This is a native program, not .NET: REA found no .NET metadata in it. REA analyzes native code with Ghidra, ' +
+  'which REA for Web doesn’t set up yet (see docs/targets.md).';
+
+/**
+ * Checks `rea inspect-managed-artifact` output before the other managed commands run:
+ * REA must have classified the file as managed. Throws ReaOutputError with a readable reason.
+ */
+export function assertManagedArtifact(raw: unknown): void {
+  const e = raw as (Envelope & { error?: unknown; message?: unknown; code?: unknown }) | null;
+  if (!e || typeof e !== 'object') throw new ReaOutputError('REA returned no managed inspection');
+  if (e.error !== undefined) {
+    throw new ReaOutputError(`REA couldn’t inspect this file: ${typeof e.message === 'string' ? e.message : String(e.code ?? 'unknown error')}`);
+  }
+  if (e.operation !== 'inspect_managed_artifact' || !e.normalized_result) throw new ReaOutputError('REA returned no managed inspection');
+  const status = str(obj(e.normalized_result, 'classification'), 'status');
+  if (status === 'not-managed') throw new ReaOutputError(NOT_MANAGED_MESSAGE);
+  if (status !== 'managed') throw new ReaOutputError(`REA classified this file as “${status ?? 'unknown'}”, not as a .NET program`);
+}
+
 function envelope(bundle: Record<string, unknown>, key: string, required: boolean): Envelope | null {
   const e = bundle[key] as Envelope | undefined;
   if (e === undefined && !required) return null;

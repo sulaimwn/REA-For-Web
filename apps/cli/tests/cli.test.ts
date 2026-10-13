@@ -50,7 +50,33 @@ describe('rea-studio analyze', () => {
     writeFileSync(notAsar, 'x');
     const wrong = run('analyze', notAsar);
     assert.equal(wrong.status, 1);
-    assert.match(wrong.stderr, /directory or an \.asar file/);
+    assert.match(wrong.stderr, /a directory, an \.asar file, or a \.NET \.exe\/\.dll/);
+  });
+
+  it('analyzes the tiny .NET sample (T021)', () => {
+    const exe = fileURLToPath(new URL('../../../../fixtures/sample-apps/tiny-dotnet/TinyNotes.exe', import.meta.url));
+    const out = join(work, 'tiny-dotnet.studio.json');
+    const r = run('analyze', exe, '--out', out);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /TinyNotes v1\.2\.3\.0 \(dotnet\)/);
+    assert.match(r.stdout, /native-imports\s+3/);
+    const text = readFileSync(out, 'utf8');
+    const project = JSON.parse(text) as StudioProject;
+    assert.equal(project.target.appKind, 'dotnet');
+    assert.equal(project.nodes.filter((n) => n.kind === 'managed-method').length, 10);
+    assert.ok(project.edges.some((e) => e.relation === 'calls'));
+    assert.ok(!text.includes(exe) && !text.includes(exe.replaceAll('\\', '\\\\')), 'no absolute input path');
+  });
+
+  it('explains that a non-.NET .exe is not supported, leaving no output file', () => {
+    const fake = join(work, 'not-dotnet.exe');
+    writeFileSync(fake, 'MZ this is not a real program');
+    const out = join(work, 'not-dotnet.studio.json');
+    const r = run('analyze', fake, '--out', out);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /not \.NET|not as a \.NET program|couldn’t inspect|REA couldn’t analyze this file: \S/);
+    assert.doesNotMatch(r.stderr, /    at /, 'no stack trace');
+    assert.throws(() => readFileSync(out));
   });
 
   it('prints usage for unknown commands and options', () => {

@@ -29,6 +29,12 @@ const DEMOS = [
     file: 'tiny-electron.rea-6.4.0.json',
     blurb: 'A 7-file hand-written app with a known answer key.',
   },
+  {
+    slug: 'tiny-dotnet',
+    title: 'Tiny .NET sample',
+    file: 'tiny-dotnet.rea-6.4.0.json',
+    blurb: 'A hand-written C# program: types, methods, its call graph and three calls into native code.',
+  },
 ];
 
 /**

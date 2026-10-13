@@ -61,11 +61,12 @@ export function OpenProject() {
 
       <ol className="steps">
         <li>
-          <strong>Analyze</strong> an extracted Electron app folder or an <code>.asar</code>, from a clone of the{' '}
-          <a href={REPO_URL}>REA for Web repository</a> after <code>npm install</code>. REA only reads the files; it never runs
-          the app.
+          <strong>Analyze</strong> an extracted Electron app folder, an <code>.asar</code>, or a .NET <code>.exe</code> /{' '}
+          <code>.dll</code>, from a clone of the <a href={REPO_URL}>REA for Web repository</a> after <code>npm install</code>.
+          REA only reads the files; it never runs the app.
           <pre className="code">npm run analyze -w rea-studio -- path/to/app.asar</pre>
-          This writes <code>app.studio.json</code>. See the <code>apps/cli</code> README for options.
+          This writes <code>app.studio.json</code> (for <code>Program.exe</code>, <code>Program.studio.json</code>). See the{' '}
+          <code>apps/cli</code> README for options.
         </li>
         <li>
           <strong>Open</strong> the <code>.studio.json</code> file:

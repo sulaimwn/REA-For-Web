@@ -155,7 +155,7 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
       ) : (
         <>
           <div className="tabs" role="tablist">
-            {(['findings', 'source', 'files'] as const).map((t) => (
+            {(['findings', 'source', 'files'] as const).filter((t) => t === 'findings' || (t === 'source' ? sourceTree.count : fileTree.count) > 0 || ix.project.target.appKind !== 'dotnet').map((t) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'tab--on' : ''}`} onClick={() => setTab(t)}>
                 {t === 'findings' ? 'Findings' : t === 'source' ? `Source (${sourceTree.count})` : `Files (${fileTree.count})`}
               </button>

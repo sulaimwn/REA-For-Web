@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "REA for Web",
-  description: "See how an Electron app is put together: processes, windows, preload bridges, IPC and native code, with the evidence for each part.",
+  description: "See how an app is put together: Electron processes, preload bridges and IPC, or .NET types, calls and native code, with the evidence for each part.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
