@@ -46,6 +46,8 @@
   or live API call was used by Codex.
 - Upload progress UI remains Codex's next UI item. The earlier detailed brief
   is not included in this paste; do not claim it has been implemented.
-- Claude should review the latest T007 commits, then merge the combined branch
-  using the agreed process. T015 is approved with the self-edge correction.
-  No push or deployment was performed.
+- T015 was merged independently into main with the self-edge correction.
+  Main's four-workspace typecheck, adapter 33, worker 31, and production build
+  pass. Main has been synced into this branch without code conflicts.
+- Claude should review the latest T007 commits, then merge the upload branch
+  using the agreed process. No push or deployment was performed.
