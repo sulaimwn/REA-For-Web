@@ -21,9 +21,12 @@ export const FREE_ASK_LIMITS = {
   /** Per message; tool results are truncated to fit. */
   maxMessageChars: 6_000,
   maxTotalChars: 48_000,
-  /** UTF-8 budget also bounds multilingual input below the model context and the HTTP body limit. */
-  // Even worst-case JSON escapes (six bytes per character) leave room in the 64 KiB request body.
-  maxTotalBytes: 8_000,
+  /**
+   * Budget on the messages' size as sent: JSON-escaped UTF-8 (`wireBytes`). 36 KB of content plus the per-message
+   * JSON overhead stays inside the route's 64 KiB body limit, escapes included, and leaves multilingual text inside
+   * the 24k-token context (at most ~0.5 tokens per byte) with the system prompt, tools and answer.
+   */
+  maxTotalBytes: 36_000,
   maxToolRounds: 5,
   maxAnswerTokens: 1_024,
 } as const;
@@ -65,9 +68,11 @@ export class FreeAskUnavailableError extends Error {
 }
 
 const encoder = new TextEncoder();
-const bytes = (text: string) => encoder.encode(text).byteLength;
+/** A string's size inside the request body: UTF-8 bytes after JSON escaping, without the quotes. */
+export const wireBytes = (text: string) => encoder.encode(JSON.stringify(text)).byteLength - 2;
+const bytes = wireBytes;
 const CUT_NOTE = ' …[cut short: ask about a more specific node]';
-/** Keep both UTF-16 character and UTF-8 byte limits; preserve complete surrogate pairs. */
+/** Keep both UTF-16 character and wire-byte limits; preserve complete surrogate pairs. */
 function fit(text: string, maxChars: number, maxBytes: number): string {
   if (text.length <= maxChars && bytes(text) <= maxBytes) return text;
   let low = 0;

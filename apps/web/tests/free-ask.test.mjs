@@ -40,8 +40,11 @@ describe('/api/ask/free', () => {
   it('rejects excess UTF-8 context and forwards only validated message fields', async () => {
     const AI = fakeAI({ response: 'Answer.' });
     const messages = [{ role: 'user', content: 'q' },
-      { role: 'tool', content: '漢'.repeat(3_000) }];
+      ...Array.from({ length: 3 }, () => ({ role: 'tool', content: '漢'.repeat(5_000) }))];
     assert.equal((await handleFreeAsk(post({ messages }), { AI })).status, 400);
+    // Sizes count as sent: 6,000 control characters are 6 KB of UTF-8 but 36 KB once JSON-escaped.
+    const escaped = [{ role: 'user', content: 'q' }, { role: 'tool', content: '\u0000'.repeat(6_000) }];
+    assert.equal((await handleFreeAsk(post({ messages: escaped }), { AI })).status, 400);
     assert.equal(AI.calls.length, 0);
     const res = await handleFreeAsk(post({ messages: [{ role: 'user', content: 'q', tool_calls: [{ name: 'arbitrary' }], name: 'system' }] }), { AI });
     assert.equal(res.status, 200);

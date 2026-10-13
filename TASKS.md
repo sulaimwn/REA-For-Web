@@ -51,7 +51,7 @@ Details for a task go under its heading below the table.
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
 | T039 | Hosted uploads after a budget x86 8 GB server becomes available; human chose to wait for CX33 | codex | blocked | T026, T038 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | in progress | T037 |
-| T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | in progress | T030, R005, T038 |
+| T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | review | T030, R005, T038 |
 
 ---
 

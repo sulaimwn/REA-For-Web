@@ -45,15 +45,17 @@ variables, so they're marked **unresolved** rather than guessed.
 ## Ask questions about an app
 
 Open the **Ask** tab in the explorer and ask in plain English, e.g. *"How does the
-app save notes?"* Claude looks things up in the analysis (search, follow links,
+app save notes?"* The model looks things up in the analysis (search, follow links,
 trace paths), answers with every node linked to the graph, and the graph switches
 to show exactly the nodes the answer used. It says when something is unresolved
 instead of guessing.
 
-It uses **your own Anthropic API key**, sent only from your browser to
-api.anthropic.com, and each answer shows its token cost. The same tools will
-power pre-generated demo tours and an MCP connector for using Claude or ChatGPT
-subscriptions (`packages/ask`).
+- **Free, no key:** an open model (Llama 3.3 70B on Cloudflare Workers AI) answers
+  within a daily limit.
+- **Your own Anthropic API key:** Claude gives better answers. The key is sent only
+  from your browser to api.anthropic.com, and each answer shows its token cost.
+- **Your Claude subscription (or another MCP client):** connect the site's
+  [MCP server](docs/mcp.md) and ask there with the same tools (`packages/ask`).
 
 ## Explore your own app (local mode)
 
@@ -166,7 +168,7 @@ worker and web in dependency order. After changing a shared package while
 The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
 [the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
 the free `workers.dev` address. Hosted app uploads need a separate analysis
-backend. Ask uses each visitor's own Anthropic API key.
+backend. Ask answers free questions with Workers AI, or with each visitor's own Anthropic API key.
 
 ## Credits
 
