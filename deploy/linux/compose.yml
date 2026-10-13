@@ -1,0 +1,88 @@
+name: rea-for-web-uploads
+services:
+  redis:
+    image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    user: "999:999"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:${QUEUE_REDIS_PORT:-6382}:6379"]
+    networks: [queue]
+    volumes: ["redis-data:/data"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=16m"]
+    mem_limit: 512m
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  web:
+    image: rea-for-web-upload:${RELEASE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/linux/Dockerfile.web
+    restart: unless-stopped
+    env_file:
+      - path: ${WEB_ENV_FILE:?Set WEB_ENV_FILE to the private web environment file}
+        format: raw
+    environment:
+      REDIS_URL: redis://redis:6379
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:${UPLOAD_WEB_PORT:-3116}:3000"]
+    networks: [queue, front]
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=128m"]
+    mem_limit: 768m
+    pids_limit: 128
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/upload').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  https:
+    profiles: [tls]
+    image: caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    restart: unless-stopped
+    environment:
+      UPLOAD_HOST: ${UPLOAD_HOST:-uploads.example.com}
+    ports: ["80:80", "443:443"]
+    networks: [front]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=16m"]
+    mem_limit: 128m
+    pids_limit: 64
+    depends_on:
+      web:
+        condition: service_healthy
+
+networks:
+  queue:
+    # Host queue connects through the loopback-only published port. Docker's
+    # internal network mode blocks that route, so use a dedicated bridge here.
+    driver: bridge
+  front:
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:

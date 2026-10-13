@@ -1,0 +1,25 @@
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
+WORKDIR /repo
+ENV NEXT_TELEMETRY_DISABLED=1 REA_NODE_DEPLOY=1
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
+COPY apps/cli/package.json ./apps/cli/package.json
+COPY packages/schema/package.json ./packages/schema/package.json
+COPY packages/rea-adapter/package.json ./packages/rea-adapter/package.json
+COPY packages/pipeline/package.json ./packages/pipeline/package.json
+COPY packages/ask/package.json ./packages/ask/package.json
+COPY packages/mcp/package.json ./packages/mcp/package.json
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+WORKDIR /app
+COPY --from=build --chown=1000:1000 /repo/apps/web/.next/standalone ./
+COPY --from=build --chown=1000:1000 /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=1000:1000 /repo/apps/web/public ./apps/web/public
+USER 1000:1000
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

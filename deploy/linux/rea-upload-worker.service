@@ -1,0 +1,39 @@
+[Unit]
+Description=REA for Web private upload analysis queue
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=rea-worker
+Group=rea-worker
+SupplementaryGroups=docker
+WorkingDirectory=/opt/rea-for-web
+EnvironmentFile=/etc/rea-for-web/worker.env
+ExecStartPre=/usr/bin/node /opt/rea-for-web/deploy/linux/check-worker.mjs
+ExecStart=/usr/bin/node /opt/rea-for-web/apps/worker/dist/queue.js
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=45
+# Allow the current bounded job and Docker removal to finish before termination.
+TimeoutStopSec=1850
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/rea-for-web/staging
+MemoryMax=768M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target
