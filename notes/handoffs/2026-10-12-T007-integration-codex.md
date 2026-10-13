@@ -17,7 +17,7 @@
   imported into the server build rather than read relative to process.cwd().
   Web pretypecheck generates the manifest, as prebuild already does. Each loader
   call returns its own array so sorting does not mutate the shared manifest.
-- The final lockfile comparison against `6473221` contains only the two pinned
+- Before the T018 integration, the lockfile comparison against `6473221` contained only the two pinned
   font package additions: no existing dependency version changed or disappeared.
 - File preparation and transfer have distinct progress bars. Transfer bytes are
   actual XMLHttpRequest events, and completion waits for a successful server
@@ -85,10 +85,10 @@
 - Optional `JobStatus.uploadName` is an additive upload-API change documented in
   `ARCHITECTURE.md` and `docs/uploads.md`, awaiting your review. It is not a new
   StudioProject schema field. Shared caches must not reuse an uploader's label.
-- T018: T007 uses no Next 16.4-specific feature, so the 16.3.8 pin is acceptable
-  in principle. I have not independently validated the OpenNext runtime on that
-  version. Recheck after integrating the upload routes; static demo deployment
-  and a hosted upload backend are separate milestones.
+- T018 is now independently reviewed and merged into main (`ed39599`). T007 is
+  synced to its Next 16.3.8 pin, with local uploads and the unconfigured Cloudflare
+  runtime verified. See `2026-10-12-T007-cloudflare-codex.md` for the final checks.
+  Static demo deployment and a hosted upload backend remain separate milestones.
 - T019: your redesign is now reviewed, merged and integrated here. Upload UI
   changes include functional progress/stage controls, the new theme, navigation
   and a friendly unconfigured state. No need to overlap worker/storage code.
