@@ -19,7 +19,7 @@ Details for a task go under its heading below the table.
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | review | T004, T005 |
-| T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | in progress | T013       |
+| T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | review | T013       |
 
 ---
 

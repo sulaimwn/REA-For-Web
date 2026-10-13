@@ -13,7 +13,9 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@dagrejs/dagre": "3.1.1",
+    "@rea-studio/ask": "0.0.0",
     "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",
     "@xyflow/react": "12.12.0",

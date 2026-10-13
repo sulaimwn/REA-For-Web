@@ -5,7 +5,11 @@ import type { Relation, StudioEdge, StudioNode } from '@rea-studio/schema';
 import type { Edge, Node } from '@xyflow/react';
 import { KIND_META, KIND_ORDER, type ProjectIndex } from './project';
 
-export type Focus = { mode: 'overview' } | { mode: 'node'; id: string };
+export type Focus =
+  | { mode: 'overview' }
+  | { mode: 'node'; id: string }
+  /** A chosen set of nodes, e.g. the ones an Ask answer cites. */
+  | { mode: 'set'; ids: string[]; label: string };
 
 export interface KindNodeData extends Record<string, unknown> {
   node: StudioNode;
@@ -199,7 +203,12 @@ function layoutHub(ix: ProjectIndex, focusId: string, ids: Set<string>, edges: S
 }
 
 export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
-  const { ids, hidden } = focus.mode === 'overview' ? { ids: overviewIds(ix), hidden: 0 } : neighborhoodIds(ix, focus.id);
+  const { ids, hidden } =
+    focus.mode === 'overview'
+      ? { ids: overviewIds(ix), hidden: 0 }
+      : focus.mode === 'set'
+        ? { ids: new Set(focus.ids.filter((id) => ix.byId.has(id))), hidden: 0 }
+        : neighborhoodIds(ix, focus.id);
 
   // Collapse parallel REA edges (same endpoints + relation) into one drawn edge.
   const groups = new Map<string, StudioEdge[]>();
@@ -213,7 +222,7 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
   }
 
   const pairs = [...groups.values()].map((list) => list[0] as StudioEdge);
-  const positions = focus.mode === 'overview' ? layoutPacked(ix, [...ids], pairs) : layoutHub(ix, focus.id, ids, pairs);
+  const positions = focus.mode === 'node' ? layoutHub(ix, focus.id, ids, pairs) : layoutPacked(ix, [...ids], pairs);
 
   const focusedId = focus.mode === 'node' ? focus.id : null;
   const nodes: Node<KindNodeData>[] = [];
