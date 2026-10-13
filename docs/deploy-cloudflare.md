@@ -50,10 +50,17 @@ the run should go green in a few minutes. The site is then live at
 
 (Before step 4 the workflow still runs, but only builds. It shows a note saying deploy was skipped.)
 
-### 6. Point reaforweb.com at it
-Ask Claude or Codex to "enable the custom domain in wrangler.jsonc". That uncomments the
-`routes` block in `apps/web/wrangler.jsonc`. Push, and after the next deploy
-`https://reaforweb.com` serves the site. Cloudflare creates the DNS record and certificate.
+### 6. Point reaforweb.com at it (about 2 minutes, in your browser)
+Once a deploy has succeeded (the `reaforweb` Worker exists):
+1. Cloudflare dashboard → **Workers & Pages** → **reaforweb** → **Settings** → **Domains & Routes** → **Add** →
+   **Custom domain**.
+2. Enter `reaforweb.com` → **Add domain**. Repeat for `www.reaforweb.com` if you want it.
+
+Cloudflare creates the DNS record and the HTTPS certificate. It usually works within a few minutes.
+Later deploys keep the domain, and no token changes are needed.
+
+(Alternative: uncomment the `routes` block in `apps/web/wrangler.jsonc`. That makes the deploy manage the domain,
+but the API token then also needs **Zone → Workers Routes → Edit** for reaforweb.com, so the dashboard is simpler.)
 
 ## Costs
 The site is static pages plus small JSON files, which fits comfortably in Cloudflare's free
