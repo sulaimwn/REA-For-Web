@@ -12,6 +12,7 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { adaptReaResult, ReaOutputError, toStudioProject } from '../src/index.js';
+import type { ReaResult } from '../src/rea-types.js';
 
 // Compiled to dist-tests/tests/, so the repo root is four levels up.
 const samples = new URL('../../../../fixtures/samples/', import.meta.url);
@@ -248,6 +249,19 @@ describe('.asar input (tiny-electron packed with @electron/asar)', () => {
     const raw = structuredClone(load(TINY_ASAR)) as Raw;
     raw.normalized_result.graph.nodes = raw.normalized_result.graph.nodes.filter((n) => n.kind !== 'package');
     assert.equal(toStudioProject(raw, { ...opts, targetName: 'obsidian.asar' }).target.name, 'obsidian.asar');
+  });
+
+  it('drops archive-folding self links while preserving genuine self relationships', () => {
+    const raw = structuredClone(load(TINY_ASAR)) as ReaResult;
+    const g = raw.normalized_result.graph;
+    const file = g.nodes.find((n) => n.kind === 'javascript-asset');
+    const edge = g.edges[0];
+    assert.ok(file && edge);
+    g.edges.push({ ...edge, edge_id: 'original-self-edge', source_node_id: file.node_id,
+      target_node_id: file.node_id, relation: 'imports' });
+    const { project, report } = adaptReaResult(raw, opts);
+    assert.ok(project.edges.some((e) => e.id === 'original-self-edge' && e.source === e.target));
+    assert.equal(report.droppedSelfEdges, 7);
   });
 
   it('calls an app Electron when only renderer/preload processes are found', () => {

@@ -234,7 +234,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
       continue;
     }
     // A folded asar entry's `maps_to` edge now points the file at itself.
-    if (source === target) {
+    if (source === target && e.source_node_id !== e.target_node_id &&
+        (entryTarget.has(e.source_node_id) || entryTarget.has(e.target_node_id))) {
       report.droppedSelfEdges++;
       continue;
     }

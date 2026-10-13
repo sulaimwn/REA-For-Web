@@ -398,7 +398,7 @@ export interface TargetInfo {
   version: string | null;
   /** REA `subject.digest.sha256`. Also the cache/dedupe key. */
   sha256: string;
-  /** Fixtures so far are all `directory`; `asar` is from REA's `--artifact-format` enum. */
+  /** Extracted app directory or shipped ASAR archive, matching REA's artifact format. */
   format: 'asar' | 'directory';
   /** `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`. */
   appKind: 'electron' | 'javascript';
