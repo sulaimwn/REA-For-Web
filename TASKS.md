@@ -24,8 +24,8 @@ Details for a task go under its heading below the table.
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
-| T018 | Cloudflare deploy preparation | claude | in progress | T007, T013 |
-| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | review | T016, T017 |
+| T018 | Cloudflare deploy preparation | claude | review | T007, T013 |
+| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 
 ---
 

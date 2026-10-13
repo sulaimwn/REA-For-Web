@@ -379,7 +379,11 @@ button { font: inherit; color: inherit; }
   .side { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--rule); max-height: 55vh; }
   .explorer:not(.explorer--embedded) { height: auto; min-height: 100vh; }
   .explorer:not(.explorer--embedded) .graph-pane { height: 60vh; }
-  .explorer--embedded .side { display: none; }
+  /* Keep evidence and Ask reachable when the live demo becomes a stacked layout. */
+  .specimen__frame { height: auto; min-height: 0; }
+  .explorer--embedded { height: auto; }
+  .explorer--embedded .graph-pane { height: min(65vh, 520px); min-height: 360px; }
+  .explorer--embedded .side { min-height: 280px; }
   .intro { grid-template-columns: 1fr; gap: 24px; align-items: start; }
 }
 @media (max-width: 720px) {
@@ -389,7 +393,7 @@ button { font: inherit; color: inherit; }
   .explorer--embedded .sidebar { display: none; }
   .cols { grid-template-columns: 1fr; }
   .site-head, .frontpage, .doc { padding-left: 16px; padding-right: 16px; }
-  .specimen__frame { height: 70vh; min-height: 420px; }
+  .explorer--embedded .graph-pane { height: 70vh; min-height: 420px; }
   .table .hide-narrow { display: none; }
   .topbar__meta { margin-left: 0; }
   .site-head__end { margin-left: 0; }
