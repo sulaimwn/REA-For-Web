@@ -112,7 +112,7 @@ function facts(n: StudioNode, appKind: string): Fact[] {
       return [['Permission', n.name]];
     case 'native-import':
       return [
-        ['Library', n.library],
+        ['Library', n.library || 'not recorded (ELF names only the symbol; the dynamic linker picks the library)'],
         ['Export', n.entryPoint],
         ['Declared as', n.managedName],
         ['Calling convention', n.callingConvention],

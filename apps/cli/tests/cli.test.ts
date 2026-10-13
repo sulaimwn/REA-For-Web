@@ -66,7 +66,17 @@ describe('rea-studio analyze', () => {
     writeFileSync(notAsar, 'x');
     const wrong = run('analyze', notAsar);
     assert.equal(wrong.status, 1);
-    assert.match(wrong.stderr, /a directory, an \.asar file, an \.exe\/\.dll program or an \.apk/);
+    assert.match(wrong.stderr, /a directory, an \.asar file, an \.exe\/\.dll program, a Linux \(ELF\) program or an \.apk/);
+  });
+
+  it('recognizes a Linux program by its ELF header, and explains where it can be analyzed (T028)', () => {
+    const elf = fileURLToPath(new URL('../../../../fixtures/sample-apps/tiny-linux/tiny-notes', import.meta.url));
+    const out = join(work, 'tiny-linux.studio.json');
+    const r = runWith({ GHIDRA_INSTALL_DIR: undefined }, 'analyze', elf, '--out', out);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, process.platform === 'win32' ? /Linux or macOS machine/ : /GHIDRA_INSTALL_DIR/);
+    assert.doesNotMatch(r.stderr, /    at /, 'no stack trace');
+    assert.throws(() => readFileSync(out));
   });
 
   it('analyzes the tiny .NET sample (T021)', () => {

@@ -192,6 +192,28 @@ test("real Docker maps a native program with Ghidra in the native image", { time
   assert.deepEqual(await workerContainers(), before);
 });
 
+test("real Docker maps a Linux ELF program with Ghidra in the native image, and refuses it in the standard one (T028)", { timeout: 300_000 }, async t => {
+  const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
+  if (image.code !== 0) {
+    assert.notEqual(process.env.REA_REQUIRE_NATIVE_TESTS, "1", "The native image is required for this test run.");
+    return t.skip(`${NATIVE_WORKER_IMAGE} is not built (apps/worker/Dockerfile.native)`);
+  }
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const elf = join(temp, "tiny-notes.elf");
+  await writeFile(elf, await readFile(join(repo, "fixtures/sample-apps/tiny-linux/tiny-notes")));
+  const output = await runAnalysis({ targetPath: elf, targetName: "tiny-notes", outputRoot: join(temp, "results"), native: true });
+  const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
+  assert.deepEqual([project.target.format, project.target.appKind, project.target.name], ["elf", "native", "tiny-notes"]);
+  const fn = (name: string) => project.nodes.find(n => n.kind === "native-function" && n.label === name);
+  assert.ok(fn("sync_notes") && fn("save_note") && fn("remember_last"));
+  assert.deepEqual(project.nodes.filter(n => n.kind === "endpoint").map(n => n.label), ["https://api.example.com/notes"]);
+  await assert.rejects(runAnalysis({ targetPath: elf, outputRoot: join(temp, "refused"), limits: { timeoutMs: 60_000 } }),
+    (error: unknown) => error instanceof WorkerError && error.code === "invalid_input");
+  assert.deepEqual(await readdir(join(temp, "refused")), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
 test("real Docker maps an Android app with JADX in the native image, and refuses it in the standard one", { timeout: 300_000 }, async t => {
   const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
   if (image.code !== 0) {

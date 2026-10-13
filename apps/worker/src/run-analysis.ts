@@ -78,7 +78,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
 }
 
 /** File targets by extension; anything else must be an extracted app directory. */
-const FILE_KINDS: Record<string, TargetKind> = { ".asar": "asar", ".exe": "exe", ".dll": "dll", ".apk": "apk" };
+const FILE_KINDS: Record<string, TargetKind> = { ".asar": "asar", ".exe": "exe", ".dll": "dll", ".elf": "elf", ".so": "elf", ".apk": "apk" };
 
 function jsonRecord(text: string): Record<string, unknown> {
   const value: unknown = JSON.parse(text);
@@ -106,7 +106,7 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
   const stats = await lstat(input);
   const fileKind = FILE_KINDS[extname(input).toLowerCase()];
   if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile()) || (stats.isFile() && !fileKind)) {
-    throw new WorkerError("invalid_input", "Input must be an ordinary .asar, .exe, .dll or .apk file, or an extracted app directory.");
+    throw new WorkerError("invalid_input", "Input must be an ordinary .asar, .exe, .dll, .elf, .so or .apk file, or an extracted app directory.");
   }
   const target = await realpath(input);
   safeMountPath(target);

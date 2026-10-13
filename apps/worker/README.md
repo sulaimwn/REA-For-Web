@@ -38,10 +38,13 @@ private container temporary storage and is removed after normalization. Only
 
   Ghidra's JVM gets the analyzer heap (`heapMb`) via `GHIDRA_HEADLESS_MAXMEM`.
 - **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`
-  (or `PK` for an APK).
+  (`\x7fELF` for a Linux `.elf`/`.so`, or `PK\x03\x04` for an APK).
   APK ZIP metadata also caps entry count and declared expanded bytes, rejects unsafe names,
   links, split/encrypted/ZIP64 archives, and bounds its directory to 8 MiB. No entries are
   extracted during admission. REA parses the program itself; it is never run.
+- **Linux programs (T028):** `.elf`/`.so` jobs run in the native image only and go straight to Ghidra,
+  with no .NET check. REA's Ghidra provider reads ELF only on Linux hosts, which the image is. The tiny
+  sample takes about 31 s.
 - **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
   so programs with many thousands of functions can hit the job deadline.
 
