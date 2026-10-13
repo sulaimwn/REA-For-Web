@@ -226,7 +226,7 @@ test("program preflight checks the MZ header and the byte limit", async t => {
   await assert.rejects(preflightTarget(sample, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   // An APK is a ZIP; a PE renamed to .apk (or the reverse) is refused before REA starts.
   const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
-  assert.equal((await preflightTarget(apk, "apk", DEFAULT_LIMITS)).files, 1);
+  assert.ok((await preflightTarget(apk, "apk", DEFAULT_LIMITS)).files > 1);
   await assert.rejects(preflightTarget(exe, "apk", DEFAULT_LIMITS), { code: "invalid_input" });
   await assert.rejects(preflightTarget(apk, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   const args = containerArgs("job", apk, "apk", DEFAULT_LIMITS, "tiny-notes.apk", NATIVE_WORKER_IMAGE);
@@ -238,6 +238,23 @@ test("the native image is an explicit operator setting", () => {
   assert.equal(nativeWorkerFromEnv({ REA_NATIVE_WORKER: "0" }), false);
   assert.equal(nativeWorkerFromEnv({ REA_NATIVE_WORKER: "1" }), true);
   assert.throws(() => nativeWorkerFromEnv({ REA_NATIVE_WORKER: "yes" }), { code: "invalid_input" });
+});
+
+test("APK admission caps ZIP entries and expanded bytes and rejects broken ZIP metadata", async t => {
+  const ctx = await context(t);
+  const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
+  await assert.rejects(preflightTarget(apk, "apk", resolveLimits({ maxFiles: 1 })), { code: "input_limit_exceeded" });
+  const data = await readFile(apk);
+  const central = data.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  assert.ok(central > 0);
+  const bomb = Buffer.from(data);
+  bomb.writeUInt32LE(DEFAULT_LIMITS.maxInputBytes + 1, central + 24);
+  const oversized = join(ctx.temp, "oversized.apk");
+  await writeFile(oversized, bomb);
+  await assert.rejects(preflightTarget(oversized, "apk", DEFAULT_LIMITS), { code: "input_limit_exceeded" });
+  const broken = join(ctx.temp, "broken.apk");
+  await writeFile(broken, data.subarray(0, data.length - 22));
+  await assert.rejects(preflightTarget(broken, "apk", DEFAULT_LIMITS), { code: "invalid_input" });
 });
 
 test("preflight rejects directory symlinks/junctions", async t => {

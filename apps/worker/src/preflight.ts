@@ -1,6 +1,7 @@
 import { lstat, open, opendir } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { WorkerError, type AnalysisLimits } from "./limits.js";
+import type { FileHandle } from "node:fs/promises";
 
 /**
  * `exe`/`dll` are Windows programs (PE): .NET assemblies, or native code for the native image.
@@ -120,18 +121,64 @@ async function inspectAsar(target: string, budget: Budget, depth: number) {
   }
 }
 
-/** A program is one file: check its size and signature (PE "MZ", APK = ZIP "PK\x03\x04"); REA parses the rest. */
+// Read ZIP metadata only; never extract APK entries. PKWARE APPNOTE sections 4.3.12/4.3.16:
+// https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+// ZIP64, encryption and split archives are outside this bounded upload format.
+async function inspectApk(handle: FileHandle, size: number, budget: Budget) {
+  const invalid = () => new WorkerError("invalid_input", "Invalid or unsupported APK ZIP directory.");
+  const tail = Buffer.alloc(Math.min(size, 22 + 0xffff));
+  if ((await handle.read(tail, 0, tail.length, size - tail.length)).bytesRead !== tail.length) throw invalid();
+  let end = -1;
+  for (let at = tail.length - 22; at >= 0; at--) {
+    if (tail.readUInt32LE(at) === 0x06054b50 && at + 22 + tail.readUInt16LE(at + 20) === tail.length) { end = at; break; }
+  }
+  if (end < 0) throw invalid();
+  const count = tail.readUInt16LE(end + 10);
+  const bytes = tail.readUInt32LE(end + 12);
+  const offset = tail.readUInt32LE(end + 16);
+  const endOffset = size - tail.length + end;
+  if (tail.readUInt16LE(end + 4) !== 0 || tail.readUInt16LE(end + 6) !== 0
+      || count !== tail.readUInt16LE(end + 8) || !count || count === 0xffff
+      || bytes === 0xffffffff || offset === 0xffffffff || offset + bytes !== endOffset) throw invalid();
+  if (bytes > MAX_HEADER_BYTES) throw new WorkerError("input_limit_exceeded", "APK ZIP directory exceeds its byte limit.");
+  const directory = Buffer.alloc(bytes);
+  if ((await handle.read(directory, 0, bytes, offset)).bytesRead !== bytes) throw invalid();
+  let at = 0;
+  for (let entry = 0; entry < count; entry++) {
+    if (at + 46 > bytes || directory.readUInt32LE(at) !== 0x02014b50) throw invalid();
+    const flags = directory.readUInt16LE(at + 8);
+    const compressed = directory.readUInt32LE(at + 20);
+    const expanded = directory.readUInt32LE(at + 24);
+    const nameBytes = directory.readUInt16LE(at + 28);
+    const length = 46 + nameBytes + directory.readUInt16LE(at + 30) + directory.readUInt16LE(at + 32);
+    const localOffset = directory.readUInt32LE(at + 42);
+    const mode = (directory.readUInt32LE(at + 38) >>> 16) & 0xf000;
+    if (at + length > bytes || !nameBytes || (flags & 1) || directory.readUInt16LE(at + 34) !== 0
+        || compressed === 0xffffffff || expanded === 0xffffffff || localOffset + 30 + compressed > offset
+        || mode === 0xa000) throw invalid();
+    const name = directory.subarray(at + 46, at + 46 + nameBytes).toString("utf8");
+    if (/^[\/\\]|[\x00-\x1f\\:]/u.test(name) || name.split("/").some((part) => part === ".." || part === ".")) throw invalid();
+    budget.entry(0);
+    // Every ZIP entry counts, including directories; expanded sizes bound compressed APKs.
+    budget.file(expanded, false, true);
+    at += length;
+  }
+  if (at !== bytes) throw invalid();
+}
+
+/** Check physical bytes and signature, and bound APK entry counts/expanded sizes before REA starts. */
 async function inspectProgram(target: string, kind: TargetKind, budget: Budget) {
   const handle = await open(target, "r");
   try {
     const stats = await handle.stat();
     budget.archive(stats.size);
-    budget.file(stats.size, false, false);
+    if (kind !== "apk") budget.file(stats.size, false, true);
     const expected = kind === "apk" ? "PK\x03\x04" : "MZ";
     const magic = Buffer.alloc(expected.length);
     if ((await handle.read(magic, 0, magic.length, 0)).bytesRead !== magic.length || magic.toString("latin1") !== expected) {
       throw new WorkerError("invalid_input", kind === "apk" ? "Not an Android package (no ZIP header)." : "Not a Windows program (no MZ header).");
     }
+    if (kind === "apk") await inspectApk(handle, stats.size, budget);
   } finally {
     await handle.close();
   }

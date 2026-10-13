@@ -127,7 +127,7 @@ See `notes/handoffs/2026-10-13-T021-claude.md`. In short:
 ## Reviewed native and Android schema (R002)
 Fixture-backed, additive, schema version unchanged:
 - `appKind` gains `native` and `android`; `format` gains `apk` (native programs use `pe`).
-  - Native: `native-function` (address, name, entry-style symbol flag: a Studio heuristic). Imports reuse `native-import` with `managedName: null`.
+- Native: `native-function` (address, name, entry-style symbol flag: a Studio heuristic). Imports reuse `native-import` with `managedName: null`.
 - Android:
   - `android-component` (componentType, className, exported, intentActions, authorities, launcher);
   - `android-permission` (name).

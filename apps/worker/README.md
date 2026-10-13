@@ -17,7 +17,7 @@ private container temporary storage and is removed after normalization. Only
   `rea-studio-worker-native:rea-6.4.0` (`Dockerfile.native`). It is the standard image plus:
   - a JDK 21 (Temurin, pinned by digest);
   - Ghidra 12.1.4 (SHA-256 checked);
-  - jadx-headless-mcp 0.7.1 for Android later (SHA-256 checked).
+  - jadx-headless-mcp 0.7.1 for Android (SHA-256 checked).
 
   It is about 2.2 GB. Inside it, the adapter's `native-session` drives `rea --mcp` so Ghidra
   imports the program once and answers every query.
@@ -39,7 +39,9 @@ private container temporary storage and is removed after normalization. Only
   Ghidra's JVM gets the analyzer heap (`heapMb`) via `GHIDRA_HEADLESS_MAXMEM`.
 - **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`
   (or `PK` for an APK).
-  REA parses the rest. The program is never run.
+  APK ZIP metadata also caps entry count and declared expanded bytes, rejects unsafe names,
+  links, split/encrypted/ZIP64 archives, and bounds its directory to 8 MiB. No entries are
+  extracted during admission. REA parses the program itself; it is never run.
 - **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
   so programs with many thousands of functions can hit the job deadline.
 
@@ -65,8 +67,8 @@ Image builds need network access. Analysis containers have no network, and jobs
 use `--pull=never` so the image must already exist. The Node base image is pinned
 by digest. `rea-runtime/package-lock.json` locks REA and its transitive packages;
 the image uses `npm ci` with package scripts disabled and verifies REA's exact
-version before analysis. The image has not yet been tested on this machine
-because Docker is unavailable.
+version before analysis. Both images have been built locally; see the independent R003
+handoff for the latest Docker verification results.
 
 The runtime lock is independent of the workspace lock: REA is installed only
 inside the analysis image. To intentionally update it, change the runtime
@@ -170,15 +172,14 @@ The normal suite uses T004 to convert real T001 fixture bytes, genuine archives
 produced by the official Electron packager, and trusted fake Docker processes to
 exercise lifecycle failures. It does not execute any uploaded application.
 
-`test:docker` is opt-in and requires the built image and a suitable engine. Five
-checks inspect the actual container configuration, analyze the inert sample as
-a directory and generated ASAR, reject invalid/oversized input, cancel on REA
-progress, and stop oversized output. They check container removal and discarded
-partial results. No uploaded target is executed. The suite fails when Docker is
-missing; real container/image verification is still pending.
+`test:docker` is opt-in and requires a suitable engine. Its 11 checks cover the container
+configuration, directory/ASAR analysis, .NET, native Ghidra and Android JADX analysis,
+limits, retained timeout evidence, cancellation and cleanup. Native/Android checks
+skip only when the optional image is absent; `REA_REQUIRE_NATIVE_TESTS=1` makes that
+a failure. No uploaded target is executed.
 
 `.github/workflows/worker.yml` installs dependencies, typechecks all workspaces,
-runs worker and adapter tests, builds the image, runs those Docker checks on a Linux GitHub
+runs worker and adapter tests, builds both images, requires all Docker checks on a Linux GitHub
 runner, and fails if worker containers remain. It runs on push/pull request and
 can be dispatched manually after the workflow reaches GitHub. Actions are pinned
 to commits, repository credentials are not persisted, and token permissions are
