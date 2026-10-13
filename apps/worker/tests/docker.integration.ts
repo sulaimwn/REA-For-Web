@@ -10,6 +10,7 @@ import { createPackage } from "@electron/asar";
 import { DEFAULT_LIMITS, runAnalysis, WorkerError, type AnalysisProgress } from "../src/index.js";
 import { executeDocker } from "../src/command.js";
 import { containerArgs } from "../src/run-analysis.js";
+import { NATIVE_WORKER_IMAGE } from "../src/limits.js";
 import type { StudioProject } from "@rea-studio/schema";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -150,6 +151,94 @@ test("real Docker cancellation on REA progress removes the container and partial
   assert.ok(progressSeen);
   assert.deepEqual(await readdir(outputRoot), []);
   assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker reads a .NET program in the standard image and refuses a native one with the reason", { timeout: 120_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const output = await runAnalysis({
+    targetPath: join(repo, "fixtures/sample-apps/tiny-dotnet/TinyNotes.exe"), outputRoot: join(temp, "results"),
+    limits: { timeoutMs: 60_000 },
+  });
+  const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.target.appKind, "dotnet");
+  assert.equal(project.nodes.filter(n => n.kind === "native-import").length, 3);
+  await assert.rejects(runAnalysis({
+    targetPath: join(repo, "fixtures/sample-apps/tiny-native/tiny-notes.exe"), outputRoot: join(temp, "refused"),
+    limits: { timeoutMs: 60_000 },
+  }), (error: unknown) => error instanceof WorkerError && error.code === "invalid_input");
+  assert.deepEqual(await readdir(join(temp, "refused")), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker maps a native program with Ghidra in the native image", { timeout: 600_000 }, async t => {
+  const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
+  if (image.code !== 0) {
+    assert.notEqual(process.env.REA_REQUIRE_NATIVE_TESTS, "1", "The native image is required for this test run.");
+    return t.skip(`${NATIVE_WORKER_IMAGE} is not built (apps/worker/Dockerfile.native)`);
+  }
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const events: AnalysisProgress[] = [];
+  const output = await runAnalysis({
+    targetPath: join(repo, "fixtures/sample-apps/tiny-native/tiny-notes.exe"), outputRoot: join(temp, "results"),
+    native: true, onProgress: e => events.push(e),
+  });
+  const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.target.appKind, "native");
+  assert.equal(project.nodes.filter(n => n.kind === "native-function").length, 49);
+  assert.deepEqual(project.nodes.filter(n => n.kind === "endpoint").map(n => n.label), ["https://api.example.com/notes"]);
+  assert.ok(events.some(e => e.phase === "native"));
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker maps an Android app with JADX in the native image, and refuses it in the standard one", { timeout: 300_000 }, async t => {
+  const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
+  if (image.code !== 0) {
+    assert.notEqual(process.env.REA_REQUIRE_NATIVE_TESTS, "1", "The native image is required for this test run.");
+    return t.skip(`${NATIVE_WORKER_IMAGE} is not built (apps/worker/Dockerfile.native)`);
+  }
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
+  const output = await runAnalysis({ targetPath: apk, outputRoot: join(temp, "results"), native: true });
+  const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.target.appKind, "android");
+  assert.equal(project.nodes.filter(n => n.kind === "android-component").length, 4);
+  assert.deepEqual(project.nodes.filter(n => n.kind === "bridge-api").map(n => n.label), ["window.notesBridge"]);
+  assert.equal(project.analysis.coverage.status, "partial");
+  assert.equal(project.nodes.filter(n => n.kind === "managed-method" && (n.name === "<init>" || n.name === "<clinit>")).length, 5);
+  await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "capped"), native: true, limits: { maxFiles: 1 } }),
+    (error: unknown) => error instanceof WorkerError && error.code === "input_limit_exceeded");
+  assert.deepEqual(await readdir(join(temp, "capped")), []);
+  await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "refused"), limits: { timeoutMs: 60_000 } }),
+    (error: unknown) => error instanceof WorkerError && error.code === "invalid_input");
+  assert.deepEqual(await readdir(join(temp, "refused")), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker cancellation stops the native provider and removes its container and output", { timeout: 120_000 }, async t => {
+  const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
+  if (image.code !== 0) {
+    assert.notEqual(process.env.REA_REQUIRE_NATIVE_TESTS, "1", "The native image is required for this test run.");
+    return t.skip(`${NATIVE_WORKER_IMAGE} is not built`);
+  }
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await assert.rejects(runAnalysis({
+      targetPath: join(repo, "fixtures/sample-apps/tiny-native/tiny-notes.exe"),
+      outputRoot: join(temp, "cancelled"), native: true, signal: controller.signal,
+      onProgress: (event) => {
+        if (event.phase === "native" && !timer) timer = setTimeout(() => controller.abort(), 3000);
+      },
+    }), (error: unknown) => error instanceof WorkerError && error.code === "cancelled");
+    assert.ok(timer, "native analysis started");
+    assert.deepEqual(await readdir(join(temp, "cancelled")), []);
+    assert.deepEqual(await workerContainers(), before);
+  } finally { if (timer) clearTimeout(timer); }
 });
 
 test("real Docker output limit removes the container and partial output", { timeout: 90_000 }, async t => {

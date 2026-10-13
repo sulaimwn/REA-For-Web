@@ -3,8 +3,8 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { randomUUID } from "node:crypto";
 import { executeDocker, type DockerExecutor } from "./command.js";
 import { ProgressDecoder, type AnalysisProgress } from "./progress.js";
-import { REA_VERSION, WORKER_IMAGE, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
-import type { TargetKind } from "./preflight.js";
+import { NATIVE_WORKER_IMAGE, REA_VERSION, WORKER_IMAGE, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
+import { PROGRAM_KINDS, type TargetKind } from "./preflight.js";
 import type { StudioProject } from "@rea-studio/schema";
 import type { AdapterReport } from "@rea-studio/rea-adapter";
 
@@ -13,6 +13,11 @@ export type AnalysisOptions = {
   /** Original archive filename, used only when REA has no package name. */
   targetName?: string;
   outputRoot: string;
+  /**
+   * Run .exe/.dll/.apk jobs in the native image (REA + Ghidra + JADX), which also maps native programs and APKs.
+   * Without it, programs run in the standard image: .NET works; native programs and APKs are refused.
+   */
+  native?: boolean;
   limits?: Partial<AnalysisLimits>;
   signal?: AbortSignal;
   onProgress?: (progress: AnalysisProgress) => void;
@@ -51,11 +56,13 @@ async function plannedRoot(path: string): Promise<string> {
   }
 }
 
-export function containerArgs(name: string, target: string, kind: TargetKind, limits: AnalysisLimits, targetName = basename(target)): string[] {
+export function containerArgs(name: string, target: string, kind: TargetKind, limits: AnalysisLimits, targetName = basename(target), image = WORKER_IMAGE): string[] {
   safeMountPath(target);
   if (!targetName || targetName.length > 200 || /[\x00-\x1f/\\]/u.test(targetName)) {
     throw new WorkerError("invalid_input", "Target name must be a filename up to 200 characters.");
   }
+  if (image !== WORKER_IMAGE && image !== NATIVE_WORKER_IMAGE) throw new WorkerError("invalid_input", "Unknown worker image.");
+  // The native image runs under the same sandbox: Ghidra on notepad.exe peaked at 52 processes/threads and ~940 MiB.
   return [
     "create", "--pull=never", "--name", name, "--label", "rea-studio.worker=true",
     "--network=none", "--user=1000:1000", "--read-only", "--cap-drop=ALL",
@@ -64,11 +71,14 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
     "--ulimit=nofile=512:512", "--log-driver=none", "--workdir=/tmp",
     `--env=NODE_OPTIONS=--max-old-space-size=${limits.heapMb}`,
     "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=268435456",
-    "--mount", `type=bind,source=${target},target=/input/target${kind === "asar" ? ".asar" : ""},bind-recursive=disabled,readonly`,
-    WORKER_IMAGE, kind, String(limits.maxFiles), String(limits.maxInputBytes),
+    "--mount", `type=bind,source=${target},target=/input/target${kind === "directory" ? "" : `.${kind}`},bind-recursive=disabled,readonly`,
+    image, kind, String(limits.maxFiles), String(limits.maxInputBytes),
     String(limits.maxOutputBytes), String(limits.heapMb), String(limits.timeoutMs), String(limits.sourceTimeoutMs), targetName,
   ];
 }
+
+/** File targets by extension; anything else must be an extracted app directory. */
+const FILE_KINDS: Record<string, TargetKind> = { ".asar": "asar", ".exe": "exe", ".dll": "dll", ".apk": "apk" };
 
 function jsonRecord(text: string): Record<string, unknown> {
   const value: unknown = JSON.parse(text);
@@ -94,13 +104,14 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
   if (options.signal?.aborted) throw new WorkerError("cancelled", "Analysis was cancelled.");
   const input = resolve(options.targetPath);
   const stats = await lstat(input);
-  if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile()) ||
-      (stats.isFile() && extname(input).toLowerCase() !== ".asar")) {
-    throw new WorkerError("invalid_input", "Input must be an ordinary .asar file or extracted app directory.");
+  const fileKind = FILE_KINDS[extname(input).toLowerCase()];
+  if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile()) || (stats.isFile() && !fileKind)) {
+    throw new WorkerError("invalid_input", "Input must be an ordinary .asar, .exe, .dll or .apk file, or an extracted app directory.");
   }
   const target = await realpath(input);
   safeMountPath(target);
-  const kind: TargetKind = stats.isDirectory() ? "directory" : "asar";
+  const kind: TargetKind = stats.isDirectory() ? "directory" : fileKind!;
+  const image = options.native && PROGRAM_KINDS.includes(kind) ? NATIVE_WORKER_IMAGE : WORKER_IMAGE;
   const root = resolve(options.outputRoot);
   if (kind === "directory" && within(target, await plannedRoot(root))) {
     throw new WorkerError("invalid_input", "Output root must be outside the analyzed directory.");
@@ -132,7 +143,7 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     const info = await docker(["info", "--format", "{{json .}}"], { signal: controller.signal });
     if (info.code !== 0) throw new WorkerError("docker_unavailable", "Docker engine is unavailable.");
     assertEngine(jsonRecord(info.stdout));
-    const args = containerArgs(name, target, kind, limits, options.targetName);
+    const args = containerArgs(name, target, kind, limits, options.targetName, image);
     createAttempted = true;
     const creation = await docker(args, { signal: controller.signal });
     if (creation.code !== 0) throw new WorkerError("docker_failed", `Could not create worker container: ${creation.stderr}`);

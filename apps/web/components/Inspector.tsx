@@ -15,7 +15,7 @@ interface Props {
 
 type Fact = [label: string, value: string | number | boolean | null | undefined];
 
-function facts(n: StudioNode): Fact[] {
+function facts(n: StudioNode, appKind: string): Fact[] {
   switch (n.kind) {
     case 'process':
       return [['Role', n.role], ['Entry file', n.path], ['Declared as', n.declaredPath], ['Found via', n.mechanism]];
@@ -95,8 +95,21 @@ function facts(n: StudioNode): Fact[] {
         ['Method', n.name],
         ['IL size', n.ilSize === null ? null : `${n.ilSize} bytes`],
         ['Native (P/Invoke)', n.pinvoke],
-        ['Entry point', n.entryPoint || null],
+        [appKind === 'android' ? 'Launcher onCreate (Studio heuristic)' : 'Entry point', n.entryPoint || null],
       ];
+    case 'native-function':
+      return [['Function', n.name], ['Address', n.address], ['Entry-style symbol (Studio heuristic)', n.entryPoint || null]];
+    case 'android-component':
+      return [
+        ['Type', n.componentType],
+        ['Class', n.className],
+        ['Exported', n.exported === null ? 'not declared' : n.exported ? 'yes; access may depend on permissions' : 'no'],
+        ['Launcher', n.launcher || null],
+        ['Intent actions', n.intentActions.join(', ') || null],
+        ['Authorities', n.authorities],
+      ];
+    case 'android-permission':
+      return [['Permission', n.name]];
     case 'native-import':
       return [
         ['Library', n.library],
@@ -104,7 +117,9 @@ function facts(n: StudioNode): Fact[] {
         ['Declared as', n.managedName],
         ['Calling convention', n.callingConvention],
         ['Character set', n.charSet],
-        ['Note', 'REA proves the declaration only, not that the library or export exists'],
+        ['Note', n.managedName === null
+          ? 'From the program’s import table; the library itself wasn’t analyzed'
+          : 'A P/Invoke declaration: REA proves the declaration only, not that the library or export exists'],
       ];
     case 'external-member':
       return [
@@ -241,7 +256,7 @@ export function Inspector({ ix, node, onSelect, onFocus }: Props) {
       </header>
 
       <dl className="facts">
-        {facts(node)
+        {facts(node, ix.project.target.appKind)
           .filter(([, v]) => v !== null && v !== undefined && v !== '')
           .map(([k, v]) => (
             <div key={k} className="facts__row">

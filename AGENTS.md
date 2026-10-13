@@ -10,9 +10,10 @@ interactive, evidence-backed map of how it works. Analysis is powered by
 [REA](https://github.com/morluto/rea) running in a backend worker.
 
 See `ARCHITECTURE.md` for the design. Current local-mode targets: Electron/JS,
-.NET programs and website captures. Program files are analyzed statically;
-website capture loads the requested page in a fresh browser. The hosted worker
-still accepts only Electron/JS artifacts. Android/native providers are separate work.
+.NET/native Windows programs, Android APKs and website captures. Program files
+are analyzed statically; website capture loads the requested page in a fresh
+browser. The Docker runner supports programs/APKs; upload admission still only
+accepts ASAR until its separate integration task lands.
 
 ## Before you start any work
 

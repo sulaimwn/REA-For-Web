@@ -29,9 +29,15 @@ function rea(args) {
 /** Replaces the sample's absolute path and folder, in both slash styles, everywhere in the JSON. */
 function scrub(value, inputPath) {
   let s = JSON.stringify(value);
-  const variants = (p) => [p, p.replaceAll('\\', '/')].map((v) => JSON.stringify(v).slice(1, -1));
+  // Escaped once (a JSON string) and twice (JSON text inside a JSON string, as JADX tool responses are).
+  const escape = (v) => JSON.stringify(v).slice(1, -1);
+  const variants = (p) => [p, p.replaceAll('\\', '/')].flatMap((v) => [escape(escape(v)), escape(v)]);
   for (const v of variants(inputPath)) s = s.split(v).join('<INPUT_PATH>');
   for (const v of variants(dirname(inputPath))) s = s.split(v).join('<INPUT_DIR>');
+  // Provider runs (JADX) also report their working copy, JAR and JDK locations.
+  for (const [path, label] of [[process.env.REA_JADX_MCP_JAR, '<JADX_JAR>'], [process.env.JAVA_HOME, '<JAVA_HOME>'], [tmpdir(), '<TEMP>']]) {
+    if (path) for (const v of variants(path)) s = s.split(v).join(label);
+  }
   const home = process.env.USERPROFILE ?? process.env.HOME;
   if (home && s.includes(JSON.stringify(home).slice(1, -1))) throw new Error('A local home path survived scrubbing.');
   return JSON.parse(s);
@@ -70,11 +76,21 @@ function write(name, inputPath, bundle) {
   });
 }
 
-// Android: inventory, then REA's inventory-only Android projection (no jadx provider configured).
-{
+// Android: REA's JADX provider in one MCP session (REA_JADX_MCP_JAR = jadx-headless-mcp 0.7.1, plus a JDK),
+// using the adapter's collector: package and manifest, the app's classes, each method decompiled, references.
+// Without the JAR, REA only inventories the APK's files, which has no adapter.
+if (process.env.REA_JADX_MCP_JAR) {
   const apk = join(fixtures, 'sample-apps', 'tiny-android', 'tiny-notes.apk');
-  const inventory = rea(['inspect-artifact', apk]);
-  const evidence = (inventory.normalized_result?.substeps ?? []).filter((s) => s.operation === 'inventory_artifact' && s.evidence).map((s) => s.evidence);
-  const graph = reaWithInput('project-android-application-graph', { inventory_evidence: evidence });
-  write('tiny-android', apk, { inspect_artifact: inventory, project_android_application_graph: graph });
+  const { collectAndroidBundle } = await import(new URL('../../packages/rea-adapter/dist/android-session.js', import.meta.url).href);
+  write('tiny-android', apk, await collectAndroidBundle({ reaScript, apk }));
+}
+
+// Native: REA's Ghidra provider in one MCP session (GHIDRA_INSTALL_DIR = Ghidra 12.1.x, plus JDK 21),
+// using the adapter's collector (shared by the CLI and the worker) so the fixture is exactly what they read.
+// Needs `npm run build -w @rea-studio/rea-adapter` first.
+if (process.env.GHIDRA_INSTALL_DIR) {
+  const exe = join(fixtures, 'sample-apps', 'tiny-native', 'tiny-notes.exe');
+  const { collectNativeBundle } = await import(new URL('../../packages/rea-adapter/dist/native-session.js', import.meta.url).href);
+  const bundle = await collectNativeBundle({ reaScript, program: exe });
+  write('tiny-native', exe, JSON.parse(JSON.stringify(bundle).split(JSON.stringify(process.env.GHIDRA_INSTALL_DIR).slice(1, -1)).join('<GHIDRA_INSTALL_DIR>')));
 }

@@ -1,10 +1,49 @@
 # Analysis worker foundation (T006)
 
-This package runs **only static Electron/JavaScript analysis** with
-`rea-agents@6.4.0`. It is an internal runner, not an upload API. It currently
+This package runs **only static analysis** with `rea-agents@6.4.0`: Electron/JavaScript
+apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`) and
+Android apps (`.apk`).
+It is an internal runner, not an upload API. It
 returns a **StudioProject file** using T004's adapter. Raw REA output stays in
 private container temporary storage and is removed after normalization. Only
 `packages/rea-adapter` reads that raw JSON.
+
+## Programs: .NET, native and Android (T024)
+
+- **.NET** works in the standard image. REA reads the assembly's metadata and IL with
+  `inspect-managed-artifact`, `inspect-managed-members` and `inspect-managed-native-boundaries`,
+  then `project-managed-application-graph`.
+- **Native programs** need REA's Ghidra provider, which lives in a second image,
+  `rea-studio-worker-native:rea-6.4.0` (`Dockerfile.native`). It is the standard image plus:
+  - a JDK 21 (Temurin, pinned by digest);
+  - Ghidra 12.1.4 (SHA-256 checked);
+  - jadx-headless-mcp 0.7.1 for Android (SHA-256 checked).
+
+  It is about 2.2 GB. Inside it, the adapter's `native-session` drives `rea --mcp` so Ghidra
+  imports the program once and answers every query.
+- **Android apps** also run in the native image. REA's JADX provider (`REA_JADX_MCP_JAR`) reads the
+  manifest, the app's classes and their decompiled methods in one `rea --mcp` session, with JADX's
+  heap set by `REA_JADX_HEAP_MIB = heapMb`. The tiny sample takes 18 s in the sandbox.
+- **Choosing the image:** set `native: true` (`--native` on the CLI, `REA_NATIVE_WORKER=1` for the
+  queue) to run `.exe`/`.dll`/`.apk` jobs in the native image. Without it, a native program or an
+  APK fails with `invalid_input` and says it needs the native worker. `.asar` and directories always use the
+  standard image.
+- **Same sandbox for both images:** no network, read-only root, non-executable `/tmp`, 128 PIDs,
+  512 open files, 2 GiB. Measured with these limits:
+
+  | Program | Time | Size | Peak PIDs | Peak memory |
+  |---|---|---|---|---|
+  | `tiny-notes.exe` | about 50 s | 96 nodes | 54 | ~700 MiB |
+  | Windows `notepad.exe` (360 KB) | 245 s | 853 nodes, 1,863 links | 52 | ~940 MiB |
+
+  Ghidra's JVM gets the analyzer heap (`heapMb`) via `GHIDRA_HEADLESS_MAXMEM`.
+- **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`
+  (or `PK` for an APK).
+  APK ZIP metadata also caps entry count and declared expanded bytes, rejects unsafe names,
+  links, split/encrypted/ZIP64 archives, and bounds its directory to 8 MiB. No entries are
+  extracted during admission. REA parses the program itself; it is never run.
+- **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
+  so programs with many thousands of functions can hit the job deadline.
 
 ## Build and run
 
@@ -20,14 +59,16 @@ acceptable). Build the image from the repository root:
 
 ```sh
 docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
+# Optional, for native programs (downloads Ghidra and a JDK at build time):
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
 ```
 
 Image builds need network access. Analysis containers have no network, and jobs
 use `--pull=never` so the image must already exist. The Node base image is pinned
 by digest. `rea-runtime/package-lock.json` locks REA and its transitive packages;
 the image uses `npm ci` with package scripts disabled and verifies REA's exact
-version before analysis. The image has not yet been tested on this machine
-because Docker is unavailable.
+version before analysis. Both images have been built locally; see the independent R003
+handoff for the latest Docker verification results.
 
 The runtime lock is independent of the workspace lock: REA is installed only
 inside the analysis image. To intentionally update it, change the runtime
@@ -131,15 +172,14 @@ The normal suite uses T004 to convert real T001 fixture bytes, genuine archives
 produced by the official Electron packager, and trusted fake Docker processes to
 exercise lifecycle failures. It does not execute any uploaded application.
 
-`test:docker` is opt-in and requires the built image and a suitable engine. Five
-checks inspect the actual container configuration, analyze the inert sample as
-a directory and generated ASAR, reject invalid/oversized input, cancel on REA
-progress, and stop oversized output. They check container removal and discarded
-partial results. No uploaded target is executed. The suite fails when Docker is
-missing; real container/image verification is still pending.
+`test:docker` is opt-in and requires a suitable engine. Its 11 checks cover the container
+configuration, directory/ASAR analysis, .NET, native Ghidra and Android JADX analysis,
+limits, retained timeout evidence, cancellation and cleanup. Native/Android checks
+skip only when the optional image is absent; `REA_REQUIRE_NATIVE_TESTS=1` makes that
+a failure. No uploaded target is executed.
 
 `.github/workflows/worker.yml` installs dependencies, typechecks all workspaces,
-runs worker and adapter tests, builds the image, runs those Docker checks on a Linux GitHub
+runs worker and adapter tests, builds both images, requires all Docker checks on a Linux GitHub
 runner, and fails if worker containers remain. It runs on push/pull request and
 can be dispatched manually after the workflow reaches GitHub. Actions are pinned
 to commits, repository credentials are not persisted, and token permissions are

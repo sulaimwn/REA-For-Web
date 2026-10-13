@@ -26,11 +26,13 @@ Details for a task go under its heading below the table.
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare website deployment: demos, local mode and bring-your-own-key Ask | claude | done | T013, T016 |
 | T020 | MIT license (the human's choice) | claude | done | — |
-| T021 | **Essential.** Beyond Electron: .NET/web reviewed; newer native/Android continuation awaits review | claude | review | T007 |
+| T021 | **Essential.** Beyond Electron: .NET/web/native/Android adapters and local CLI | claude | done | T007 |
 | T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | done | T016, T018 |
-| T024 | **Essential.** Program analysis worker: .NET and native via Ghidra + JDK 21 (human approved) | claude | review | T006, T021 |
+| T024 | **Essential.** Program analysis worker: .NET, native Ghidra and Android JADX | claude | done | T006, T021 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 | R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
+| R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | done | T021 |
+| R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
 
 ---
 
