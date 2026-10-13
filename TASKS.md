@@ -25,6 +25,7 @@ Details for a task go under its heading below the table.
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare deploy preparation | claude | in progress | T007, T013 |
+| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | in progress | T016, T017 |
 
 ---
 
@@ -99,3 +100,9 @@ on `codex/T007-upload-pipeline`: preserve every REA endpoint candidate, add an
 optional Studio heuristic assessment, and keep unassessed candidates visible.
 Rule validated on full GitHub Desktop output: 2 of 89 endpoint candidates plausible,
 exactly the two real ones. UI then hides `unlikely` endpoints by default.
+
+### T019 — UI redesign
+The human: the UI looks obviously AI-generated. Research the common tells (purple
+accents, pill badges, centered hero + card row, glow, eyebrow labels) and redesign
+from the product: a reverse-engineering evidence tool. Landing leads with the real
+explorer. Restyle landing, explorer, inspector, Ask and /open. No behavior changes.
