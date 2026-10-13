@@ -79,7 +79,12 @@ export function configFromEnv(
         endpoint: `https://${account}.r2.cloudflarestorage.com`,
         requestChecksumCalculation: 'WHEN_REQUIRED',
         responseChecksumValidation: 'WHEN_REQUIRED',
-        requestHandler: { connectionTimeout: 5000, requestTimeout: 60000 },
+        requestHandler: {
+          connectionTimeout: 5000,
+          requestTimeout: 60000,
+          // This SDK otherwise only warns when requestTimeout elapses.
+          throwOnRequestTimeout: true,
+        },
         credentials: {
           accessKeyId: required(env, 'R2_ACCESS_KEY_ID'),
           secretAccessKey: required(env, 'R2_SECRET_ACCESS_KEY'),
@@ -241,6 +246,8 @@ export class UploadControl {
             }
           : job.failedReason === 'Analysis failed (progress_unavailable).'
             ? { error: 'Analysis lost its queue connection. Its upload has been removed; upload it again to retry.' }
+            : job.failedReason === 'Analysis failed (storage_unavailable).'
+              ? { error: 'Analysis lost its storage connection. Its upload has been removed; upload it again to retry.' }
             : { error: job.failedReason }),
       };
     return {
