@@ -37,14 +37,14 @@ Details for a task go under its heading below the table.
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | done | T025 |
 | T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | done | T025 |
 | T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | done | T021, T024 |
-| T030 | **Human request.** Free Ask tier: Cloudflare Workers AI open model with tool calls, per-visitor rate limit, no key needed; Claude key stays as the upgrade | claude | in progress | T016, T018 |
-| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
+| T030 | **Human request.** Free Ask tier: Cloudflare Workers AI open model with tool calls, per-visitor rate limit, no key needed; Claude key stays as the upgrade | claude | done | T016, T018 |
+| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | done | T021, T028 |
 | T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | done | T025 |
 | R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
 | T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | done | T028, R004, T025 |
-| T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | in progress | T031 |
+| T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | done | T031 |
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
-| R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | review | T030, T031, T033 |
+| R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | done | T030, T031, T033 |
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | in progress | T026, T029 |
 

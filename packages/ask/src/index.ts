@@ -8,3 +8,5 @@ export type { ProjectGraph } from './graph.js';
 export { ASK_SYSTEM_PROMPT } from './prompt.js';
 export { ASK_TOOLS, runAskTool } from './tools.js';
 export { estimateResponseCost } from './pricing.js';
+export { askProjectFree, FreeAskUnavailableError, FREE_ASK_MODEL, FREE_ASK_MODEL_LABEL, FREE_ASK_LIMITS } from './free.js';
+export type { FreeChat, FreeChatResponse, FreeMessage, FreeToolCall } from './free.js';

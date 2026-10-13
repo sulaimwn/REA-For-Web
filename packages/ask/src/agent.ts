@@ -2,6 +2,7 @@
 // Works in the browser (bring-your-own-key) and in Node (pre-generated demo tours).
 import Anthropic from '@anthropic-ai/sdk';
 import type { StudioProject } from '@rea-studio/schema';
+import { citedNodeIds } from './cite.js';
 import { indexGraph, type ProjectGraph } from './graph.js';
 import { ASK_SYSTEM_PROMPT, STEP_LIMIT_NOTE } from './prompt.js';
 import { ASK_TOOLS, runAskTool } from './tools.js';
@@ -58,17 +59,7 @@ export class AskDeclinedError extends Error {
   override name = 'AskDeclinedError';
 }
 
-const NODE_LINK = /\]\(node:([^)\s]+)\)/g;
-
-/** Node ids linked from an answer, kept only if they exist in the project. */
-export function citedNodeIds(answer: string, graph: ProjectGraph): string[] {
-  const ids: string[] = [];
-  for (const m of answer.matchAll(NODE_LINK)) {
-    const id = m[1];
-    if (id && graph.byId.has(id) && !ids.includes(id)) ids.push(id);
-  }
-  return ids;
-}
+export { citedNodeIds };
 
 export async function askProject(opts: AskOptions): Promise<AskResult> {
   const graph = 'byId' in opts.project ? opts.project : indexGraph(opts.project);
