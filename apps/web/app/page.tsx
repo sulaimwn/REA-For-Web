@@ -17,7 +17,7 @@ export default function HomePage() {
           <div>
             <h1>See how an Electron app is put together.</h1>
             <p>
-              REA Studio reads an app’s shipped files and maps its processes, windows, preload bridges, IPC channels, native
+              REA for Web reads an app’s shipped files and maps its processes, windows, preload bridges, IPC channels, native
               add-ons and local storage. Each part comes with REA’s evidence, usually down to the file and line. Nothing is
               executed.
             </p>
@@ -79,7 +79,7 @@ export default function HomePage() {
                 </tr>
                 <tr>
                   <td><span className="line line--heuristic" /></td>
-                  <td><strong>Studio heuristic.</strong> REA Studio’s own guess on top of REA’s findings. Always labeled as such.</td>
+                  <td><strong>Studio heuristic.</strong> REA for Web’s own guess on top of REA’s findings. Always labeled as such.</td>
                 </tr>
               </tbody>
             </table>
