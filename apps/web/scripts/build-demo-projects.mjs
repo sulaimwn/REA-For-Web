@@ -48,6 +48,12 @@ const DEMOS = [
     file: 'tiny-native.rea-6.4.0.json',
     blurb: 'A hand-written C program read with Ghidra: its functions, the Windows APIs each one calls, a URL, a file and a registry key.',
   },
+  {
+    slug: 'tiny-android',
+    title: 'Tiny Android app',
+    file: 'tiny-android.rea-6.4.0.json',
+    blurb: 'A hand-written APK read with JADX: its activity, service, receiver and provider, permissions, and the WebView’s JavaScript bridge.',
+  },
 ];
 
 /**
@@ -72,6 +78,7 @@ const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
     blurb,
     name: project.target.name,
     version: project.target.version,
+    appKind: project.target.appKind,
     nodes: project.nodes.length,
     edges: project.edges.length,
     coverage: project.analysis.coverage.status,

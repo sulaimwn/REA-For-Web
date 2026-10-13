@@ -8,6 +8,7 @@ import {
   adaptManagedFiles, adaptReaFile, isManagedArtifactFile, managedProjectionInput, type ManagedReaFiles,
 } from "@rea-studio/rea-adapter/file";
 import { collectNativeBundle, ghidraConfigured } from "@rea-studio/rea-adapter/native-session";
+import { collectAndroidBundle, jadxConfigured } from "@rea-studio/rea-adapter/android-session";
 import { ByteLimit } from "./command.js";
 import { PROGRAM_KINDS, TARGET_KINDS, preflightTarget, type TargetKind } from "./preflight.js";
 import { REA_VERSION, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
@@ -97,7 +98,27 @@ async function analyzeProgram(targetPath: string, temp: string, limits: Analysis
     env: { ...process.env, NODE_OPTIONS: "", NODE_PATH: "", GHIDRA_HEADLESS_MAXMEM: `${limits.heapMb}m` },
     onProgress: message => progress("native", message),
   });
-  const bundlePath = join(temp, "native-bundle.json");
+  return adaptBundle(bundle, join(temp, "native-bundle.json"), limits, options);
+}
+
+/** An Android package: REA's JADX provider (native image only) reads its manifest, classes and decompiled code. */
+async function analyzeAndroid(targetPath: string, temp: string, limits: AnalysisLimits, targetName: string) {
+  if (!jadxConfigured()) {
+    throw new WorkerError("invalid_input", "Android apps need the native analysis worker (REA's JADX provider).");
+  }
+  progress("android", "JADX is decompiling the app");
+  const bundle = await collectAndroidBundle({
+    reaScript: REA_SCRIPT, apk: targetPath, maxMessageBytes: limits.maxOutputBytes,
+    nodeArgs: [`--max-old-space-size=${limits.heapMb}`],
+    // JADX's JVM gets the same heap budget as REA's Node analysis.
+    env: { ...process.env, NODE_OPTIONS: "", NODE_PATH: "", REA_JADX_HEAP_MIB: String(limits.heapMb) },
+    onProgress: message => progress("android", message),
+  });
+  return adaptBundle(bundle, join(temp, "android-bundle.json"), limits, { reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes, targetName });
+}
+
+/** Writes a collected provider bundle (bounded) and lets the adapter read it. */
+async function adaptBundle(bundle: Record<string, unknown>, bundlePath: string, limits: AnalysisLimits, options: { reaVersion: string; maxBytes: number; targetName: string }) {
   await writeFile(bundlePath, JSON.stringify(bundle), { flag: "wx", mode: 0o600 });
   if ((await stat(bundlePath)).size > limits.maxOutputBytes) {
     throw new WorkerError("output_limit_exceeded", "Analysis output exceeded its byte limit.");
@@ -137,8 +158,8 @@ async function main() {
   await preflightTarget(targetPath, targetKind, limits);
   const temp = await mkdtemp("/tmp/rea-analysis-");
   try {
-    const result = PROGRAM_KINDS.includes(targetKind)
-      ? await analyzeProgram(targetPath, temp, limits, targetName)
+    const result = targetKind === "apk" ? await analyzeAndroid(targetPath, temp, limits, targetName)
+      : PROGRAM_KINDS.includes(targetKind) ? await analyzeProgram(targetPath, temp, limits, targetName)
       : await analyzeJavaScript(targetPath, targetKind, temp, limits, targetName);
     await pipeline(Readable.from([JSON.stringify(result.project)]), new ByteLimit(limits.maxOutputBytes), process.stdout);
     process.stderr.write(`${JSON.stringify({ studio_worker_result: {

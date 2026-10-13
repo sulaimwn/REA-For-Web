@@ -224,6 +224,13 @@ test("program preflight checks the MZ header and the byte limit", async t => {
   await writeFile(fake, "#!/bin/sh\necho not a program\n");
   await assert.rejects(preflightTarget(fake, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   await assert.rejects(preflightTarget(sample, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
+  // An APK is a ZIP; a PE renamed to .apk (or the reverse) is refused before REA starts.
+  const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
+  assert.equal((await preflightTarget(apk, "apk", DEFAULT_LIMITS)).files, 1);
+  await assert.rejects(preflightTarget(exe, "apk", DEFAULT_LIMITS), { code: "invalid_input" });
+  await assert.rejects(preflightTarget(apk, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
+  const args = containerArgs("job", apk, "apk", DEFAULT_LIMITS, "tiny-notes.apk", NATIVE_WORKER_IMAGE);
+  assert.match(args[args.indexOf("--mount") + 1]!, /target=\/input\/target\.apk,bind-recursive=disabled,readonly$/u);
 });
 
 test("the native image is an explicit operator setting", () => {

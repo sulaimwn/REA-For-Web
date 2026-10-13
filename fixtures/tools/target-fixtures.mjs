@@ -76,23 +76,13 @@ function write(name, inputPath, bundle) {
   });
 }
 
-// Android: inventory, then REA's inventory-only Android projection (no jadx provider configured).
-{
+// Android: REA's JADX provider in one MCP session (REA_JADX_MCP_JAR = jadx-headless-mcp 0.7.1, plus a JDK),
+// using the adapter's collector: package and manifest, the app's classes, each method decompiled, references.
+// Without the JAR, REA only inventories the APK's files, which has no adapter.
+if (process.env.REA_JADX_MCP_JAR) {
   const apk = join(fixtures, 'sample-apps', 'tiny-android', 'tiny-notes.apk');
-  const inventory = rea(['inspect-artifact', apk]);
-  const evidence = (inventory.normalized_result?.substeps ?? []).filter((s) => s.operation === 'inventory_artifact' && s.evidence).map((s) => s.evidence);
-  const graph = reaWithInput('project-android-application-graph', { inventory_evidence: evidence });
-  const bundle = { inspect_artifact: inventory, project_android_application_graph: graph };
-  // With REA's JADX provider (REA_JADX_MCP_JAR = jadx-headless-mcp 0.7.1, plus a JDK): manifest, classes, members.
-  if (process.env.REA_JADX_MCP_JAR) {
-    bundle.inspect_android_package = rea(['inspect-android-package', apk]);
-    bundle.search_android_classes = rea(['search-android-classes', apk, '']);
-    const names = (bundle.search_android_classes.normalized_result?.classes ?? bundle.search_android_classes.normalized_result?.matches ?? [])
-      .map((c) => (typeof c === 'string' ? c : c.name ?? c.class_name ?? c.full_name))
-      .filter((n) => typeof n === 'string');
-    bundle.inspect_android_class = names.map((name) => rea(['inspect-android-class', apk, name]));
-  }
-  write('tiny-android', apk, bundle);
+  const { collectAndroidBundle } = await import(new URL('../../packages/rea-adapter/dist/android-session.js', import.meta.url).href);
+  write('tiny-android', apk, await collectAndroidBundle({ reaScript, apk }));
 }
 
 // Native: REA's Ghidra provider in one MCP session (GHIDRA_INSTALL_DIR = Ghidra 12.1.x, plus JDK 21),

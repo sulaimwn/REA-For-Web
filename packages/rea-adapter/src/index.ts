@@ -20,7 +20,8 @@ import { buildFindings } from './findings.js';
 import { adaptManagedBundle, isManagedBundle } from './managed.js';
 import { adaptWebBundle, isWebBundle } from './web.js';
 import { adaptNativeBundle, isNativeBundle } from './native.js';
-import { linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
+import { adaptAndroidBundle, isAndroidBundle } from './android.js';
+import { assessEndpoints, linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
 import { num, str } from './read.js';
@@ -31,6 +32,11 @@ export { ReaOutputError };
 export { MANAGED_OPERATION, isManagedBundle } from './managed.js';
 export { WEB_OPERATION, isWebBundle } from './web.js';
 export { interestingNativeStrings, isNativeBundle, nativeProcedureAddresses } from './native.js';
+export { ANDROID_RULES, isAndroidBundle } from './android.js';
+export { androidAppClassFilter, manifestComponents } from './android-manifest.js';
+
+export { recoverDroppedRelationships } from './recover.js';
+export type { IsolatedRun, RecoveryReport } from './recover.js';
 
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
@@ -67,6 +73,8 @@ export interface AdapterReport {
   unrecognizedNodeKinds: Record<string, number>;
   /** Edges added by Studio heuristics, by heuristic name (origin `studio-heuristic`). */
   heuristicEdges: Record<string, number>;
+  /** Studio `endpoint-shape` verdicts added to REA endpoint candidates (T012). */
+  endpointVerdicts: { plausible: number; unlikely: number };
   /** .NET only: REA call edges left out, by reason (e.g. `method-spec` targets REA doesn't name). */
   skippedManagedCalls?: Record<string, number>;
 }
@@ -172,6 +180,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   if (isWebBundle(raw)) return adaptWebBundle(raw, options);
   // Native programs: REA with the Ghidra provider (T021).
   if (isNativeBundle(raw)) return adaptNativeBundle(raw, options);
+  if (isAndroidBundle(raw)) return adaptAndroidBundle(raw, options);
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {
@@ -186,6 +195,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     droppedSelfEdges: 0,
     unrecognizedNodeKinds: {},
     heuristicEdges: {},
+    endpointVerdicts: { plausible: 0, unlikely: 0 },
   };
 
   // --- nodes
@@ -295,6 +305,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   const bridgeReads = linkBridgeMemberReads(r.semantic_graph?.nodes ?? [], nodes);
   edges.push(...bridgeReads);
   report.heuristicEdges[BRIDGE_MEMBER_READ] = bridgeReads.length;
+  // Verdicts on REA's endpoint candidates; the candidates themselves are kept unchanged.
+  report.endpointVerdicts = assessEndpoints(nodes);
 
   // --- project
   const rootPackage = nodes.find((n) => n.kind === 'package' && n.path === 'package.json');

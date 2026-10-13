@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { KindGlyph } from '../components/KindGlyph';
 import { LandingDemo } from '../components/LandingDemo';
-import { SiteFooter, SiteHeader } from '../components/SiteChrome';
+import { REPO_URL, SiteFooter, SiteHeader } from '../components/SiteChrome';
 import { loadDemos } from '../lib/demos';
 
 /** The demo shown first: small enough that its overview is readable at a glance. */
@@ -23,7 +23,7 @@ export default function HomePage() {
             <p>
               REA for Web reads an app’s shipped files and maps how it’s built: an Electron app’s processes, windows, preload
               bridges and IPC channels, or a .NET program’s types, call graph and calls into native code. Each part comes with
-              REA’s evidence. Nothing is executed.
+              REA’s evidence. Program files are never executed; website capture loads the requested page in a fresh browser.
             </p>
           </div>
           <dl className="spec">
@@ -39,7 +39,10 @@ export default function HomePage() {
             </div>
             <div>
               <dt>Ask</dt>
-              <dd>Questions in plain English, using your own Anthropic API key</dd>
+              <dd>
+                Questions in plain English, here with your own Anthropic API key, or from Claude by adding{' '}
+                <code>/api/mcp</code> as an MCP connector (<a href={`${REPO_URL}/blob/main/docs/mcp.md`}>how</a>)
+              </dd>
             </div>
             <div>
               <dt>Engine</dt>

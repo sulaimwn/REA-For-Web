@@ -77,11 +77,13 @@ const REPORTED_SEPARATELY = new Set(['id', 'label', 'evidence', 'origin']);
 
 /** Kind-specific node fields; id, label, evidence and origin are reported separately. */
 function facts(n: StudioNode): Record<string, unknown> {
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     Object.entries(n)
       .filter(([k]) => !REPORTED_SEPARATELY.has(k))
       .map(([k, v]) => [k, Array.isArray(v) && v.length > LIST_CAP ? [...v.slice(0, LIST_CAP), `… ${v.length - LIST_CAP} more`] : v]),
   );
+  if (n.kind === 'managed-type') result['classificationNote'] = 'compilerGenerated is a Studio name-pattern heuristic; false does not prove a type was not compiler-generated.';
+  return result;
 }
 
 function edgeView(g: ProjectGraph, e: StudioEdge, from: string) {
@@ -98,7 +100,7 @@ function edgeView(g: ProjectGraph, e: StudioEdge, from: string) {
 }
 
 function rootId(g: ProjectGraph): string | undefined {
-  return g.project.nodes.find((n) => n.kind === 'file' && n.path === '')?.id;
+  return g.project.nodes.find((n) => n.kind === 'file' && n.path === '' || n.kind === 'assembly')?.id;
 }
 
 function overview(g: ProjectGraph) {
@@ -130,7 +132,9 @@ function search(g: ProjectGraph, query: string, kind: string) {
     const text = searchableText(n);
     if (!words.every((w) => text.includes(w))) continue;
     const name = nodeName(n).toLowerCase();
-    const score = (name === q ? 0 : name.includes(q) ? 1 : 2) * 10 + (n.kind === 'endpoint' || n.kind === 'analysis-gap' ? 5 : 0);
+    // Real-looking endpoints rank normally; candidates judged unlikely (T012) and gaps rank last.
+    const noise = n.kind === 'endpoint' ? (n.assessment?.verdict === 'plausible' ? 0 : 8) : n.kind === 'analysis-gap' ? 5 : 0;
+    const score = (name === q ? 0 : name.includes(q) ? 1 : 2) * 10 + noise;
     hits.push({ n, score });
   }
   hits.sort((a, b) => a.score - b.score || nodeName(a.n).length - nodeName(b.n).length);

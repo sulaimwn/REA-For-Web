@@ -80,8 +80,13 @@ notes/handoffs/   agent handoff notes
 
 ## Scope
 
-- **v0.1:** Electron/JS (`.asar` or extracted app dir), static analysis only.
-- **Later:** APK (JADX), .NET, websites by URL, native via headless Ghidra.
+- **Local mode:** Electron/JS (`.asar` or extracted app dir), managed .NET
+  (`.exe`/`.dll`), and website URLs. Program files are analyzed statically;
+  website capture loads the requested page in a fresh Chrome profile, then
+  analyzes captured scripts statically.
+- **Hosted worker:** still Electron/JS only. .NET uploads, bounded per-file
+  recovery, Android (JADX), native (Ghidra), and isolated website capture need
+  separate worker integration and acceptance checks.
 - **Never on the server:** runtime/process capture of uploaded targets.
 
 ## StudioProject schema (v0.1.0)
@@ -93,7 +98,7 @@ It was derived from the real REA 6.4.0 fixtures in `fixtures/` (see
 ```ts
 interface StudioProject {
   schemaVersion: '0.1.0';
-  id: string;                    // = target.sha256 (cache / dedupe key)
+  id: string;                    // artifact digest, or capture evidence identity for a URL
   target: TargetInfo;            // name, version, sha256, format, appKind
   analysis: AnalysisInfo;        // engine + version, coverage, limitations, stats, omitted parts
   findings: FindingCoverage[];   // one per category: found / not-found / confirmed-absent
@@ -104,6 +109,17 @@ interface StudioProject {
 ```
 
 ### Design rules
+
+T021 adds `appKind: dotnet | web`, `format: pe | url`, and the assembly,
+managed-type, managed-method, native-import and external-member node kinds.
+Managed fields are listed on their type; managed calls come from REA's member
+inspection. Findings are target-specific. The additive schema remains 0.1.0,
+and existing Electron projects remain readable. For URLs, `target.sha256`
+stores the capture identity rather than a nonexistent single-file digest.
+
+T012's optional endpoint assessment preserves REA's candidates and separately
+labels the Studio verdict. T008 recovery preserves original observations and
+labels any path-based relative-import resolution as a Studio heuristic.
 
 1. **Evidence on everything.** Every node has `evidence[]` (one per REA observation);
    every edge has one `evidence`. Evidence keeps REA's `state`

@@ -19,7 +19,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 |---|---|---|---|---|
 | **Electron / JS app** | `analyze-javascript-application` | none | yes | `tiny-electron`, GitHub Desktop, VS Code |
 | **.NET (.exe/.dll, managed)** | `inspect-managed-artifact`, `inspect-managed-members`, `inspect-managed-native-boundaries`, then `project-managed-application-graph` | none (REA's own managed provider) | **yes, complete** | `tiny-dotnet.rea-6.4.0.json` |
-| **Android (.apk)** | `inspect-artifact` → `project-android-application-graph`; deep: `inspect-android-package`, `search-android-classes`, `inspect-android-class`, `trace-android-references` | jadx-headless-mcp 0.7.1 JAR (`REA_JADX_MCP_JAR`) + a JDK; apktool for `decode-android-resources` | **yes, with the JAR** (data collected; adapter next) | `tiny-android.rea-6.4.0.json` |
+| **Android (.apk)** | `inspect-artifact` → `project-android-application-graph`; deep: `inspect-android-package`, `search-android-classes`, `inspect-android-class`, `trace-android-references` | jadx-headless-mcp 0.7.1 JAR (`REA_JADX_MCP_JAR`) + a JDK; apktool for `decode-android-resources` | **yes, with the JAR** | `tiny-android.rea-6.4.0.json` |
 | **Native (.exe/.dll/ELF/Mach-O)** | REA's MCP server (one Ghidra session): `open_binary`, `binary_overview`, `list_procedures`, `list_strings`, `procedure_callees`, `xrefs`, `resolve_containing_procedure` | Ghidra 12.1.x + JDK 21 (`GHIDRA_INSTALL_DIR`); or Hopper / IDA | **yes, with Ghidra** | `tiny-native.rea-6.4.0.json` |
 | **Apple (.ipa / .app)** | `inspect-artifact` → `project-apple-application-graph`; plist / Mach-O / signature tools | inventory works anywhere; `inspect_macho`, `inspect_plist`, `inspect_signature` need a macOS host | inventory only | none yet |
 | **Website by URL** | headless browser with a loopback CDP port → `list-browser-targets` → `analyze-web-bundle` | a Chromium the worker controls | **yes** (tested on our own local site) | `reaforweb-dev-landing.web-bundle.rea-6.4.0.json` |
@@ -34,14 +34,33 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 - Limitation: external call targets have member names only (`WriteAllText`), not their declaring type.
 - No code is loaded or executed: REA reads PE/CLI metadata and IL bytes.
 
-### Android (needs one JAR)
+### Android (JADX) — working
 - Without the jadx provider, REA only proves what files the APK contains: manifest, DEX, resources, signing, native libraries and runtime family.
-- The interesting parts need jadx-headless-mcp 0.7.1, a Java program REA drives but doesn't download:
-  - activities, services, receivers and providers
-  - permissions
-  - `addJavascriptInterface` bridges (Android's version of Electron preloads)
-  - URLs
-- **Approved and downloaded:** jadx-headless-mcp 0.7.1 (SHA-256 matches the one pinned in REA's `JadxRelease.js`). With it, the fixture now also holds `inspect_android_package` (manifest, permissions, components), `search_android_classes` and `inspect_android_class` for every class.
+- **Approved and downloaded:** jadx-headless-mcp 0.7.1. Its SHA-256 matches the one pinned in REA's `JadxRelease.js`.
+- **Collector** (`packages/rea-adapter/src/android-session.ts`): one `rea --mcp` session, about 18 s for the sample; each plain CLI command restarts JADX, about 9 s. It collects:
+  - the package and its manifest;
+  - every class name;
+  - the app's own classes, meaning the package's namespace or a component's package, and their inner classes;
+  - every method of those classes decompiled, capped at 1,500;
+  - incoming references to each top-level class.
+- **Adapter** (`packages/rea-adapter/src/android.ts`):
+  - REA facts:
+    - the package;
+    - `android-permission` nodes;
+    - `android-component` nodes (activity/service/receiver/provider, exported flag, intent actions, launcher);
+    - classes and methods as `managed-type` / `managed-method`;
+    - `references` edges.
+  - Studio rules over the decompiled Java, labeled heuristic:
+    - `addJavascriptInterface` → `bridge-api`, Android's version of an Electron preload bridge;
+    - `WebView.loadUrl` → page/endpoint;
+    - URL literals → endpoints;
+    - database/preferences/file calls → storage;
+    - `startService`/`startActivity`/`sendBroadcast` with `new Intent(…, X.class)` → `invokes`;
+    - network APIs → `external-member`.
+- **Result on the sample:** it matches the answer key except one URL. That URL lives in a `static final` field, which method-level decompilation doesn't show.
+  - CLI: `rea-studio analyze app.apk` with `REA_JADX_MCP_JAR` set, about 23 s.
+  - Demo: `/explore/tiny-android`.
+- Not yet tested on a large real APK. Library classes (androidx, Kotlin, OkHttp…) are left out by design; they're listed in `search_android_classes` only.
 
 ### Native executables (Ghidra) — working
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
@@ -59,7 +78,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - `remember_last` → the Reg* APIs + `Software\TinyNotes`.
   - The CLI takes about 70 s end to end. Demo: `/explore/tiny-native`.
 - Not yet: decompiled code (`procedure_pseudo_code`), and limits for large binaries. Every function costs one `procedure_callees` call, so very large programs need a cap or REA's `get_call_graph`.
-- For the worker: Ghidra (Apache-2.0) runs headless on Linux, so it fits a Docker image: JDK 21 + Ghidra 12.1.x, roughly 1 GB more. Native analysis is slower than JS, so it needs its own time and CPU limits. A separate image tag is recommended (`rea-studio-worker-native`).
+- Hosted: T024 (`claude/T024-native-worker`, in review) adds a separate worker image with JDK 21 + Ghidra 12.1.4 and `.exe`/`.dll` jobs under the same sandbox. Local provider setup alone does not enable hosted native uploads; the upload pipeline still accepts `.asar` only.
 
 ### Apple
 - Inventory projection works on any host. Mach-O, plist and code-signature details need macOS tools that a Linux worker doesn't have.
@@ -86,20 +105,32 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 ## Proposed order
 1. **.NET**: no new tools. Schema proposal plus a working prototype on `claude/T021-dotnet-prototype`.
 2. **Websites**: no new analyzer, but needs the capture sandbox. Design above; Codex owns the worker.
-3. **Android**: needs the jadx JAR (human approval). Reuses the "bridge" UI for `addJavascriptInterface`.
-4. **Native**: needs Ghidra (human approval), and a new worker image and limits.
+3. **Android**: working locally with the approved jadx JAR; reuses the "bridge" UI for `addJavascriptInterface`.
+4. **Native**: working locally with the approved Ghidra; worker image in T024 (review).
 5. **Apple**: inventory-only on Linux.
 
-## Schema proposal (needs Codex's agreement before merge)
+## Reviewed schema scope
 See `notes/handoffs/2026-10-13-T021-claude.md`. In short:
-- `target.appKind` gains `dotnet`, `android`, `native`, `apple`, `web`.
+- `target.appKind` gains `dotnet` and `web`; `format` gains `pe` and `url`.
+  Android, native and Apple kinds still need their own fixture-backed proposals.
 - New node kinds:
   - `assembly` (managed assembly + module)
   - `managed-type`
   - `managed-method`
   - `native-import` (a P/Invoke or native import, with library and entry point)
-  - `native-library` (a DLL or `.so` the app declares it loads)
   - `external-member` (a called API outside the app)
 - New relation: `calls` already exists and is reused.
-- `FindingCategory` gains `types`, `methods`, `native-imports`, `references`, `resources`.
+- `FindingCategory` gains `types`, `methods`, `native-imports`, `external-apis`.
+  References and resources are assembly facts rather than separate findings.
 - Kinds that only make sense for one target never appear for others; existing Electron projects are unchanged.
+
+## Proposed for review: native and Android (T021 continuation)
+Fixture-backed, additive, schema version unchanged:
+- `appKind` gains `native` and `android`; `format` gains `apk` (native programs use `pe`).
+- Native: `native-function` (address, name, entry point). Imports reuse `native-import` with `managedName: null`.
+- Android:
+  - `android-component` (componentType, className, exported, intentActions, authorities, launcher);
+  - `android-permission` (name).
+  - Classes and methods reuse `managed-type` / `managed-method`. The WebView bridge reuses `bridge-api` (world `android-webview`).
+- New relation `references` (REA `trace_android_references`: one class's code refers to another).
+- `FindingCategory` gains `functions`, `components` and `permissions`, with per-kind lists `NATIVE_FINDING_CATEGORIES` and `ANDROID_FINDING_CATEGORIES`.

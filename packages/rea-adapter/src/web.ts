@@ -16,6 +16,8 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { ReaOutputError } from './errors.js';
+import { endpointNotes } from './findings.js';
+import { assessEndpoints } from './heuristics.js';
 import type { AdapterOptions, AdapterReport } from './index.js';
 import { num, obj, str } from './read.js';
 import type { ReaProps } from './rea-types.js';
@@ -56,7 +58,7 @@ export function adaptWebBundle(raw: unknown, options: AdapterOptions): { project
     state: 'observed',
     // REA gives no per-item confidence for routes and endpoints.
     confidence: 'unknown',
-    authority: 'browser-capture-static-analysis',
+    authority: typeof (raw as { authority?: unknown }).authority === 'string' ? (raw as { authority: string }).authority : 'unknown',
     extractor,
     location: file === null ? null : typeof line === 'number' && typeof column === 'number'
       ? { kind: 'source-range', file, start: { line, column }, end: { line, column } }
@@ -138,7 +140,10 @@ export function adaptWebBundle(raw: unknown, options: AdapterOptions): { project
     }
   }
 
-  const endpoints = nodes.filter((n) => n.kind === 'endpoint').length;
+  // Studio verdicts on REA's endpoint candidates (T012); websites' candidates are just as noisy.
+  const endpointVerdicts = assessEndpoints(nodes);
+  const endpointNodes = nodes.filter((n): n is Extract<StudioNode, { kind: 'endpoint' }> => n.kind === 'endpoint');
+  const endpoints = endpointNodes.length;
   const finding = (category: FindingCoverage['category'], count: number, notes: string[]): FindingCoverage => ({
     category, status: count > 0 ? 'found' : 'not-found', count, unresolvedCount: 0, coverage: complete ? 'complete' : 'partial',
     notes: count > 0 ? notes : ['None found. REA static analysis never proves absence, so there may still be some.', ...notes],
@@ -162,7 +167,7 @@ export function adaptWebBundle(raw: unknown, options: AdapterOptions): { project
     },
     findings: [
       finding('imports', frameworks.size, frameworks.size > 0 ? [`Recognized: ${[...frameworks.keys()].join(', ')} (code fingerprints)`] : []),
-      finding('endpoints', endpoints, endpoints > 0 ? ['Unfiltered REA endpoint and route candidates'] : []),
+      finding('endpoints', endpoints, endpointNotes(endpointNodes)),
     ],
     ipcSummary: {
       operations: 0, literalChannels: 0, dynamicChannelOperations: 0, rendererTransmissions: 0, rendererListeners: 0,
@@ -173,7 +178,7 @@ export function adaptWebBundle(raw: unknown, options: AdapterOptions): { project
   };
   const report: AdapterReport = {
     reaNodes: nodes.length, reaEdges: edges.length, droppedExportShapeNodes: 0, mergedExternalModuleNodes: 0, droppedEdgesToDroppedNodes: 0,
-    droppedEdgesUnknownRelation: {}, droppedEdgesDanglingEndpoint: 0, foldedAsarEntries: 0, droppedSelfEdges: 0, unrecognizedNodeKinds: {}, heuristicEdges: {},
+    droppedEdgesUnknownRelation: {}, droppedEdgesDanglingEndpoint: 0, foldedAsarEntries: 0, droppedSelfEdges: 0, unrecognizedNodeKinds: {}, heuristicEdges: {}, endpointVerdicts,
   };
   return { project, report };
 }

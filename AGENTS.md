@@ -9,8 +9,10 @@ Claude reads this via `CLAUDE.md`. Codex reads it directly.
 interactive, evidence-backed map of how it works. Analysis is powered by
 [REA](https://github.com/morluto/rea) running in a backend worker.
 
-See `ARCHITECTURE.md` for the design. v0.1 scope: **Electron/JS apps only, static
-analysis only.**
+See `ARCHITECTURE.md` for the design. Current local-mode targets: Electron/JS,
+.NET programs and website captures. Program files are analyzed statically;
+website capture loads the requested page in a fresh browser. The hosted worker
+still accepts only Electron/JS artifacts. Android/native providers are separate work.
 
 ## Before you start any work
 

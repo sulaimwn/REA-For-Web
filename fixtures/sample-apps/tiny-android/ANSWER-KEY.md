@@ -17,9 +17,29 @@ What a complete analysis should find:
 | Provider | `NotesProvider` (`com.reaforweb.tinynotes.notes`, not exported) → SQLite `notes.db` |
 | Web page | `assets/index.html` calls `window.notesBridge.save(...)` and `.version()` |
 
-What REA 6.4.0 finds **on this machine** (`tiny-android.rea-6.4.0.json`): inventory only.
-`project_android_application_graph` lists `AndroidManifest.xml`, `resources.arsc`, `classes.dex`,
-the signing files and runtime family `dalvik-art`. Components, permissions and the bridge need
-REA's Android provider: `inspect-android-package` / `search-android-classes` report
-`capability_unavailable` until `REA_JADX_MCP_JAR` points at a jadx-headless-mcp 0.7.1 JAR
-(REA doesn't download it). `assets/index.html` isn't listed under `javascript` (only `.js` files are).
+## What REA 6.4.0 finds
+
+`tiny-android.rea-6.4.0.json` comes from REA's JADX provider (jadx-headless-mcp 0.7.1) in one MCP
+session (`packages/rea-adapter/src/android-session.ts`).
+
+Without the JAR, REA only inventories the APK's files: `inspect-android-package` reports
+`capability_unavailable`. REA doesn't download the JAR.
+
+**REA facts:**
+- the package, versions, SDKs and both permissions;
+- the decoded manifest: four components, their exported flags and intent filters, the launcher,
+  and the provider's authority;
+- the 5 app classes (including the inner `MainActivity.NotesBridge`) and their methods, each
+  decompiled to Java;
+- incoming class references, e.g. `BootReceiver → SyncService` and `NotesBridge → NotesProvider`.
+
+**Studio rules over REA's decompiled Java** (labeled heuristic in the UI):
+- the `notesBridge` bridge with `save` and `version`;
+- `MainActivity` loading `assets/index.html`;
+- `BootReceiver` and `MainActivity` starting `SyncService`;
+- `NotesProvider` opening `notes.db`;
+- `SyncService.push` opening a network connection (`new URL(ENDPOINT)`).
+
+**Not found:** the URL `https://api.example.com/notes`. It's a `static final` field, and REA's
+JADX tools decompile methods only: field values and class bodies aren't returned, and JADX shows
+the constant's name (`ENDPOINT`) where javac inlined its value.

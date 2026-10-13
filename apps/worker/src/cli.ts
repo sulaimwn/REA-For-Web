@@ -5,7 +5,7 @@ const args = process.argv.slice(2);
 const native = args.includes("--native");
 const [targetPath, outputRoot, ...extra] = args.filter(a => a !== "--native");
 if (!targetPath || !outputRoot || extra.length) {
-  console.error("Usage: npm run analyze --workspace=@rea-studio/worker -- <target.asar|directory|program.exe|.dll> <output-root> [--native]");
+  console.error("Usage: npm run analyze --workspace=@rea-studio/worker -- <target.asar|directory|program.exe|.dll|app.apk> <output-root> [--native]");
   process.exitCode = 1;
 } else {
   const controller = new AbortController();

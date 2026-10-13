@@ -189,6 +189,23 @@ test("real Docker maps a native program with Ghidra in the native image", { time
   assert.deepEqual(await workerContainers(), before);
 });
 
+test("real Docker maps an Android app with JADX in the native image, and refuses it in the standard one", { timeout: 300_000 }, async t => {
+  const image = await executeDocker(["image", "inspect", NATIVE_WORKER_IMAGE], { signal: AbortSignal.timeout(10_000) });
+  if (image.code !== 0) return t.skip(`${NATIVE_WORKER_IMAGE} is not built (apps/worker/Dockerfile.native)`);
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
+  const output = await runAnalysis({ targetPath: apk, outputRoot: join(temp, "results"), native: true });
+  const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.target.appKind, "android");
+  assert.equal(project.nodes.filter(n => n.kind === "android-component").length, 4);
+  assert.deepEqual(project.nodes.filter(n => n.kind === "bridge-api").map(n => n.label), ["window.notesBridge"]);
+  await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "refused"), limits: { timeoutMs: 60_000 } }),
+    (error: unknown) => error instanceof WorkerError && error.code === "invalid_input");
+  assert.deepEqual(await readdir(join(temp, "refused")), []);
+  assert.deepEqual(await workerContainers(), before);
+});
+
 test("real Docker output limit removes the container and partial output", { timeout: 90_000 }, async t => {
   const before = await workerContainers();
   const temp = await workspace(t);

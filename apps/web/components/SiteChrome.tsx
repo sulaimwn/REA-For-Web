@@ -25,7 +25,7 @@ export function SiteFooter() {
   return (
     <footer className="site-foot">
       <span>
-        Analysis by <a href="https://github.com/morluto/rea">REA</a> (MIT). Static analysis only: no app is ever run.
+        Analysis by <a href="https://github.com/morluto/rea">REA</a> (MIT). Program files are never executed. Website capture loads the page in a fresh browser.
       </span>
       <a href={REPO_URL}>REA for Web source</a>
     </footer>

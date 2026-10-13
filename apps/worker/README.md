@@ -1,13 +1,14 @@
 # Analysis worker foundation (T006)
 
 This package runs **only static analysis** with `rea-agents@6.4.0`: Electron/JavaScript
-apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`).
+apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`) and
+Android apps (`.apk`).
 It is an internal runner, not an upload API. It
 returns a **StudioProject file** using T004's adapter. Raw REA output stays in
 private container temporary storage and is removed after normalization. Only
 `packages/rea-adapter` reads that raw JSON.
 
-## Programs: .NET and native (T024)
+## Programs: .NET, native and Android (T024)
 
 - **.NET** works in the standard image. REA reads the assembly's metadata and IL with
   `inspect-managed-artifact`, `inspect-managed-members` and `inspect-managed-native-boundaries`,
@@ -20,9 +21,12 @@ private container temporary storage and is removed after normalization. Only
 
   It is about 2.2 GB. Inside it, the adapter's `native-session` drives `rea --mcp` so Ghidra
   imports the program once and answers every query.
+- **Android apps** also run in the native image. REA's JADX provider (`REA_JADX_MCP_JAR`) reads the
+  manifest, the app's classes and their decompiled methods in one `rea --mcp` session, with JADX's
+  heap set by `REA_JADX_HEAP_MIB = heapMb`. The tiny sample takes 18 s in the sandbox.
 - **Choosing the image:** set `native: true` (`--native` on the CLI, `REA_NATIVE_WORKER=1` for the
-  queue) to run `.exe`/`.dll` jobs in the native image. Without it, a native program fails with
-  `invalid_input` and says it needs the native worker. `.asar` and directories always use the
+  queue) to run `.exe`/`.dll`/`.apk` jobs in the native image. Without it, a native program or an
+  APK fails with `invalid_input` and says it needs the native worker. `.asar` and directories always use the
   standard image.
 - **Same sandbox for both images:** no network, read-only root, non-executable `/tmp`, 128 PIDs,
   512 open files, 2 GiB. Measured with these limits:
@@ -33,7 +37,8 @@ private container temporary storage and is removed after normalization. Only
   | Windows `notepad.exe` (360 KB) | 245 s | 853 nodes, 1,863 links | 52 | ~940 MiB |
 
   Ghidra's JVM gets the analyzer heap (`heapMb`) via `GHIDRA_HEADLESS_MAXMEM`.
-- **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`.
+- **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`
+  (or `PK` for an APK).
   REA parses the rest. The program is never run.
 - **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
   so programs with many thousands of functions can hit the job deadline.

@@ -16,8 +16,11 @@ const tiny = fileURLToPath(new URL('../../../../fixtures/sample-apps/tiny-electr
 const work = mkdtempSync(join(tmpdir(), 'rea-studio-cli-test-'));
 after(() => rmSync(work, { recursive: true, force: true }));
 
-const run = (...args: string[]) =>
-  spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, INIT_CWD: work }, timeout: 300_000 });
+/** Runs the CLI with optional environment changes (`undefined` removes a variable). */
+const runWith = (env: Record<string, string | undefined>, ...args: string[]) =>
+  spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, INIT_CWD: work, ...env }, timeout: 300_000 });
+const run = (...args: string[]) => runWith({}, ...args);
+const tinyApk = fileURLToPath(new URL('../../../../fixtures/sample-apps/tiny-android/tiny-notes.apk', import.meta.url));
 /** Like run, without blocking this process (a test can serve HTTP meanwhile). */
 const runAsync = (...args: string[]) =>
   new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve) => {
@@ -63,7 +66,7 @@ describe('rea-studio analyze', () => {
     writeFileSync(notAsar, 'x');
     const wrong = run('analyze', notAsar);
     assert.equal(wrong.status, 1);
-    assert.match(wrong.stderr, /a directory, an \.asar file, or a \.NET \.exe\/\.dll/);
+    assert.match(wrong.stderr, /a directory, an \.asar file, an \.exe\/\.dll program or an \.apk/);
   });
 
   it('analyzes the tiny .NET sample (T021)', () => {
@@ -81,20 +84,48 @@ describe('rea-studio analyze', () => {
     assert.ok(!text.includes(exe) && !text.includes(exe.replaceAll('\\', '\\\\')), 'no absolute input path');
   });
 
-  it('explains that a non-.NET .exe is not supported, leaving no output file', () => {
+  it('explains that a non-.NET .exe needs Ghidra, leaving no output file', () => {
     const fake = join(work, 'not-dotnet.exe');
     writeFileSync(fake, 'MZ this is not a real program');
     const out = join(work, 'not-dotnet.studio.json');
-    const r = run('analyze', fake, '--out', out);
+    const r = runWith({ GHIDRA_INSTALL_DIR: undefined }, 'analyze', fake, '--out', out);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /not \.NET|not as a \.NET program|couldn’t inspect|REA couldn’t analyze this file: \S/);
     assert.doesNotMatch(r.stderr, /    at /, 'no stack trace');
     assert.throws(() => readFileSync(out));
   });
 
+  it('says an .apk needs REA’s JADX provider when it isn’t configured, leaving no output file', () => {
+    const out = join(work, 'no-jadx.studio.json');
+    const r = runWith({ REA_JADX_MCP_JAR: undefined }, 'analyze', tinyApk, '--out', out);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /REA_JADX_MCP_JAR/);
+    assert.doesNotMatch(r.stderr, /    at /, 'no stack trace');
+    assert.throws(() => readFileSync(out));
+  });
+
+  it('analyzes the tiny Android sample with REA’s JADX provider (T021)', (t) => {
+    if (!process.env['REA_JADX_MCP_JAR']) return t.skip('REA_JADX_MCP_JAR is not set');
+    const out = join(work, 'tiny-android.studio.json');
+    const r = run('analyze', tinyApk, '--out', out);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /com\.reaforweb\.tinynotes v1\.2\.3 \(android\)/);
+    assert.match(r.stdout, /components\s+4/);
+    const project = JSON.parse(readFileSync(out, 'utf8')) as StudioProject;
+    assert.deepEqual(project.nodes.filter((n) => n.kind === 'bridge-api').map((n) => n.label), ['window.notesBridge']);
+  });
+
   it('prints usage for unknown commands and options', () => {
     assert.match(run('explode').stderr, /Usage: rea-studio analyze/);
     assert.match(run('analyze', tiny, '--fast').stderr, /Unknown option --fast/);
+  });
+
+  it('accepts --no-recover; a small app has nothing to recover either way (T008)', () => {
+    const out = join(work, 'tiny-no-recover.studio.json');
+    const r = run('analyze', tiny, '--no-recover', '--out', out);
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stderr, /re-analyzing/);
+    assert.doesNotMatch(r.stdout, /Re-analyzed/);
   });
 
   it('rejects an existing output without changing it or running REA', () => {
