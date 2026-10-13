@@ -65,7 +65,11 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   1. A separate capture container runs headless Chromium behind an egress proxy that allows only the requested origin and blocks private, loopback and metadata IP ranges (SSRF).
   2. REA, in the same container, runs `analyze-web-bundle` against that browser's loopback CDP port.
   3. Only the JSON result leaves the container.
-- The project uses `appKind: 'web'`, with its own small adapter for the bundle format.
+- The project uses `appKind: 'web'`, with its own small adapter for the bundle format (`packages/rea-adapter/src/web.ts`).
+- **Done in local mode:** `rea-studio analyze https://…` opens the page in a headless Chrome and runs `analyze-web-bundle` against it.
+  - Chrome gets a throwaway profile and a loopback-only debugging port, and the profile is deleted afterwards. Edge is never used.
+  - The adapter maps scripts to files under the page, routes and endpoint candidates to their script, and framework/bundler fingerprints to inferred imports.
+  - Demo: `/explore/reaforweb-site`, this site's own landing page (dev build).
 
 ## Proposed order
 1. **.NET**: no new tools. Schema proposal plus a working prototype on `claude/T021-dotnet-prototype`.

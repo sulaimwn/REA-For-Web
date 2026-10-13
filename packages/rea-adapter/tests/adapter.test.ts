@@ -383,7 +383,7 @@ describe('defensive handling', () => {
     assert.throws(() => toStudioProject(null, opts), ReaOutputError);
     assert.throws(() => toStudioProject('x', opts), ReaOutputError);
     const wrongOp = clone();
-    wrongOp.operation = 'analyze_web_bundle';
+    wrongOp.operation = 'inspect_artifact';
     assert.throws(() => toStudioProject(wrongOp, opts), /Unsupported REA operation/);
     const noGraph = clone() as unknown as { normalized_result: Record<string, unknown> };
     delete noGraph.normalized_result['graph'];

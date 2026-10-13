@@ -120,7 +120,8 @@ export function displayName(n: StudioNode): string {
     case 'worker':
       return n.resolvedPath ?? n.expression ?? 'worker';
     case 'file':
-      return n.path === '' ? 'artifact root' : n.path;
+      // A website's root is its page; show the URL (T021).
+      return n.path === '' ? (/^https?:\/\//u.test(n.label) ? n.label : 'artifact root') : n.path;
     case 'endpoint':
       return n.value.trim() === '' ? '(blank value)' : n.value;
     case 'analysis-gap':

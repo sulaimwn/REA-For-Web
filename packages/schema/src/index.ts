@@ -488,13 +488,16 @@ export interface TargetInfo {
   version: string | null;
   /** REA `subject.digest.sha256`. Also the cache/dedupe key. */
   sha256: string;
-  /** Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a .NET executable or DLL. */
-  format: 'asar' | 'directory' | 'pe';
+  /**
+   * Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a
+   * .NET executable or DLL; `url` for a website captured through a browser.
+   */
+  format: 'asar' | 'directory' | 'pe' | 'url';
   /**
    * `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`.
-   * `dotnet` for managed PE/CLI programs (T021).
+   * `dotnet` for managed PE/CLI programs; `web` for a website (T021).
    */
-  appKind: 'electron' | 'javascript' | 'dotnet';
+  appKind: 'electron' | 'javascript' | 'dotnet' | 'web';
 }
 
 export interface AnalysisInfo {

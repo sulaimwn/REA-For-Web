@@ -18,6 +18,7 @@ import { ReaOutputError } from './errors.js';
 import { toEvidence } from './evidence.js';
 import { buildFindings } from './findings.js';
 import { adaptManagedBundle, isManagedBundle } from './managed.js';
+import { adaptWebBundle, isWebBundle } from './web.js';
 import { linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
@@ -27,6 +28,7 @@ export const SUPPORTED_OPERATION = 'analyze_javascript_application';
 
 export { ReaOutputError };
 export { MANAGED_OPERATION, isManagedBundle } from './managed.js';
+export { WEB_OPERATION, isWebBundle } from './web.js';
 
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
@@ -164,6 +166,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   }
   // .NET programs: a bundle of REA's managed inspections plus their projection (T021).
   if (isManagedBundle(raw)) return adaptManagedBundle(raw, options);
+  // Websites: REA's browser-captured script analysis (T021).
+  if (isWebBundle(raw)) return adaptWebBundle(raw, options);
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {

@@ -45,7 +45,11 @@ function isRootContainment(ix: ProjectIndex, e: StudioEdge) {
 const OVERVIEW_LIMIT = 250;
 
 function overviewIds(ix: ProjectIndex): { ids: Set<string>; hidden: number } {
-  const core = ix.project.nodes.filter((n) => KIND_META[n.kind].overview).map((n) => n.id);
+  let core = ix.project.nodes.filter((n) => KIND_META[n.kind].overview).map((n) => n.id);
+  // Apps with none of the architectural kinds (e.g. a website's scripts): show the files and what they use.
+  if (core.length === 0) {
+    core = ix.project.nodes.filter((n) => (n.kind === 'file' && n.id !== ix.rootId) || n.kind === 'external-module').map((n) => n.id);
+  }
   const ids = new Set(core);
   for (const id of core) {
     for (const e of edgesOf(ix, id)) {

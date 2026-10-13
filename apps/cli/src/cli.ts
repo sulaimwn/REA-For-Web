@@ -12,19 +12,21 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
 import type { StudioProject } from '@rea-studio/schema';
+import { findChrome, openPage } from './browser.js';
 import { pipeBoundedOutput } from './output.js';
 
 const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>]
 
   <app>            An extracted Electron/JS app directory, an .asar file,
-                   or a .NET program (.exe or .dll).
+                   a .NET program (.exe or .dll), or a website (https://…,
+                   opened in a headless Chrome with a throwaway profile).
   --out <file>     Where to write the project (default: <app name>.studio.json).
   --max-heap-mb    Heap for REA's JavaScript analyzer workers (REA default: 1024).
 
 Then open the file at /open on the REA for Web site. It stays on your machine.`;
 
 /** What kind of REA analysis the input needs. */
-type TargetKind = 'javascript' | 'managed';
+type TargetKind = 'javascript' | 'managed' | 'web';
 const MANAGED_EXTENSIONS = new Set(['.exe', '.dll']);
 
 /** Raw REA output this large can't be parsed as one JavaScript string anyway. */
@@ -62,6 +64,12 @@ function parseArgs(argv: string[]): Options {
   if (target === null) throw new CliError(USAGE);
   if (maxHeapMb !== null && (!/^\d+$/.test(maxHeapMb) || !Number.isSafeInteger(Number(maxHeapMb)) || Number(maxHeapMb) < 1)) {
     throw new CliError('--max-heap-mb must be a positive whole number');
+  }
+  if (/^https?:\/\//iu.test(target)) {
+    let url: URL;
+    try { url = new URL(target); } catch { throw new CliError(`Not a valid URL: ${target}`); }
+    const name = url.host.replace(/[^a-z0-9.-]+/giu, '-') || 'site';
+    return { target: url.href, kind: 'web', out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb };
   }
   const abs = resolve(cwd, target);
   if (!existsSync(abs)) throw new CliError(`Not found: ${abs}`);
@@ -159,11 +167,25 @@ async function main() {
   let work: string | undefined;
   try {
     work = await mkdtemp(join(tmpdir(), 'rea-studio-'));
-    process.stderr.write(`Analyzing ${opts.target} with rea-agents@${rea.version} (static analysis; the app is not run)\n`);
+    process.stderr.write(opts.kind === 'web'
+      ? `Opening ${opts.target} in a headless Chrome (throwaway profile) and analyzing its scripts with rea-agents@${rea.version}\n`
+      : `Analyzing ${opts.target} with rea-agents@${rea.version} (static analysis; the app is not run)\n`);
     const started = Date.now();
-    const adapterOptions = { reaVersion: rea.version, targetName: basename(opts.target), maxBytes: MAX_REA_OUTPUT_BYTES };
+    const adapterOptions = { reaVersion: rea.version, targetName: opts.kind === 'web' ? new URL(opts.target).host : basename(opts.target), maxBytes: MAX_REA_OUTPUT_BYTES };
     let project: StudioProject;
-    if (opts.kind === 'managed') {
+    if (opts.kind === 'web') {
+      // Websites: the page loads in Chrome like a normal visit; REA captures and statically analyzes its scripts.
+      const chrome = findChrome();
+      if (!chrome) throw new CliError('Website analysis needs Google Chrome or Chromium. Install it, or set CHROME_PATH.');
+      const browser = await openPage(chrome, opts.target);
+      try {
+        const raw = join(work, 'web-bundle.json');
+        await runRea(rea.script, ['analyze-web-bundle', browser.endpoint, browser.targetId, '--observation-ms', '3000'], raw);
+        ({ project } = await adaptReaFile(raw, adapterOptions));
+      } finally {
+        await browser.close();
+      }
+    } else if (opts.kind === 'managed') {
       // .NET: three read-only metadata inspections, then REA's projection of them into a graph.
       const files = {
         artifact: join(work, 'managed-artifact.json'),

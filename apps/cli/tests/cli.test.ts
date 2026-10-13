@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, describe, it } from 'node:test';
 import { STUDIO_SCHEMA_VERSION, type StudioProject } from '@rea-studio/schema';
+import { findChrome } from '../src/browser.js';
 
 // Compiled to dist-tests/tests/; the built CLI is dist/cli.js and the repo root is four levels up.
 const cli = fileURLToPath(new URL('../../dist/cli.js', import.meta.url));
@@ -15,6 +18,16 @@ after(() => rmSync(work, { recursive: true, force: true }));
 
 const run = (...args: string[]) =>
   spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, INIT_CWD: work }, timeout: 300_000 });
+/** Like run, without blocking this process (a test can serve HTTP meanwhile). */
+const runAsync = (...args: string[]) =>
+  new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve) => {
+    const child = spawn(process.execPath, [cli, ...args], { env: { ...process.env, INIT_CWD: work } });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += String(d)));
+    child.stderr.on('data', (d) => (stderr += String(d)));
+    child.on('close', (status) => resolve({ status, stdout, stderr }));
+  });
 
 describe('rea-studio analyze', () => {
   it('analyzes the tiny Electron sample into a StudioProject file', () => {
@@ -98,5 +111,38 @@ describe('rea-studio analyze', () => {
     assert.match(run('analyze', tiny, '--out').stderr, /needs a value/);
     assert.match(run('analyze', tiny, '--max-heap-mb', '--out', 'x').stderr, /needs a value/);
     assert.match(run('analyze', tiny, '--max-heap-mb', '0').stderr, /positive whole number/);
+  });
+});
+
+describe('rea-studio analyze <website> (T021)', () => {
+  const chrome = findChrome();
+  it('captures a page served locally and maps its scripts and requests', { skip: chrome ? false : 'Chrome is not installed' }, async () => {
+    // A tiny site on 127.0.0.1: one inline script and one external script that calls fetch().
+    const server = createServer((req, res) => {
+      if (req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<!doctype html><title>tiny</title><script>window.started = Date.now();</script><script src="/app.js"></script>');
+      } else if (req.url === '/app.js') {
+        res.writeHead(200, { 'Content-Type': 'text/javascript' });
+        res.end("fetch('/api/items').catch(() => {});");
+      } else {
+        res.writeHead(404).end();
+      }
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const out = join(work, 'site.studio.json');
+      const r = await runAsync('analyze', `http://127.0.0.1:${port}/`, '--out', out);
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stdout, /\(web\)/);
+      const project = JSON.parse(readFileSync(out, 'utf8')) as StudioProject;
+      assert.equal(project.target.appKind, 'web');
+      const paths = project.nodes.filter((n) => n.kind === 'file').map((n) => (n.kind === 'file' ? n.path : '')).sort();
+      assert.deepEqual(paths, ['', '(inline script 1)', 'app.js']);
+      assert.ok(project.nodes.some((n) => n.kind === 'endpoint' && n.value === '/api/items'));
+    } finally {
+      server.close();
+    }
   });
 });

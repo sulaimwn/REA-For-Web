@@ -15,6 +15,7 @@ const APP_KIND_LABEL: Record<StudioProject['target']['appKind'], string> = {
   electron: 'Electron app',
   javascript: 'JavaScript app',
   dotnet: '.NET program',
+  web: 'Website',
 };
 
 /** Loads a pre-built demo project by slug, then shows it. */
