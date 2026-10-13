@@ -34,8 +34,17 @@ Details for a task go under its heading below the table.
 | R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | done | T021 |
 | R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
 | T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | review | T007, T024 |
+| T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | in progress | T025 |
 
 ---
+
+### T026 — Hosted upload deployment preparation
+Prepare a provider-independent Linux deployment for the existing upload API:
+containerized web service, private Redis, host queue service with controlled Docker
+access, private R2 settings, verification and rollback instructions. Keep the
+analysis sandbox and resource limits unchanged. Let the Cloudflare frontend link
+to the configured HTTPS upload service without sharing credentials. No purchase,
+DNS changes or live deployment before a host and private bucket are selected.
 
 ### T025 — Program and APK uploads
 Accept the existing ASAR format plus Windows .exe/.dll and Android .apk files.
