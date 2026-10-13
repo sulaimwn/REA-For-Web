@@ -32,6 +32,7 @@ Details for a task go under its heading below the table.
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 | R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
 | R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | review | T021 |
+| R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | in progress | R002, T024 |
 
 ---
 
