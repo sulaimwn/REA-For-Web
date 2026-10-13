@@ -53,7 +53,7 @@ Details for a task go under its heading below the table.
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | in progress | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | in progress | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
-| T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | in progress | T026, T029 |
+| T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | review | T026, T029 |
 
 ---
 
