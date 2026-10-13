@@ -48,6 +48,7 @@ Details for a task go under its heading below the table.
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | review | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | in progress | R005 |
+| T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | in progress | T026, R005, T037 |
 
 ---
 
