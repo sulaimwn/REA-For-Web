@@ -4,12 +4,13 @@ import {
   expireStaging,
 } from '@rea-studio/pipeline/processor';
 import { runAnalysis } from './run-analysis.js';
-import { queueLimitsFromEnv } from './limits.js';
+import { nativeWorkerFromEnv, queueLimitsFromEnv } from './limits.js';
 
 const limits = queueLimitsFromEnv();
+const native = nativeWorkerFromEnv();
 const config = configFromEnv();
 const worker = startAnalysisWorker(config, (options) =>
-  runAnalysis({ ...options, limits }),
+  runAnalysis({ ...options, native, limits }),
 );
 worker.on('error', () =>
   process.stderr.write('Upload queue connection failed.\n'),

@@ -1,5 +1,7 @@
 export const REA_VERSION = "6.4.0";
 export const WORKER_IMAGE = "rea-studio-worker:rea-6.4.0";
+/** The worker image plus REA's Ghidra provider (Dockerfile.native). Needed for native programs only. */
+export const NATIVE_WORKER_IMAGE = "rea-studio-worker-native:rea-6.4.0";
 
 export type WorkerErrorCode =
   | "invalid_input" | "input_limit_exceeded" | "output_limit_exceeded"
@@ -60,6 +62,13 @@ export function resolveLimits(overrides: Partial<AnalysisLimits> = {}): Analysis
     throw new WorkerError("invalid_input", "Source timeout must fit within the whole-job deadline.");
   }
   return limits;
+}
+
+/** Operator setting: run .exe/.dll jobs in the native image (built and present on this host). */
+export function nativeWorkerFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.REA_NATIVE_WORKER === undefined || env.REA_NATIVE_WORKER === "0") return false;
+  if (env.REA_NATIVE_WORKER === "1") return true;
+  throw new WorkerError("invalid_input", "REA_NATIVE_WORKER must be 0 or 1.");
 }
 
 // Operator setting only; upload requests cannot change sandbox limits.

@@ -1,10 +1,42 @@
 # Analysis worker foundation (T006)
 
-This package runs **only static Electron/JavaScript analysis** with
-`rea-agents@6.4.0`. It is an internal runner, not an upload API. It currently
+This package runs **only static analysis** with `rea-agents@6.4.0`: Electron/JavaScript
+apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`).
+It is an internal runner, not an upload API. It
 returns a **StudioProject file** using T004's adapter. Raw REA output stays in
 private container temporary storage and is removed after normalization. Only
 `packages/rea-adapter` reads that raw JSON.
+
+## Programs: .NET and native (T024)
+
+- **.NET** works in the standard image. REA reads the assembly's metadata and IL with
+  `inspect-managed-artifact`, `inspect-managed-members` and `inspect-managed-native-boundaries`,
+  then `project-managed-application-graph`.
+- **Native programs** need REA's Ghidra provider, which lives in a second image,
+  `rea-studio-worker-native:rea-6.4.0` (`Dockerfile.native`). It is the standard image plus:
+  - a JDK 21 (Temurin, pinned by digest);
+  - Ghidra 12.1.4 (SHA-256 checked);
+  - jadx-headless-mcp 0.7.1 for Android later (SHA-256 checked).
+
+  It is about 2.2 GB. Inside it, the adapter's `native-session` drives `rea --mcp` so Ghidra
+  imports the program once and answers every query.
+- **Choosing the image:** set `native: true` (`--native` on the CLI, `REA_NATIVE_WORKER=1` for the
+  queue) to run `.exe`/`.dll` jobs in the native image. Without it, a native program fails with
+  `invalid_input` and says it needs the native worker. `.asar` and directories always use the
+  standard image.
+- **Same sandbox for both images:** no network, read-only root, non-executable `/tmp`, 128 PIDs,
+  512 open files, 2 GiB. Measured with these limits:
+
+  | Program | Time | Size | Peak PIDs | Peak memory |
+  |---|---|---|---|---|
+  | `tiny-notes.exe` | about 50 s | 96 nodes | 54 | ~700 MiB |
+  | Windows `notepad.exe` (360 KB) | 245 s | 853 nodes, 1,863 links | 52 | ~940 MiB |
+
+  Ghidra's JVM gets the analyzer heap (`heapMb`) via `GHIDRA_HEADLESS_MAXMEM`.
+- **Preflight:** the program must be one ordinary file within `maxInputBytes`, starting with `MZ`.
+  REA parses the rest. The program is never run.
+- **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
+  so programs with many thousands of functions can hit the job deadline.
 
 ## Build and run
 
@@ -20,6 +52,8 @@ acceptable). Build the image from the repository root:
 
 ```sh
 docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
+# Optional, for native programs (downloads Ghidra and a JDK at build time):
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
 ```
 
 Image builds need network access. Analysis containers have no network, and jobs

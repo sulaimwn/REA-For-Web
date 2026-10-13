@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { adaptReaFile } from "@rea-studio/rea-adapter/file";
 import { runWithDocker, containerArgs, assertEngine } from "../src/run-analysis.js";
 import { executeCommand, type CommandOptions } from "../src/command.js";
-import { DEFAULT_LIMITS, resolveLimits, queueLimitsFromEnv } from "../src/limits.js";
+import { DEFAULT_LIMITS, NATIVE_WORKER_IMAGE, WORKER_IMAGE, nativeWorkerFromEnv, resolveLimits, queueLimitsFromEnv } from "../src/limits.js";
 import { preflightTarget } from "../src/preflight.js";
 import { ProgressDecoder, type AnalysisProgress } from "../src/progress.js";
 
@@ -191,6 +191,46 @@ test("rejects a future output path through a junction into the input without wri
   await symlink(input, alias, process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(runWithDocker({ targetPath: input, outputRoot: join(alias, "nested", "results") }, ctx.docker), { code: "invalid_input" });
   assert.deepEqual(await readdir(input), []);
+});
+
+test("programs (.exe/.dll) mount as one read-only file and pick the image from the operator setting", async t => {
+  const ctx = await context(t);
+  const exe = join(repo, "fixtures/sample-apps/tiny-native/tiny-notes.exe");
+  const args = containerArgs("job", exe, "exe", DEFAULT_LIMITS, "tiny-notes.exe");
+  assert.match(args[args.indexOf("--mount") + 1]!, /,target=\/input\/target\.exe,bind-recursive=disabled,readonly$/u);
+  assert.ok(args.includes(WORKER_IMAGE) && args.includes("--pids-limit=128") && args.includes("--network=none"));
+  const native = containerArgs("job", exe, "dll", DEFAULT_LIMITS, "x.dll", NATIVE_WORKER_IMAGE);
+  assert.ok(native.includes(NATIVE_WORKER_IMAGE) && native.includes("--pids-limit=128"));
+  assert.match(native[native.indexOf("--mount") + 1]!, /target=\/input\/target\.dll,/u);
+  assert.throws(() => containerArgs("job", exe, "exe", DEFAULT_LIMITS, "x.exe", "attacker/image"), { code: "invalid_input" });
+  for (const [nativeOption, image] of [[false, WORKER_IMAGE], [true, NATIVE_WORKER_IMAGE]] as const) {
+    await runWithDocker({ targetPath: exe, outputRoot: join(ctx.temp, `results-${nativeOption}`), native: nativeOption }, ctx.docker);
+    assert.ok(JSON.parse(await readFile(ctx.config.createArgs, "utf8")).includes(image));
+  }
+  // Directories and ASARs always use the standard image.
+  await runWithDocker({ ...ctx.options, native: true }, ctx.docker);
+  assert.ok(JSON.parse(await readFile(ctx.config.createArgs, "utf8")).includes(WORKER_IMAGE));
+  const text = join(ctx.temp, "notes.txt");
+  await writeFile(text, "MZ");
+  await assert.rejects(runWithDocker({ targetPath: text, outputRoot: join(ctx.temp, "r") }, ctx.docker), { code: "invalid_input" });
+});
+
+test("program preflight checks the MZ header and the byte limit", async t => {
+  const ctx = await context(t);
+  const exe = join(repo, "fixtures/sample-apps/tiny-native/tiny-notes.exe");
+  assert.equal((await preflightTarget(exe, "exe", DEFAULT_LIMITS)).files, 1);
+  await assert.rejects(preflightTarget(exe, "exe", resolveLimits({ maxInputBytes: 1024 })), { code: "input_limit_exceeded" });
+  const fake = join(ctx.temp, "fake.exe");
+  await writeFile(fake, "#!/bin/sh\necho not a program\n");
+  await assert.rejects(preflightTarget(fake, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
+  await assert.rejects(preflightTarget(sample, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
+});
+
+test("the native image is an explicit operator setting", () => {
+  assert.equal(nativeWorkerFromEnv({}), false);
+  assert.equal(nativeWorkerFromEnv({ REA_NATIVE_WORKER: "0" }), false);
+  assert.equal(nativeWorkerFromEnv({ REA_NATIVE_WORKER: "1" }), true);
+  assert.throws(() => nativeWorkerFromEnv({ REA_NATIVE_WORKER: "yes" }), { code: "invalid_input" });
 });
 
 test("preflight rejects directory symlinks/junctions", async t => {

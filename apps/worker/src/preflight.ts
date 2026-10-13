@@ -2,7 +2,10 @@ import { lstat, open, opendir } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { WorkerError, type AnalysisLimits } from "./limits.js";
 
-export type TargetKind = "asar" | "directory";
+/** `exe`/`dll` are Windows programs (PE): .NET assemblies, or native code for the native image. */
+export type TargetKind = "asar" | "directory" | "exe" | "dll";
+export const PROGRAM_KINDS: readonly TargetKind[] = ["exe", "dll"];
+export const TARGET_KINDS: readonly TargetKind[] = ["asar", "directory", ...PROGRAM_KINDS];
 const MAX_HEADER_BYTES = 8 * 1024 * 1024;
 const MAX_DEPTH = 64;
 
@@ -113,13 +116,31 @@ async function inspectAsar(target: string, budget: Budget, depth: number) {
   }
 }
 
+/** A program is one file: check its size and the PE "MZ" signature; REA parses the rest. */
+async function inspectProgram(target: string, budget: Budget) {
+  const handle = await open(target, "r");
+  try {
+    const stats = await handle.stat();
+    budget.archive(stats.size);
+    budget.file(stats.size, false, false);
+    const magic = Buffer.alloc(2);
+    if ((await handle.read(magic, 0, 2, 0)).bytesRead !== 2 || magic.toString("latin1") !== "MZ") {
+      throw new WorkerError("invalid_input", "Not a Windows program (no MZ header).");
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function preflightTarget(target: string, kind: TargetKind, limits: AnalysisLimits) {
   const root = await lstat(target);
-  if (root.isSymbolicLink() || (kind === "asar" ? !root.isFile() : !root.isDirectory())) {
-    throw new WorkerError("invalid_input", "Expected an ordinary ASAR file or directory.");
+  if (root.isSymbolicLink() || (kind === "directory" ? !root.isDirectory() : !root.isFile())) {
+    throw new WorkerError("invalid_input", "Expected an ordinary file or directory.");
   }
   const budget = new Budget(limits);
-  if (kind === "asar") {
+  if (PROGRAM_KINDS.includes(kind)) {
+    await inspectProgram(target, budget);
+  } else if (kind === "asar") {
     budget.archive(root.size);
     await inspectAsar(target, budget, 0);
   } else {
