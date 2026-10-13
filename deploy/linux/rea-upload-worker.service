@@ -18,8 +18,8 @@ ExecStart=/usr/bin/node /opt/rea-for-web/apps/worker/dist/queue.js
 Restart=on-failure
 RestartSec=10
 TimeoutStartSec=45
-# Allow the current bounded job and Docker removal to finish before termination.
-TimeoutStopSec=1850
+# 30-minute analysis maximum + five 60-second storage/transfer steps + headroom.
+TimeoutStopSec=2220
 KillMode=mixed
 UMask=0077
 NoNewPrivileges=true

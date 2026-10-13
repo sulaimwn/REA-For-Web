@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
     "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
     "test:integration": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/queue.integration.js",
+    "test:storage": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/storage.integration.js",
     "test:preanalyze": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json && node --test dist-tests/tests/preanalyze.integration.js",
     "test:http": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/http.integration.js"
   },
