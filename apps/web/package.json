@@ -12,7 +12,10 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "tours": "node scripts/generate-tours.mjs"
+    "tours": "node scripts/generate-tours.mjs",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
@@ -23,12 +26,14 @@
     "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",
     "@xyflow/react": "12.12.0",
-    "next": "16.4.0",
+    "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.10",
     "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0"
+    "@types/react-dom": "^19.3.0",
+    "wrangler": "4.148.0"
   }
 }
