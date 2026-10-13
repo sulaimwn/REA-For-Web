@@ -48,7 +48,11 @@ jobs:
         env:
           PIPELINE_TEST_REDIS_URL: redis://127.0.0.1:6379
         run: npm run test:integration --workspace=@rea-studio/pipeline
-      # Run after the queue-outage suite; it pauses all Redis writes briefly.
+      - name: Real Redis upload API deadline and retry checks
+        env:
+          PIPELINE_TEST_REDIS_URL: redis://127.0.0.1:6379
+        run: npm run test:redis-api --workspace=@rea-studio/pipeline
+      # Run after the outage suites; they pause the dedicated Redis instance.
       - name: Real Redis operator pre-analysis checks
         env:
           PIPELINE_TEST_REDIS_URL: redis://127.0.0.1:6379

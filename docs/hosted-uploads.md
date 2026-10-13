@@ -180,6 +180,16 @@ This kit keeps one global analysis job at a time, 1 CPU / 2 GiB per analysis,
 512 MiB input cap and the existing 15-minute deadline. No settings were increased
 based on guesses about upload speed. Measure real stages before changing limits.
 
+Web-side Redis commands have a five-second deadline, including the queue's
+producer connection. They fail promptly if an established connection stops
+replying; commands are not held in an offline queue. The analysis worker keeps
+its separate reconnect policy and bounded progress writes. A timed-out write
+may still have reached Redis: retry completion with the same upload ticket,
+rather than deleting bytes that might already belong to a queued job. Admission
+increments and quota expiry are atomic, including when their reply is lost.
+`npm run test:redis-api --workspace=@rea-studio/pipeline` verifies these paths
+against a dedicated Redis instance; never point it at a shared or live queue.
+
 Each R2 operation has a 60-second deadline covering SDK attempts and retry
 backoff, including metadata reads, download response headers, result publication,
 raw deletion and expiry-list requests. The downloaded byte stream also has its

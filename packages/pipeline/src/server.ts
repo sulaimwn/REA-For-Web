@@ -34,6 +34,16 @@ export type JobResult = {
 };
 const digest = (token: string) =>
   createHash('sha256').update(token).digest('hex');
+// Web requests must fail when a live Redis connection stops replying. Worker
+// connections keep their separate reconnect policy for long-running analysis.
+const API_REDIS_COMMAND_TIMEOUT_MS = 5000;
+const ADMISSION_QUOTA = `
+local count = redis.call('INCR', KEYS[1])
+if redis.call('TTL', KEYS[1]) < 0 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
 export type PipelineConfig = {
   redisUrl: string;
   prefix: string;
@@ -113,13 +123,17 @@ export class UploadControl {
     this.redis = new Redis(config.redisUrl, {
       maxRetriesPerRequest: 1,
       connectTimeout: 5000,
+      commandTimeout: API_REDIS_COMMAND_TIMEOUT_MS,
       enableOfflineQueue: false,
       lazyConnect: true,
     });
     // Attach listeners so connection failures never become uncaught events.
     this.redis.on('error', () => {});
     this.queue = new Queue<UploadRecord, JobResult>('analysis', {
-      connection: { url: config.redisUrl, maxRetriesPerRequest: 1 },
+      connection: {
+        url: config.redisUrl, maxRetriesPerRequest: 1, connectTimeout: 5000,
+        commandTimeout: API_REDIS_COMMAND_TIMEOUT_MS, enableOfflineQueue: false,
+      },
       prefix: config.prefix,
       defaultJobOptions: {
         attempts: 1,
@@ -158,8 +172,11 @@ export class UploadControl {
     await this.ready();
     // Single private beta quota, shared atomically across web instances.
     const budgetKey = `${this.config.prefix}:admission:${Math.floor(Date.now() / 86400000)}`;
-    const budget = await this.redis.incr(budgetKey);
-    if (budget === 1) await this.redis.expire(budgetKey, UPLOAD_TTL_SECONDS);
+    // A timed-out write may still reach Redis. Keep its expiry in the same
+    // atomic operation so an ambiguous admission never leaves a permanent key.
+    const budget = await this.redis.eval(
+      ADMISSION_QUOTA, 1, budgetKey, UPLOAD_TTL_SECONDS,
+    ) as number;
     if (budget > 100)
       throw new PipelineError(429, 'The daily upload limit has been reached.');
     const id = randomUUID(),

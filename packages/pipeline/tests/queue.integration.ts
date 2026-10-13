@@ -153,8 +153,10 @@ test(
       await store.receive(stalled.id, stalled, Number(signed.searchParams.get('expires')),
         signed.searchParams.get('signature')!, Readable.from(stalledBytes));
       const paused = new Promise<number>((resolvePause) => { notifyProgressStall = resolvePause; });
-      const completing = c.complete(stalled.id, stalledTicket.jobToken);
-      void completing.catch(() => {});
+      const completing = c.complete(stalled.id, stalledTicket.jobToken).then(
+        () => ({ error: undefined }),
+        (error: unknown) => ({ error }),
+      );
       const pausedAt = await paused;
       while (await store.head(uploadKey(stalled.id))) {
         if (Date.now() - pausedAt > 8000) break;
@@ -164,7 +166,11 @@ test(
       assert.deepEqual(await readdir(config.workRoot), []);
       assert.equal(await store.head(resultKey(stalled.sha256)), null);
       assert.ok(Date.now() - pausedAt < 12000, 'cleanup does not wait for Redis writes to resume');
-      await completing;
+      // Cleanup must happen before Redis resumes. The web request may now fail
+      // at its command deadline, while the worker retains its reconnect policy.
+      await c.redis.call('CLIENT', 'UNPAUSE');
+      const completion = await completing;
+      if (completion.error) assert.match(String(completion.error), /timed out/u);
       let failed = await c.status(stalled.id, stalledTicket.jobToken);
       for (let attempt = 0; attempt < 100 && failed.status !== 'failed'; attempt++) {
         await delay(100);
