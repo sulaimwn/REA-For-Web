@@ -69,8 +69,6 @@ export function nativeProcedureAddresses(listProcedures: unknown): string[] {
 const UNBOUND_LIBRARY = '<EXTERNAL>';
 /** Entry symbols: Ghidra's `entry`, the Windows C runtime starts, and ELF's `_start`. */
 const ENTRY_SYMBOL = /^(entry|_start|w?WinMainCRTStartup|w?mainCRTStartup)$/u;
-/** REA `subject.format` → StudioProject `target.format`. */
-const FORMATS: Record<string, 'pe' | 'elf' | 'macho'> = { pe: 'pe', elf: 'elf', macho: 'macho', 'mach-o': 'macho' };
 
 const limitationsOf = (env: Envelope | undefined): string[] => Array.isArray(env?.limitations)
   ? env.limitations.filter((l): l is string => typeof l === 'string') : [];
@@ -89,7 +87,12 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   const containing = (b['containing'] ?? {}) as Record<string, Envelope>;
 
   const program = options.targetName ?? (overview.subject?.name ?? 'program').split(/[\\/]/u).pop() ?? 'program';
-  const format = FORMATS[String(overview.subject?.format ?? 'pe').toLowerCase()] ?? 'pe';
+  // Only formats established by real fixtures are mapped. Missing or unfamiliar
+  // metadata must not become a guessed Windows format or a prototype property.
+  const format = overview.subject?.format;
+  if (format !== 'pe' && format !== 'elf') {
+    throw new ReaOutputError('Native analysis bundle has no supported, recorded binary format');
+  }
   const evidenceFrom = (env: Envelope | undefined, extractor: string): Evidence => ({
     state: env?.confidence === 'observed' ? 'observed' : 'inferred',
     // REA reports Ghidra's results as observed analysis of the shipped bytes, without a confidence grade.
@@ -228,7 +231,7 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   limitations.push('Calls are Ghidra’s resolved direct callees; indirect calls (through pointers or tables) may be missing.');
   limitations.push('Coverage describes the collected function and defined-string inventory, not every possible behavior in the program.');
   limitations.push('Entry-point flags use a Studio symbol-name pattern; they do not prove the executable header’s entry address.');
-  if (format === 'elf') limitations.push('ELF imports name only the symbol; the dynamic linker chooses the providing shared library at run time.');
+  if (format === 'elf') limitations.push('REA’s collected ELF imports identify symbols but do not identify their providing libraries.');
   limitations.push('Endpoint/storage classification and possible uses of string references are Studio heuristics, not REA-reported network or storage operations.');
   if (incomplete) limitations.push(`Incomplete collection: ${missingCalls} callee queries, ${missingRefs} string-reference queries and ${missingContaining} reference-resolution queries missing; ${report.droppedEdgesDanglingEndpoint} calls unresolved.${Array.isArray(strings) ? '' : ' String inventory missing.'}`);
 
@@ -248,7 +251,7 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
     findings: [
       finding('functions', of('native-function').length, [`${named} named by symbols; the rest are Ghidra's FUN_<address> names`]),
       finding('native-imports', of('native-import').length, libraries.length > 0 ? [`Libraries: ${libraries.join(', ')}`]
-        : format === 'elf' ? ['Imported symbols; ELF doesn’t record which shared library provides each one'] : []),
+        : format === 'elf' ? ['Imported symbols; providing libraries are not recorded in this collected evidence'] : []),
       finding('endpoints', of('endpoint').length, of('endpoint').length > 0 ? ['URLs found as strings in the program'] : []),
       finding('storage', of('storage').length, of('storage').length > 0 ? ['Registry paths and data-file names found as strings'] : []),
     ],

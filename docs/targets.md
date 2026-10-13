@@ -68,7 +68,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
     - The fixture is collected inside the native worker image.
     - The CLI recognizes ELF by its header and explains the host requirement on Windows.
     - The worker accepts `.elf`/`.so` jobs in the native image.
-  - **Imports:** ELF imports carry no library (Ghidra reports `<EXTERNAL>::name`), so they're shown by symbol only.
+  - **Imports:** this collected ELF evidence does not attribute a providing library (Ghidra reports `<EXTERNAL>::name`), so imports are shown by symbol only.
   - **Entry point:** `_start` is marked as the entry.
   - Demo: `/explore/tiny-linux`.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
