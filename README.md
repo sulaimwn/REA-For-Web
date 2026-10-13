@@ -49,6 +49,13 @@ npm run dev                                                             # then o
 Drop the `.studio.json` file on the **/open** page. Your browser reads it
 locally. REA only reads the app's files and never runs it. See
 [apps/cli](apps/cli/README.md) for options and timings.
+## VS Code's core demo
+
+The VS Code demo covers its main process and preload scripts: 3 BrowserWindows,
+4 `contextBridge` APIs, and 18 named IPC channels (`vscode:fetchShellEnv`,
+`vscode:browserView:*`). VS Code's main-process handlers register channels
+through a validating wrapper, so REA reports them as unresolved instead of
+pairing them.
 
 ## How it works
 
@@ -135,4 +142,5 @@ to `cd ../.. && npm run build:packages && npm run build -w @rea-studio/web`.
 ## Credits
 
 - [REA](https://github.com/morluto/rea) (MIT) does the analysis.
-- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5 and a hand-written sample app.
+- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5, a core subset of the
+  VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), and a hand-written sample app.
