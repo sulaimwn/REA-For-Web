@@ -22,3 +22,7 @@
   - `build:packages` and the root `npm run typecheck` pass.
   - **Pipeline unit tests 28/28, `test:integration` 4/4, `test:redis-api` 4/4. 0 skipped, run sequentially.**
     The stalled-read, timed-out-admission and queue-write subtests took 12.1 s, 5.0 s and 5.1 s.
+
+## Main after merge (`2d1ca69`)
+- Root `npm run typecheck` passes. `npm test --workspaces --if-present`: 248 tests, 247 pass, 0 fail. The one skip is
+  the host JADX test (`REA_JADX_MCP_JAR` unset). The web production build passes.
