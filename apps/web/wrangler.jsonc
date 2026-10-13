@@ -11,6 +11,10 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Free Ask tier (T030): Workers AI's free daily allowance. Past it, requests fail instead of billing
+  // on the Workers Free plan. Optional per-visitor limit across the edge (if the account offers it):
+  // "ratelimits": [{ "name": "ASK_FREE_LIMITER", "namespace_id": "3001", "simple": { "limit": 12, "period": 60 } }],
+  "ai": { "binding": "AI" },
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
@@ -22,5 +26,13 @@
   //   { "pattern": "reaforweb.com", "custom_domain": true },
   //   { "pattern": "www.reaforweb.com", "custom_domain": true }
   // ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Credential-free local previews: `opennextjs-cloudflare preview --env offline`. Bindings aren't inherited
+  // by environments, so this one has no Workers AI binding (which always needs a Cloudflare login);
+  // the free Ask tier then answers 503 and the panel offers the Claude-key option.
+  "env": {
+    "offline": {
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "reaforweb-offline" }]
+    }
+  }
 }

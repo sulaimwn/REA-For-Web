@@ -7,4 +7,4 @@ RUN npm ci --ignore-scripts --no-audit --no-fund \
     && npm run build:packages \
     && npm run cf:build --workspace=@rea-studio/web
 WORKDIR /repo/apps/web
-CMD ["npx", "--no-install", "opennextjs-cloudflare", "preview", "--ip", "0.0.0.0", "--port", "8787"]
+CMD ["npx", "--no-install", "opennextjs-cloudflare", "preview", "--env", "offline", "--ip", "0.0.0.0", "--port", "8787"]

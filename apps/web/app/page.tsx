@@ -55,8 +55,9 @@ export default function HomePage() {
             <div>
               <dt>Ask</dt>
               <dd>
-                Questions in plain English, here with your own Anthropic API key, or from Claude by adding{' '}
-                <code>/api/mcp</code> as an MCP connector (<a href={`${REPO_URL}/blob/main/docs/mcp.md`}>how</a>)
+                Questions in plain English: free here (an open model, limited per day), with your own Claude key for better
+                answers, or from Claude by adding <code>/api/mcp</code> as an MCP connector (
+                <a href={`${REPO_URL}/blob/main/docs/mcp.md`}>how</a>)
               </dd>
             </div>
             <div>

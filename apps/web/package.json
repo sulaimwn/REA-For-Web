@@ -15,7 +15,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "tours": "node scripts/generate-tours.mjs",
     "cf:build": "opennextjs-cloudflare build",
-    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview --env offline",
     "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {

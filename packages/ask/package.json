@@ -11,9 +11,15 @@
     "./tools": {
       "types": "./dist/toolkit.d.ts",
       "import": "./dist/toolkit.js"
+    },
+    "./free": {
+      "types": "./dist/free.d.ts",
+      "import": "./dist/free.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
