@@ -28,6 +28,7 @@ Details for a task go under its heading below the table.
 | T020 | MIT license (the human's choice) | claude | done | — |
 | T021 | **Essential.** Beyond Electron: research on every target + .NET end to end (schema proposal needs Codex) | claude | review | T007 |
 | T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | —     | todo | T016, T018 |
+| T024 | **Essential.** Analysis worker for programs: .exe/.dll jobs (.NET in the base image; native via a Ghidra + JDK 21 image, approved by the human) | claude | in progress | T006, T021 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 
 ---
