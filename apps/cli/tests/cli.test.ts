@@ -58,6 +58,14 @@ describe('rea-studio analyze', () => {
     assert.match(run('analyze', tiny, '--fast').stderr, /Unknown option --fast/);
   });
 
+  it('accepts --no-recover; a small app has nothing to recover either way (T008)', () => {
+    const out = join(work, 'tiny-no-recover.studio.json');
+    const r = run('analyze', tiny, '--no-recover', '--out', out);
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stderr, /re-analyzing/);
+    assert.doesNotMatch(r.stdout, /Re-analyzed/);
+  });
+
   it('rejects an existing output without changing it or running REA', () => {
     const existing = join(work, 'keep.asar');
     writeFileSync(existing, 'original bytes');
