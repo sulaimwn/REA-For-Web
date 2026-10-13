@@ -1,0 +1,32 @@
+{
+  "name": "@rea-studio/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "rea-for-web-mcp": "dist/stdio.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "test": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && npm run build --workspace=@rea-studio/ask && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
+    "start": "node dist/stdio.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "@rea-studio/ask": "0.0.0",
+    "@rea-studio/schema": "0.0.0"
+  },
+  "devDependencies": {
+    "@rea-studio/rea-adapter": "0.0.0"
+  }
+}
