@@ -400,7 +400,7 @@ export interface TargetInfo {
   sha256: string;
   /** Fixtures so far are all `directory`; `asar` is from REA's `--artifact-format` enum. */
   format: 'asar' | 'directory';
-  /** `electron` when REA found an Electron main process; otherwise `javascript`. */
+  /** `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`. */
   appKind: 'electron' | 'javascript';
 }
 
