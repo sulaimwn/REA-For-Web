@@ -78,8 +78,8 @@ export interface AnalysisFailure {
   retryable: boolean;
 }
 
-/** Areas the UI reports on. Each gets a FindingCoverage entry. */
-export const FINDING_CATEGORIES = [
+/** Finding categories of an Electron/JavaScript app, in display order. */
+export const JAVASCRIPT_FINDING_CATEGORIES = [
   'source-files',
   'imports',
   'processes',
@@ -91,6 +91,15 @@ export const FINDING_CATEGORIES = [
   'storage',
   'workers',
 ] as const;
+
+/** Finding categories of a .NET program (REA managed static analysis, T021), in display order. */
+export const DOTNET_FINDING_CATEGORIES = ['types', 'methods', 'native-imports', 'external-apis'] as const;
+
+/**
+ * Areas the UI reports on. Each gets a FindingCoverage entry. A project lists only
+ * the categories for its kind of app (see the two lists above).
+ */
+export const FINDING_CATEGORIES = [...JAVASCRIPT_FINDING_CATEGORIES, ...DOTNET_FINDING_CATEGORIES] as const;
 export type FindingCategory = (typeof FINDING_CATEGORIES)[number];
 
 /**
@@ -300,6 +309,75 @@ export interface WorkerNode extends NodeBase<'worker'> {
   resolvedPath: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// .NET nodes (T021). From REA's managed static analysis: `inspect_managed_*` plus
+// `project_managed_application_graph`. Nothing here loads or runs the assembly.
+
+/** A managed assembly and its module (REA `managed-assembly` + `managed-module`). */
+export interface AssemblyNode extends NodeBase<'assembly'> {
+  name: string;
+  version: string | null;
+  /** Module file name, e.g. `TinyNotes.exe`. */
+  moduleName: string | null;
+  /** Module version id; identifies this exact build. */
+  mvid: string | null;
+  /** e.g. `anycpu`, `x86`, `x64`. */
+  architecture: string | null;
+  /** CLR metadata version, e.g. `v4.0.30319`. */
+  runtimeVersion: string | null;
+  ilOnly: boolean | null;
+  /** `Type.Method` of the entry point, when it's a method in this assembly. */
+  entryPoint: string | null;
+  references: { name: string; version: string | null }[];
+  resources: { name: string; bytes: number | null; embedded: boolean }[];
+}
+
+/** A type defined in the assembly (REA `managed-type`). */
+export interface ManagedTypeNode extends NodeBase<'managed-type'> {
+  fullName: string;
+  namespace: string;
+  name: string;
+  /** Compiler-made types such as `<Module>` or async state machines (`<PushAsync>d__0`). */
+  compilerGenerated: boolean;
+  /** Field names, from REA `managed-field` nodes (not drawn as nodes of their own). */
+  fields: string[];
+}
+
+/** A method defined in the assembly (REA `managed-method`, plus its `managed-native-implementation` if any). */
+export interface ManagedMethodNode extends NodeBase<'managed-method'> {
+  declaringType: string;
+  name: string;
+  /** IL body size in bytes; null for P/Invoke declarations, which have no body. */
+  ilSize: number | null;
+  /** Declared as a P/Invoke into native code; see the `imports` edge to its `native-import`. */
+  pinvoke: boolean;
+  entryPoint: boolean;
+}
+
+/** A P/Invoke declaration: managed code calling a native library (REA `managed-pinvoke-import`). */
+export interface NativeImportNode extends NodeBase<'native-import'> {
+  /** e.g. `user32.dll`. REA proves the declaration only, not that the library or export exists. */
+  library: string;
+  /** Native export name, e.g. `MessageBoxW` or `seal_note`. */
+  entryPoint: string;
+  /** Managed method that declares it, e.g. `SealNote`. */
+  managedName: string;
+  /** e.g. `winapi`, `cdecl`. */
+  callingConvention: string | null;
+  charSet: string | null;
+}
+
+/**
+ * A member outside the assembly that its code calls (a CIL `call`/`callvirt`/`newobj`
+ * target from REA `inspect_managed_members.call_edges`). REA 6.4.0 doesn't resolve the
+ * declaring type, so only the member name and signature are known.
+ */
+export interface ExternalMemberNode extends NodeBase<'external-member'> {
+  name: string;
+  parameterTypes: string[];
+  returnType: string | null;
+}
+
 /** Part of the artifact REA could not analyze (REA `unknown`). Shown so gaps are visible. */
 export interface AnalysisGapNode extends NodeBase<'analysis-gap'> {
   path: string;
@@ -324,6 +402,11 @@ export type StudioNode =
   | EndpointNode
   | StorageNode
   | WorkerNode
+  | AssemblyNode
+  | ManagedTypeNode
+  | ManagedMethodNode
+  | NativeImportNode
+  | ExternalMemberNode
   | AnalysisGapNode;
 
 export type StudioNodeKind = StudioNode['kind'];
@@ -345,6 +428,11 @@ export const NODE_KINDS = [
   'endpoint',
   'storage',
   'worker',
+  'assembly',
+  'managed-type',
+  'managed-method',
+  'native-import',
+  'external-member',
   'analysis-gap',
 ] as const satisfies readonly StudioNodeKind[];
 
@@ -388,8 +476,10 @@ export interface EdgeDetails {
   operation?: IpcOperation;
   /** How REA paired sender and handler, e.g. `unique-exact-literal-channel`. */
   pairingBasis?: string;
-  // calls / persists_to / loads
+  // calls / persists_to / loads. For .NET calls: the CIL opcode (`call`, `callvirt`, `newobj`).
   mechanism?: string;
+  /** .NET calls: how many call sites the drawn edge stands for. */
+  callSites?: number;
 }
 
 export interface StudioEdge {
@@ -412,10 +502,16 @@ export interface TargetInfo {
   version: string | null;
   /** REA `subject.digest.sha256`. Also the cache/dedupe key. */
   sha256: string;
-  /** Extracted app directory or shipped ASAR archive, matching REA's artifact format. */
-  format: 'asar' | 'directory';
-  /** `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`. */
-  appKind: 'electron' | 'javascript';
+  /**
+   * Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a
+   * .NET executable or DLL; `url` for a website captured through a browser.
+   */
+  format: 'asar' | 'directory' | 'pe' | 'url';
+  /**
+   * `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`.
+   * `dotnet` for managed PE/CLI programs; `web` for a website (T021).
+   */
+  appKind: 'electron' | 'javascript' | 'dotnet' | 'web';
 }
 
 export interface AnalysisInfo {
@@ -438,8 +534,8 @@ export interface AnalysisInfo {
   };
   /** Files whose relationships REA dropped; see FileNode.analysisIssue. */
   filesWithAnalysisIssues: number;
-  /** Parts of REA's output intentionally left out of this project. */
-  omitted: ('semantic-graph' | 'export-shape-nodes')[];
+  /** Parts of REA's output intentionally left out of this project. `managed-fields` are listed on their type instead. */
+  omitted: ('semantic-graph' | 'export-shape-nodes' | 'managed-fields')[];
 }
 
 /** REA `summary.ipc`, renamed. Lets the UI explain IPC gaps. */

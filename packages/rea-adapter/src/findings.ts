@@ -6,7 +6,7 @@ import type { CoverageStatus, FindingCategory, FindingCoverage, IpcSummary, Stud
 const NOT_FOUND_NOTE = 'None found. REA static analysis never proves absence, so there may still be some.';
 
 /** The count stays REA's candidate count; the notes say how many look real (Studio heuristic, T012). */
-function endpointNotes(endpoints: Extract<StudioNode, { kind: 'endpoint' }>[]): string[] {
+export function endpointNotes(endpoints: Extract<StudioNode, { kind: 'endpoint' }>[]): string[] {
   if (endpoints.length === 0) return [];
   const plausible = endpoints.filter((e) => e.assessment?.verdict === 'plausible').length;
   const unlikely = endpoints.filter((e) => e.assessment?.verdict === 'unlikely').length;

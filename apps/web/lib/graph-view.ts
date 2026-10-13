@@ -41,8 +41,15 @@ function isRootContainment(ix: ProjectIndex, e: StudioEdge) {
   return e.relation === 'contains' && e.source === ix.rootId;
 }
 
-function overviewIds(ix: ProjectIndex): Set<string> {
-  const core = ix.project.nodes.filter((n) => KIND_META[n.kind].overview).map((n) => n.id);
+/** Most nodes the overview draws; big .NET programs have thousands of methods. */
+const OVERVIEW_LIMIT = 250;
+
+function overviewIds(ix: ProjectIndex): { ids: Set<string>; hidden: number } {
+  let core = ix.project.nodes.filter((n) => KIND_META[n.kind].overview).map((n) => n.id);
+  // Apps with none of the architectural kinds (e.g. a website's scripts): show the files and what they use.
+  if (core.length === 0) {
+    core = ix.project.nodes.filter((n) => (n.kind === 'file' && n.id !== ix.rootId) || n.kind === 'external-module').map((n) => n.id);
+  }
   const ids = new Set(core);
   for (const id of core) {
     for (const e of edgesOf(ix, id)) {
@@ -52,7 +59,11 @@ function overviewIds(ix: ProjectIndex): Set<string> {
       if (kind === 'file' || kind === 'module' || kind === 'package') ids.add(other);
     }
   }
-  return ids;
+  if (ids.size <= OVERVIEW_LIMIT) return { ids, hidden: 0 };
+  // Keep the most architectural kinds (KIND_ORDER) and say how many were left out.
+  const rank = (id: string) => KIND_ORDER.indexOf(ix.byId.get(id)?.kind ?? 'analysis-gap');
+  const kept = [...ids].sort((a, b) => rank(a) - rank(b)).slice(0, OVERVIEW_LIMIT);
+  return { ids: new Set(kept), hidden: ids.size - OVERVIEW_LIMIT };
 }
 
 function neighborhoodIds(ix: ProjectIndex, focusId: string): { ids: Set<string>; hidden: number } {
@@ -210,7 +221,7 @@ function layoutHub(ix: ProjectIndex, focusId: string, ids: Set<string>, edges: S
 export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
   const { ids, hidden } =
     focus.mode === 'overview'
-      ? { ids: overviewIds(ix), hidden: 0 }
+      ? overviewIds(ix)
       : focus.mode === 'set'
         ? { ids: new Set(focus.ids.filter((id) => ix.byId.has(id))), hidden: 0 }
         : neighborhoodIds(ix, focus.id);

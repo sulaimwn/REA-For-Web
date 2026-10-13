@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import {
   CONFIDENCE_LEVELS,
   EVIDENCE_STATES,
-  FINDING_CATEGORIES,
+  JAVASCRIPT_FINDING_CATEGORIES,
   NODE_KINDS,
   RELATIONS,
   STUDIO_SCHEMA_VERSION,
@@ -94,7 +94,7 @@ function assertInvariants(p: StudioProject) {
     assert.ok(n.evidence.length > 0, `node ${n.id} has evidence`);
     assert.deepEqual(n.origin, { source: 'rea' });
   }
-  assert.deepEqual(p.findings.map((f) => f.category), [...FINDING_CATEGORIES]);
+  assert.deepEqual(p.findings.map((f) => f.category), [...JAVASCRIPT_FINDING_CATEGORIES]);
   for (const f of p.findings) {
     assert.notEqual(f.status, 'confirmed-absent', 'REA static analysis never proves absence');
     assert.equal(f.status === 'found', f.count > 0);
@@ -384,7 +384,7 @@ describe('defensive handling', () => {
     assert.throws(() => toStudioProject(null, opts), ReaOutputError);
     assert.throws(() => toStudioProject('x', opts), ReaOutputError);
     const wrongOp = clone();
-    wrongOp.operation = 'analyze_web_bundle';
+    wrongOp.operation = 'inspect_artifact';
     assert.throws(() => toStudioProject(wrongOp, opts), /Unsupported REA operation/);
     const noGraph = clone() as unknown as { normalized_result: Record<string, unknown> };
     delete noGraph.normalized_result['graph'];

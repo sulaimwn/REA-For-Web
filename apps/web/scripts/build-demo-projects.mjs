@@ -29,6 +29,19 @@ const DEMOS = [
     file: 'tiny-electron.rea-6.4.0.json',
     blurb: 'A 7-file hand-written app with a known answer key.',
   },
+  {
+    slug: 'reaforweb-site',
+    title: 'This website',
+    file: 'reaforweb-dev-landing.web-bundle.rea-6.4.0.json',
+    blurb: 'REA for Web’s own landing page, captured in a headless browser: its scripts, the frameworks they use and endpoint candidates.',
+    note: 'Captured from a development build on localhost, so the scripts are unminified dev chunks',
+  },
+  {
+    slug: 'tiny-dotnet',
+    title: 'Tiny .NET sample',
+    file: 'tiny-dotnet.rea-6.4.0.json',
+    blurb: 'A hand-written C# program: types, methods, its call graph and three calls into native code.',
+  },
 ];
 
 /**

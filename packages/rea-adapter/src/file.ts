@@ -2,6 +2,86 @@
 import { open, readFile, stat } from 'node:fs/promises';
 import { basename, isAbsolute } from 'node:path';
 import { adaptReaResult, ReaOutputError, type AdapterOptions } from './index.js';
+import { assertManagedArtifact } from './managed.js';
+
+/** Reads a finalized, private REA output file as JSON, with a byte cap. */
+async function readReaJson(path: string, maxBytes: number): Promise<unknown> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new ReaOutputError('Invalid REA artifact byte limit');
+  }
+  const handle = await open(path, 'r');
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > maxBytes) {
+      throw new ReaOutputError('REA artifact is not a regular file within its byte limit');
+    }
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      bytes += chunk.length;
+      if (bytes > maxBytes) throw new ReaOutputError('REA artifact exceeded its byte limit');
+      chunks.push(chunk as Buffer);
+    }
+    try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); }
+    catch (cause) { throw new ReaOutputError('REA artifact is not valid UTF-8 JSON', { cause }); }
+  } finally {
+    await handle.close();
+  }
+}
+
+/** REA's own explanation from a failed command's JSON output (`{ error, code, message }`), if it has one. */
+export async function reaErrorMessage(path: string, maxBytes: number): Promise<string | null> {
+  try {
+    const raw = (await readReaJson(path, maxBytes)) as { error?: unknown; message?: unknown; code?: unknown } | null;
+    if (!raw || typeof raw !== 'object' || raw.error === undefined) return null;
+    const message = typeof raw.message === 'string' ? raw.message : null;
+    const code = typeof raw.code === 'string' ? raw.code : null;
+    return [message, code && `(${code})`].filter(Boolean).join(' ') || null;
+  } catch {
+    return null; // No usable output: the caller reports the exit code alone.
+  }
+}
+
+/** Reads a finalized, private REA artifact with a byte cap before adapting it. */
+export async function adaptReaFile(path: string, options: AdapterOptions & { maxBytes: number }) {
+  return adaptReaResult(await readReaJson(path, options.maxBytes), options);
+}
+
+/** Output files of REA's managed (.NET) commands for one program (T021). */
+export interface ManagedReaFiles {
+  /** `rea inspect-managed-artifact` */
+  artifact: string;
+  /** `rea inspect-managed-members` */
+  members: string;
+  /** `rea inspect-managed-native-boundaries` */
+  boundaries: string;
+}
+
+/** Throws a readable ReaOutputError unless REA classified the file as a .NET program (e.g. a native .exe). */
+export async function checkManagedArtifactFile(path: string, maxBytes: number): Promise<void> {
+  assertManagedArtifact(await readReaJson(path, maxBytes));
+}
+
+/** The JSON input for `rea project-managed-application-graph`, built from the three inspections. */
+export async function managedProjectionInput(files: ManagedReaFiles, maxBytes: number): Promise<string> {
+  const artifact = await readReaJson(files.artifact, maxBytes);
+  assertManagedArtifact(artifact);
+  return JSON.stringify({
+    managed_artifact: artifact,
+    managed_members: await readReaJson(files.members, maxBytes),
+    managed_native_boundaries: await readReaJson(files.boundaries, maxBytes),
+  });
+}
+
+/** Adapts a .NET program from its REA inspection files plus REA's projection of them. */
+export async function adaptManagedFiles(files: ManagedReaFiles & { projection: string }, options: AdapterOptions & { maxBytes: number }) {
+  return adaptReaResult({
+    inspect_managed_artifact: await readReaJson(files.artifact, options.maxBytes),
+    inspect_managed_members: await readReaJson(files.members, options.maxBytes),
+    inspect_managed_native_boundaries: await readReaJson(files.boundaries, options.maxBytes),
+    project_managed_application_graph: await readReaJson(files.projection, options.maxBytes),
+  }, options);
+}
 
 /**
  * The folder `rea extract-artifact` unpacked an archive into (T008: recovery needs single
@@ -18,31 +98,4 @@ export async function extractedArtifactRoot(path: string, maxBytes: number): Pro
     throw new ReaOutputError('REA extraction result has no extraction folder');
   }
   return root;
-}
-
-/** Reads a finalized, private REA artifact with a byte cap before adapting it. */
-export async function adaptReaFile(path: string, options: AdapterOptions & { maxBytes: number }) {
-  if (!Number.isSafeInteger(options.maxBytes) || options.maxBytes < 1) {
-    throw new ReaOutputError('Invalid REA artifact byte limit');
-  }
-  const handle = await open(path, 'r');
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile() || stat.size > options.maxBytes) {
-      throw new ReaOutputError('REA artifact is not a regular file within its byte limit');
-    }
-    const chunks: Buffer[] = [];
-    let bytes = 0;
-    for await (const chunk of handle.createReadStream({ autoClose: false })) {
-      bytes += chunk.length;
-      if (bytes > options.maxBytes) throw new ReaOutputError('REA artifact exceeded its byte limit');
-      chunks.push(chunk as Buffer);
-    }
-    let raw: unknown;
-    try { raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); }
-    catch (cause) { throw new ReaOutputError('REA artifact is not valid UTF-8 JSON', { cause }); }
-    return adaptReaResult(raw, options);
-  } finally {
-    await handle.close();
-  }
 }
