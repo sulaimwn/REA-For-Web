@@ -16,7 +16,7 @@
 - Real Docker: 11/11 pass, zero skips, 120 s total. Covers actual .NET metadata, Ghidra native analysis (39.7 s), JADX APK analysis (18.7 s), original ASAR/directory behavior, partial timeout evidence, bad/oversized inputs, output limits, cancellation and container cleanup.
 - Android result retains five unknown constructors/initializers and partial coverage. APK entry cap produces `input_limit_exceeded` with no published result. Native cancellation removes the container and incomplete output.
 - Every integration test checks the worker-container inventory returns to its initial state.
-- Full workspace checks on merged main are recorded after the merge.
+- Merged R002/R003 into main at `a5c2a27`, with T021 and T024 marked done. All eight workspaces typecheck; all 200 workspace tests pass with zero skips, including actual JADX and browser capture; the production build passes and generates seven demos. No push.
 
 ## Not done / known issues
 - Upload pipeline remains ASAR-only until Codex's next task. These images and demos alone do not enable hosted program uploads.
