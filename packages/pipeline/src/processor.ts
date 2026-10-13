@@ -71,7 +71,9 @@ export async function processUpload(
       };
     const artifact = await analyze({
       targetPath: target,
-      targetName: r.name,
+      // Shared cache entries contain artifact facts, never an uploader's label.
+      // The authorized job supplies its own filename to the viewer separately.
+      targetName: 'target.asar',
       outputRoot: join(temp, 'results'),
       onProgress: (progress) => {
         // Serialize bounded progress updates; persist failures before publication.

@@ -7,6 +7,11 @@ calls the existing Docker sandbox and stores only compressed StudioProject JSON.
 The uploaded target is never executed. Storage and Redis credentials never enter
 the analysis container or browser.
 
+The form separates file preparation from transfer. Its upload percentage and
+byte count come from browser transfer events; 100% still waits for the server's
+successful response. The job page then shows queue and analysis stages with
+REA's progress text. Analysis has no invented completion percentage.
+
 ## Try it locally
 
 With Docker Desktop running, from the repository root:
@@ -40,7 +45,8 @@ generated once and never logged.
   the uploaded object. Completion is idempotent. Requests from the browser must
   have the configured Origin; R2 mode additionally requires X-REA-Access-Key.
 - GET /api/jobs/:id with that bearer token → awaiting-upload / queued / running /
-  succeeded / failed, REA progress text, and projectId/cacheHit on success.
+  succeeded / failed, the authorized job's optional uploadName, REA progress
+  text, and projectId/cacheHit on success.
 - GET /api/jobs/:id/project with that token streams compressed StudioProject
   JSON (Content-Encoding: gzip); ordinary fetch transparently decompresses it.
 
@@ -52,10 +58,16 @@ The server admits at most 100 upload tickets per UTC day for the private beta.
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys
-include schema 0.1.0, REA 6.4.0 and adapter/cache revision 4. Increment the cache revision
+include schema 0.1.0, REA 6.4.0 and adapter/cache revision 5. Increment the cache revision
 when adapter semantics or analysis settings change. Cache reuse happens only
 after the worker has downloaded and verified a fresh upload with the same hash.
 This proves possession before exposing a cached result.
+
+Cached projects use a canonical archive fallback name, never another uploader's
+filename. The viewer applies its own authorized uploadName when the app has no
+root package.json; a real package name still takes precedence. Older authorized
+jobs from cache revisions 2–4 remain readable. Terminal queue states reload the
+job record before returning a result, including very fast cache hits.
 
 Analysis concurrency is globally one per queue. A job is acknowledged as complete
 only after result storage and raw-object/staging cleanup finish. Deterministic

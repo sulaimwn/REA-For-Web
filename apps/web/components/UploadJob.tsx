@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { StudioProject } from '@rea-studio/schema';
 import type { JobStatus } from '@rea-studio/pipeline/contracts';
-import { Explorer } from './Explorer';
+import { ProjectExplorer } from './Explorer';
+import { projectForUpload } from '../lib/upload-project';
 
 export function UploadJob({ id }: { id: string }) {
   const [status, setStatus] = useState<JobStatus | null>(null),
@@ -41,7 +42,7 @@ export function UploadJob({ id }: { id: string }) {
           });
           if (!result.ok)
             throw new Error('Could not load the analysis result.');
-          setProject((await result.json()) as StudioProject);
+          setProject(projectForUpload((await result.json()) as StudioProject, state.uploadName));
           return;
         }
         timer = setTimeout(() => void poll(), 1000);
@@ -58,20 +59,10 @@ export function UploadJob({ id }: { id: string }) {
   }, [id]);
   if (project)
     return (
-      <Explorer
+      <ProjectExplorer
         key={id}
-        initialProject={project}
-        demo={{
-          slug: id,
-          title: project.target.name,
-          blurb: 'Your uploaded app',
-          name: project.target.name,
-          version: project.target.version,
-          nodes: project.nodes.length,
-          edges: project.edges.length,
-          coverage: project.analysis.coverage.status,
-          sample: null,
-        }}
+        project={project}
+        title={project.target.name}
       />
     );
   const failed = status?.status === 'failed';
@@ -85,6 +76,15 @@ export function UploadJob({ id }: { id: string }) {
             ? 'Analysis unavailable'
             : 'Analyzing your app'}
       </h1>
+      {!failed && !error && (
+        <ol className="analysis-stages" aria-label="Analysis stages">
+          <li>Upload received</li>
+          <li aria-current={status?.status === 'queued' ? 'step' : undefined}>
+            {status?.status === 'running' || status?.status === 'succeeded' ? 'Worker started' : 'Waiting for a worker'}
+          </li>
+          <li aria-current={status?.status === 'running' ? 'step' : undefined}>Analyze the app and build its map</li>
+        </ol>
+      )}
       <p role="status" aria-live="polite">
         {error ??
           status?.error ??

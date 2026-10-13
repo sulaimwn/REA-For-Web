@@ -199,14 +199,22 @@ export class UploadControl {
     return this.status(id, token);
   }
   async status(id: string, token: string): Promise<JobStatus> {
-    await this.authorize(id, token);
-    const job = await this.queue.getJob(id);
-    if (!job) return { jobId: id, status: 'awaiting-upload' };
+    const record = await this.authorize(id, token);
+    let job = await this.queue.getJob(id);
+    if (!job) return { jobId: id, uploadName: record.name, status: 'awaiting-upload' };
     const state = await job.getState();
+    // A fast cache hit can finish between reading the job hash and its state.
+    // Terminal results/reasons must come from a snapshot taken after that state.
+    if (state === 'completed' || state === 'failed') {
+      job = await this.queue.getJob(id);
+      if (!job) throw new PipelineError(404, 'Job not found or expired.');
+    }
+    if (state === 'completed' && !job.returnvalue) throw new PipelineError(409, 'Analysis is not ready.');
     if (state === 'completed')
       return {
         jobId: id,
         status: 'succeeded',
+        uploadName: record.name,
         projectId: job.returnvalue.projectId,
         cacheHit: job.returnvalue.cacheHit,
       };
@@ -222,6 +230,7 @@ export class UploadControl {
       return {
         jobId: id,
         status: 'failed',
+        uploadName: record.name,
         ...(progress ? { progress } : {}),
         ...(job.failedReason === 'Analysis failed (timeout).'
           ? {
@@ -234,6 +243,7 @@ export class UploadControl {
     return {
       jobId: id,
       status: state === 'active' ? 'running' : 'queued',
+      uploadName: record.name,
       ...(progress ? { progress } : {}),
     };
   }
@@ -242,7 +252,9 @@ export class UploadControl {
     const job = await this.queue.getJob(id);
     if (!job || (await job.getState()) !== 'completed')
       throw new PipelineError(409, 'Analysis is not ready.');
-    return this.config.store.read(job.returnvalue.resultKey);
+    const finished = job.returnvalue ? job : await this.queue.getJob(id);
+    if (!finished?.returnvalue) throw new PipelineError(409, 'Analysis is not ready.');
+    return this.config.store.read(finished.returnvalue.resultKey);
   }
   async close() {
     await this.queue.close();

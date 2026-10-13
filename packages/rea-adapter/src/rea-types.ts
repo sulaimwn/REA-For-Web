@@ -76,5 +76,17 @@ export interface ReaResult {
     summary?: { ipc?: Record<string, unknown> };
     statistics?: Record<string, unknown>;
     limitations?: unknown[];
+    /** Only read by heuristics; never copied into StudioProject. */
+    semantic_graph?: { nodes?: ReaSemanticNode[] } | null;
   };
+}
+
+/** The subset of REA `JavaScriptSemanticRelationGraph` nodes that heuristics read. */
+export interface ReaSemanticNode {
+  node_id: string;
+  kind: string;
+  label?: string;
+  /** e.g. `{ operation_kind: 'read', property_path: ['notesApi', 'save'] }`. */
+  properties?: ReaProps | null;
+  evidence?: { location?: ReaLocation } | null;
 }

@@ -314,6 +314,64 @@ describe('.asar input (tiny-electron packed with @electron/asar)', () => {
   });
 });
 
+describe('heuristic: bridge member reads', () => {
+  const heuristicEdges = (p: StudioProject) => p.edges.filter((e) => e.origin.source === 'studio-heuristic');
+
+  it('links renderer reads of window.<apiKey>.<member> to the bridge (tiny-electron)', () => {
+    const { project: p, report } = adaptReaResult(load(TINY), opts);
+    const byId = new Map(p.nodes.map((n) => [n.id, n]));
+    const links = heuristicEdges(p)
+      .map((e) => {
+        const src = byId.get(e.source);
+        const dst = byId.get(e.target);
+        const loc = e.evidence.location;
+        return {
+          from: src?.kind === 'file' ? src.path : null,
+          to: dst?.kind === 'bridge-api' ? dst.apiKey : null,
+          relation: e.relation,
+          via: e.details.mechanism,
+          at: loc?.kind === 'source-range' ? `${loc.file}:${loc.start.line}` : null,
+        };
+      })
+      .sort((a, b) => String(a.via).localeCompare(String(b.via)));
+    assert.deepEqual(links, [
+      { from: 'src/renderer/renderer.js', to: 'notesApi', relation: 'calls', via: 'window.notesApi.list', at: 'src/renderer/renderer.js:6' },
+      { from: 'src/renderer/renderer.js', to: 'notesApi', relation: 'calls', via: 'window.notesApi.save', at: 'src/renderer/renderer.js:5' },
+    ]);
+    assert.deepEqual(report.heuristicEdges, { 'bridge-member-read': 2 });
+  });
+
+  it('labels heuristic edges as inferred studio heuristics and leaves REA edges untouched', () => {
+    const withHeuristics = toStudioProject(load(TINY), opts);
+    for (const e of heuristicEdges(withHeuristics)) {
+      assert.equal(e.origin.source === 'studio-heuristic' && e.origin.heuristic, 'bridge-member-read');
+      assert.equal(e.evidence.state, 'inferred');
+      assert.equal(e.evidence.confidence, 'medium');
+      assert.equal(e.evidence.authority, 'studio-heuristic');
+    }
+    const reaEdges = withHeuristics.edges.filter((e) => e.origin.source === 'rea');
+    assert.equal(reaEdges.length, withHeuristics.edges.length - 2);
+    assert.equal(reaEdges.length, 56, 'same REA edges as before heuristics');
+  });
+
+  it('adds nothing when the app has no bridge API (GitHub Desktop)', () => {
+    const { project, report } = adaptReaResult(load(GHD), opts);
+    assert.equal(heuristicEdges(project).length, 0);
+    assert.deepEqual(report.heuristicEdges, { 'bridge-member-read': 0 });
+  });
+
+  it('ignores reads of members the bridge does not expose', () => {
+    const raw = structuredClone(load(TINY)) as {
+      normalized_result: { semantic_graph: { nodes: { label?: string; properties?: Record<string, unknown> }[] } };
+    };
+    const read = raw.normalized_result.semantic_graph.nodes.find((n) => n.label === 'read:/notesApi/save');
+    assert.ok(read?.properties);
+    read.properties['property_path'] = ['notesApi', 'deleteEverything'];
+    const vias = heuristicEdges(toStudioProject(raw, opts)).map((e) => e.details.mechanism);
+    assert.deepEqual(vias, ['window.notesApi.list']);
+  });
+});
+
 describe('defensive handling', () => {
   const clone = () => structuredClone(load(TINY)) as {
     operation: string;

@@ -36,6 +36,40 @@ variables, so they're marked **unresolved** rather than guessed.
 
 ![The neighborhood of renderer.js: IPC channels, the worker, storage keys and imports, with REA's unfiltered endpoint candidates last](docs/screenshots/ghd-renderer.png)
 
+## Ask questions about an app
+
+Open the **Ask** tab in the explorer and ask in plain English, e.g. *"How does the
+app save notes?"* Claude looks things up in the analysis (search, follow links,
+trace paths), answers with every node linked to the graph, and the graph switches
+to show exactly the nodes the answer used. It says when something is unresolved
+instead of guessing.
+
+It uses **your own Anthropic API key**, sent only from your browser to
+api.anthropic.com, and each answer shows its token cost. The same tools will
+power pre-generated demo tours and an MCP connector for using Claude or ChatGPT
+subscriptions (`packages/ask`).
+
+## Explore your own app (local mode)
+
+Analyze an app on your machine and open the result in the browser. Nothing is uploaded.
+
+```sh
+npm install
+npm run analyze -w rea-studio -- path/to/YourApp/resources/app.asar   # writes app.studio.json
+npm run dev                                                             # then open http://localhost:3000/open
+```
+
+Drop the `.studio.json` file on the **/open** page. Your browser reads it
+locally. REA only reads the app's files and never runs it. See
+[apps/cli](apps/cli/README.md) for options and timings.
+## VS Code's core demo
+
+The VS Code demo covers its main process and preload scripts: 3 BrowserWindows,
+4 `contextBridge` APIs, and 18 named IPC channels (`vscode:fetchShellEnv`,
+`vscode:browserView:*`). VS Code's main-process handlers register channels
+through a validating wrapper, so REA reports them as unresolved instead of
+pairing them.
+
 ## How it works
 
 ```
@@ -52,6 +86,8 @@ app (.asar or folder) ──► REA analyze-javascript-application ──► REA
   raw REA output. On GitHub Desktop it turns 50 MB of REA JSON into 4.5 MB in under half a second.
 - **[`apps/web`](apps/web)** is the Next.js explorer (React Flow + dagre). The demo pages are
   static HTML.
+- **[`apps/cli`](apps/cli/README.md)** (local mode) runs REA and the adapter on your machine
+  and writes a `.studio.json` file that the web app's `/open` page reads in the browser.
 - **[`apps/worker`](apps/worker)** runs REA in a locked-down container (no network, non-root,
   resource limits) and normalizes the result with the adapter. It's verified locally with Docker
   but not deployed yet; see [its README](apps/worker/README.md).
@@ -62,7 +98,8 @@ including measurements and known limitations.
 
 ## Status
 
-This is an early preview. The demo shows **pre-analyzed open-source apps**.
+This is an early preview. The demo shows **pre-analyzed open-source apps**, and
+local mode lets you analyze and view an app entirely on your own machine.
 Uploading your own app is available locally with `npm run dev:uploads` while T007
 is in review. The full upload → queue → Docker analysis → explorer flow is tested
 with a real archive. Cloudflare R2 and remote deployment are not connected yet.
@@ -105,6 +142,7 @@ build locally, run `npm run build` followed by `npm start`.
 | `@rea-studio/schema` | `StudioProject` types, derived from real REA fixtures |
 | `@rea-studio/rea-adapter` | REA JSON → `StudioProject`, with fixture tests (`npm test -w @rea-studio/rea-adapter`) |
 | `@rea-studio/worker` | Sandboxed REA runner that outputs `StudioProject` (Docker; see `apps/worker/README.md`) |
+| `rea-studio` | Local-mode CLI (`apps/cli`): REA + adapter on your machine → `.studio.json`; tests: `npm test -w rea-studio` |
 
 All workspaces extend `tsconfig.base.json`. Root builds run schema, adapter,
 worker and web in dependency order. After changing a shared package while
@@ -119,4 +157,5 @@ to `cd ../.. && npm run build:packages && npm run build -w @rea-studio/web`.
 ## Credits
 
 - [REA](https://github.com/morluto/rea) (MIT) does the analysis.
-- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5 and a hand-written sample app.
+- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5, a core subset of the
+  VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), and a hand-written sample app.

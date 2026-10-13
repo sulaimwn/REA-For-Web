@@ -7,6 +7,7 @@ import {
   type UploadTicket,
 } from '@rea-studio/pipeline/contracts';
 import { useRouter } from 'next/navigation';
+import { uploadFile } from '../lib/upload-file';
 
 export function UploadForm() {
   const [file, setFile] = useState<File | null>(null),
@@ -15,10 +16,11 @@ export function UploadForm() {
     [accessKey, setAccessKey] = useState('');
   const controller = useRef<AbortController | null>(null);
   const [canCancel, setCanCancel] = useState(false);
-  useEffect(() => () => controller.current?.abort(), []);
+  const [progress, setProgress] = useState<{ phase: 'preparing' | 'uploading'; loaded: number; total: number } | null>(null);
+  useEffect(() => () => { controller.current?.abort(); controller.current = null; }, []);
   const router = useRouter();
   async function start() {
-    if (!file) return;
+    if (!file || controller.current) return;
     if (
       !/\.asar$/iu.test(file.name) ||
       file.size < 1 ||
@@ -31,6 +33,7 @@ export function UploadForm() {
     controller.current = abort;
     setBusy(true);
     setCanCancel(true);
+    setProgress({ phase: 'preparing', loaded: 0, total: file.size });
     try {
       const hash = sha256.create();
       for (let offset = 0; offset < file.size; offset += 4 * 1024 * 1024) {
@@ -40,6 +43,8 @@ export function UploadForm() {
             await file.slice(offset, offset + 4 * 1024 * 1024).arrayBuffer(),
           ),
         );
+        abort.signal.throwIfAborted();
+        setProgress({ phase: 'preparing', loaded: Math.min(file.size, offset + 4 * 1024 * 1024), total: file.size });
         setMessage(
           `Preparing file… ${Math.min(100, Math.round(((offset + 4 * 1024 * 1024) / file.size) * 100))}%`,
         );
@@ -64,14 +69,15 @@ export function UploadForm() {
       const ticket = payload as UploadTicket;
       sessionStorage.setItem(`rea-job:${ticket.jobId}`, ticket.jobToken);
       setMessage('Uploading…');
-      const uploaded = await fetch(ticket.uploadUrl, {
-        method: 'PUT',
-        headers: ticket.headers,
-        body: file,
-        signal: abort.signal,
+      setProgress({ phase: 'uploading', loaded: 0, total: file.size });
+      await uploadFile(ticket.uploadUrl, ticket.headers, file, abort.signal, (loaded, total) => {
+        if (controller.current !== abort) return;
+        setProgress({ phase: 'uploading', loaded, total });
+        setMessage(`Uploading… ${Math.floor((loaded / total) * 100)}% (${(loaded / 1024 / 1024).toFixed(1)} of ${(total / 1024 / 1024).toFixed(1)} MB)`);
       });
-      if (!uploaded.ok) throw new Error('Upload failed. Please try again.');
-      setMessage('Starting analysis…');
+      abort.signal.throwIfAborted();
+      setProgress(null);
+      setMessage('Upload received. Verifying the file and starting analysis…');
       setCanCancel(false);
       const queued = await fetch(`/api/uploads/${ticket.jobId}/complete`, {
         method: 'POST',
@@ -84,6 +90,7 @@ export function UploadForm() {
         );
       router.push(`/jobs/${ticket.jobId}`);
     } catch (error) {
+      if (controller.current !== abort) return;
       setMessage(
         abort.signal.aborted
           ? 'Upload cancelled.'
@@ -92,9 +99,12 @@ export function UploadForm() {
             : 'Upload failed.',
       );
     } finally {
-      setBusy(false);
-      setCanCancel(false);
-      controller.current = null;
+      if (controller.current === abort) {
+        setBusy(false);
+        setCanCancel(false);
+        setProgress(null);
+        controller.current = null;
+      }
     }
   }
   return (
@@ -108,6 +118,7 @@ export function UploadForm() {
         onChange={(event) => {
           setFile(event.target.files?.[0] ?? null);
           setMessage('');
+          setProgress(null);
         }}
       />
       <p className="muted">
@@ -145,6 +156,10 @@ export function UploadForm() {
       <p role="status" aria-live="polite">
         {message}
       </p>
+      {busy && progress && (
+        <progress className="upload-progress" value={progress.loaded} max={progress.total}
+          aria-label={progress.phase === 'preparing' ? 'Preparing file progress' : 'File upload progress'} />
+      )}
       <p className="muted">
         Raw uploads are deleted after analysis. Unfinished uploads are removed
         by expiry cleanup. Results stay private to this browser session.

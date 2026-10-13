@@ -12,6 +12,8 @@ export type UploadTicket = {
 };
 export type JobStatus = {
   jobId: string;
+  /** The authorized job's own filename; never taken from the shared result cache. */
+  uploadName?: string;
   status: 'awaiting-upload' | 'queued' | 'running' | 'succeeded' | 'failed';
   progress?: { phase: string; message: string };
   projectId?: string;

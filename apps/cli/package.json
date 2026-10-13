@@ -1,0 +1,25 @@
+{
+  "name": "rea-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Analyze an Electron app on your own machine and write a REA Studio project file.",
+  "type": "module",
+  "bin": {
+    "rea-studio": "dist/cli.js"
+  },
+  "engines": {
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "preanalyze": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && tsc -p tsconfig.json",
+    "analyze": "node dist/cli.js analyze",
+    "test": "npm run preanalyze && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js"
+  },
+  "dependencies": {
+    "@rea-studio/rea-adapter": "0.0.0",
+    "@rea-studio/schema": "0.0.0",
+    "rea-agents": "6.4.0"
+  }
+}

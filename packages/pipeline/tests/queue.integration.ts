@@ -34,7 +34,7 @@ test(
     let simulateTimeout = false;
     const worker = startAnalysisWorker(config, async ({ onProgress, targetName }) => {
       calls++;
-      assert.equal(targetName, simulateTimeout ? 'slow.asar' : 'tiny.asar');
+      assert.equal(targetName, 'target.asar');
       onProgress({ phase: 'test', message: 'Fixture normalization' });
       await delay(150);
       if (simulateTimeout)
@@ -91,6 +91,7 @@ test(
       state = await c.status(r.id, ticket.jobToken);
     }
     assert.equal(state.status, 'succeeded');
+    assert.equal(state.uploadName, 'tiny.asar');
     assert.equal(calls, 1);
     assert.equal(state.projectId, 'b'.repeat(64));
     assert.equal(await store.head(uploadKey(r.id)), null);

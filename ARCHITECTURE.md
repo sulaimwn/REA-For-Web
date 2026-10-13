@@ -25,6 +25,39 @@ Results store (compressed StudioProject, keyed by file hash)
 Graph API  →  Browser UI (tree · graph · evidence)
 ```
 
+### Ask (`packages/ask`)
+
+```
+question ──► Claude (Messages API, manual tool loop, ≤ 8 tool rounds)
+               ▲   │ tool_use
+               │   ▼
+        tool_result  ASK_TOOLS over one StudioProject (read-only, size-capped):
+                     project_overview · search_nodes · get_node · get_neighbors · find_path
+               │
+               ▼
+answer (markdown; nodes linked as [name](node:<id>)) ──► explorer shows the cited nodes
+```
+
+- One toolkit, three hosts: the browser Ask panel (bring your own key, `dangerouslyAllowBrowser`;
+  the key never touches our servers), Node scripts for pre-generated demo tours, and a future
+  MCP connector. No StudioProject data leaves the browser except what the model asks for through tools.
+- Requests: default `claude-opus-5-5` (Sonnet 5.5 / Haiku 5.5 selectable), `output_config.effort: medium`,
+  top-level `cache_control` (tools + system + history are cached across rounds), `fallbacks: "default"`
+  on Opus/Sonnet (server-side refusal fallback). Forced `tool_choice` isn't allowed on these models,
+  so the last round sends a mid-conversation system note plus `tool_choice: none`.
+- Citations are validated against the project; unknown ids are dropped.
+
+### Local mode (no upload, no server)
+
+```
+user's machine:  rea-studio analyze <app>  ──►  REA (rea-agents@6.4.0)  ──►  rea-adapter  ──►  <app>.studio.json
+browser:         /open  ──  file read with FileReader, shape-checked, rendered by the same explorer
+```
+
+The CLI (`apps/cli`) uses the same adapter as the worker, so a local project and an
+uploaded one are identical `StudioProject`s. The `/open` page never sends the file
+anywhere, which also makes it work on a static deploy.
+
 ## Repo layout
 
 ```
@@ -150,6 +183,20 @@ adaptReaResult(rawReaJson, { reaVersion }): { project: StudioProject; report: Ad
 - `AdapterReport` (not part of the schema) counts dropped and merged nodes and edges, for logs.
 - Measured on GitHub Desktop: 50 MB REA JSON → 4.5 MB StudioProject; 0.4 s to parse, 19 ms to adapt.
 
+### Studio heuristics
+
+Heuristics only **add** edges; they never change or remove REA facts. Every
+heuristic edge has `origin: { source: 'studio-heuristic', heuristic, basis }`,
+`inferred` evidence, and `authority: 'studio-heuristic'`. `AdapterReport.heuristicEdges`
+counts them by name.
+
+| Heuristic | Adds | Rule | Confidence |
+|---|---|---|---|
+| `bridge-member-read` | `<file> --calls--> <bridge-api>` | REA's semantic graph records a property read `[apiKey, member]` (from `window.notesApi.save`) in that file, and a `bridge-api` exposes that `apiKey` with that member. Location = the read site. | `medium` (name match only) |
+
+This is the only use of REA's semantic graph; the graph itself is still not
+copied into `StudioProject`.
+
 ### Example (from the tiny-electron fixture, abbreviated)
 
 ```json
@@ -215,3 +262,8 @@ queue host use its separate entry points. Only the existing adapter handles REA
 JSON inside the sandbox; the upload pipeline moves bytes and StudioProject.
 The analysis image has no storage credentials or network access. See
 `docs/uploads.md` for setup, private-beta access and retention guarantees.
+Upload job status may include `uploadName`, returned only after authorizing that
+job. Shared cached projects use `target.asar` when package metadata is missing;
+the viewer applies the current job's filename as the adapter's fallback. Package
+names recovered from the artifact stay unchanged. An uploader's filename is
+never reused as another uploader's cache label.

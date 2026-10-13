@@ -125,6 +125,11 @@ function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; ti
           return (
             <li key={e.id}>
               <span className={`rel-name ${e.evidence.state === 'observed' ? '' : 'rel-name--inferred'}`}>{e.relation}</span>
+              {e.origin.source === 'studio-heuristic' && (
+                <span className="badge badge--heuristic" title={e.origin.basis}>
+                  heuristic
+                </span>
+              )}
               <button type="button" className="link" onClick={() => onSelect(n.id)}>
                 <span className="dot" style={{ background: KIND_META[n.kind].color }} />
                 {displayName(n)}
