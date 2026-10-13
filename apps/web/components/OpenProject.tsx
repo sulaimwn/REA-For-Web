@@ -61,12 +61,17 @@ export function OpenProject() {
 
       <ol className="steps">
         <li>
-          <strong>Analyze</strong> an extracted Electron app folder, an <code>.asar</code>, or a .NET <code>.exe</code> /{' '}
-          <code>.dll</code>, from a clone of the <a href={REPO_URL}>REA for Web repository</a> after <code>npm install</code>.
-          REA only reads the files; it never runs the app.
+          <strong>Analyze</strong> the app from a clone of the <a href={REPO_URL}>REA for Web repository</a> after{' '}
+          <code>npm install</code>. REA only reads the files; it never runs the app.
           <pre className="code">npm run analyze -w rea-studio -- path/to/app.asar</pre>
-          This writes <code>app.studio.json</code> (for <code>Program.exe</code>, <code>Program.studio.json</code>). See the{' '}
-          <code>apps/cli</code> README for options.
+          This writes <code>app.studio.json</code> (for <code>Program.exe</code>, <code>Program.studio.json</code>). It reads:
+          <ul>
+            <li>Electron apps: an <code>.asar</code> or an extracted app folder, and .NET programs (<code>.exe</code>, <code>.dll</code>), with nothing else to install</li>
+            <li>native Windows programs, and Linux programs on a Linux or macOS machine: set <code>GHIDRA_INSTALL_DIR</code> to Ghidra 12.1 (with a JDK 21)</li>
+            <li>Android apps (<code>.apk</code>): set <code>REA_JADX_MCP_JAR</code> to the jadx-headless-mcp 0.7.1 JAR</li>
+            <li>websites: pass an <code>https://</code> URL; it opens in a headless Chrome with a throwaway profile</li>
+          </ul>
+          See <code>docs/targets.md</code> and the <code>apps/cli</code> README for details.
         </li>
         <li>
           <strong>Open</strong> the <code>.studio.json</code> file:
