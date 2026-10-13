@@ -18,7 +18,7 @@ Details for a task go under its heading below the table.
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking; endpoint filtering is T012 | claude | done | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
-| T012 | **Essential.** Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
+| T012 | **Essential.** Endpoint plausibility verdicts (schema proposal agreed in T015 review) | claude | review | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | done | T004, T005 |
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |

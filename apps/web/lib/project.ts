@@ -137,6 +137,11 @@ export function basename(path: string): string {
   return i === -1 ? path : path.slice(i + 1);
 }
 
+/** An REA endpoint candidate Studio's `endpoint-shape` heuristic judged unlikely (T012). Hidden by default, never removed. */
+export function isUnlikelyEndpoint(n: StudioNode): boolean {
+  return n.kind === 'endpoint' && n.assessment?.verdict === 'unlikely';
+}
+
 /** Text a search query matches against. */
 export function searchText(n: StudioNode): string {
   return `${displayName(n)} ${n.label} ${KIND_META[n.kind].label}`.toLowerCase();

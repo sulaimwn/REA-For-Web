@@ -270,6 +270,20 @@ export interface EndpointNode extends NodeBase<'endpoint'> {
   value: string;
   /** How it was found, e.g. `call:fetch`, `call:request`, `call:XA.CODES.get`. */
   mechanism: string;
+  /**
+   * Studio's verdict on whether this REA candidate is a real network endpoint (T012).
+   * A Studio inference on top of REA's fact: the node, its value and evidence stay as REA
+   * reported them. Absent = not assessed; unassessed candidates must stay visible.
+   */
+  assessment?: EndpointAssessment;
+}
+
+export interface EndpointAssessment {
+  verdict: 'plausible' | 'unlikely';
+  /** Heuristic name, e.g. `endpoint-shape`. */
+  heuristic: string;
+  /** Human-readable reason, e.g. "An https:// URL passed to fetch". */
+  basis: string;
 }
 
 /** A persisted key (REA `storage`). */
