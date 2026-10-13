@@ -239,7 +239,9 @@ export class UploadControl {
               error:
                 'This app exceeded the analysis time limit. Its upload has been removed; upload it again to retry.',
             }
-          : { error: job.failedReason }),
+          : job.failedReason === 'Analysis failed (progress_unavailable).'
+            ? { error: 'Analysis lost its queue connection. Its upload has been removed; upload it again to retry.' }
+            : { error: job.failedReason }),
       };
     return {
       jobId: id,
