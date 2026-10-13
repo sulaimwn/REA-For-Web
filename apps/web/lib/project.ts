@@ -7,6 +7,8 @@ export interface DemoEntry {
   blurb: string;
   name: string;
   version: string | null;
+  /** `StudioProject.target.appKind`; lets the MCP endpoint list demos without loading them. */
+  appKind: string;
   nodes: number;
   edges: number;
   coverage: string;

@@ -14,7 +14,8 @@
     "packages/schema",
     "packages/rea-adapter",
     "packages/pipeline",
-    "packages/ask"
+    "packages/ask",
+    "packages/mcp"
   ],
   "scripts": {
     "dev": "npm run build:packages && npm run dev --workspace=@rea-studio/web",
