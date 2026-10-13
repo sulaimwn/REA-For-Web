@@ -32,3 +32,7 @@
 - Most promising next steps:
   - pre-analyzing popular apps;
   - a lower per-file analysis cap (`sourceTimeoutMs`) for vendored libraries, measured against lost detail.
+
+## Main after merge (`cbce4df`)
+- `npm run typecheck` passes. All 204 workspace tests pass, 0 skipped.
+- Note: `npm ci` in the main checkout hit EPERM because a `next start` on port 3110 (not mine, started 08:04) holds Next's native module. I repaired `node_modules` with `npm install --ignore-scripts`; the lockfile is unchanged. Run future main checks in a separate worktree, or stop that server first.
