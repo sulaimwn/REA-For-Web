@@ -25,7 +25,7 @@ Details for a task go under its heading below the table.
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare deploy preparation | claude | in progress | T007, T013 |
-| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | in progress | T016, T017 |
+| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | review | T016, T017 |
 
 ---
 

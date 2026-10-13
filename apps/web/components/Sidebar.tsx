@@ -3,6 +3,7 @@
 import type { FindingCategory, StudioNode, StudioNodeKind } from '@rea-studio/schema';
 import { useMemo, useState } from 'react';
 import { displayName, KIND_META, searchText, type ProjectIndex } from '../lib/project';
+import { KindGlyph } from './KindGlyph';
 
 const CATEGORY_KIND: Record<FindingCategory, StudioNodeKind> = {
   processes: 'process',
@@ -72,7 +73,7 @@ function TreeView({ dir, depth, open, toggle, selectedId, onSelect }: { dir: Tre
             <button type="button" className="tree__dir" style={{ paddingLeft: depth * 12 + 6 }} onClick={() => toggle(d.path)}>
               <span className="tree__caret">{isOpen ? '▾' : '▸'}</span>
               {d.name}
-              <span className="muted"> {d.count}</span>
+              <span className="muted num"> {d.count}</span>
             </button>
             {isOpen && <TreeView dir={d} depth={depth + 1} open={open} toggle={toggle} selectedId={selectedId} onSelect={onSelect} />}
           </li>
@@ -167,10 +168,10 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
                         onClick={() => setKindFilter(on ? null : kind)}
                         title={f.notes.join('\n')}
                       >
-                        <span className="dot" style={{ background: KIND_META[kind].color }} />
+                        <KindGlyph kind={kind} />
                         <span className="finding__label">{CATEGORY_LABEL[f.category]}</span>
+                        <span className="flag">{f.unresolvedCount > 0 ? `${f.unresolvedCount} unresolved` : ''}</span>
                         <span className="finding__count">{f.status === 'found' ? f.count : 'not found'}</span>
-                        {f.unresolvedCount > 0 && <span className="badge badge--warn">{f.unresolvedCount} unresolved</span>}
                       </button>
                       {on && f.notes.length > 0 && (
                         <ul className="finding__notes">
@@ -186,8 +187,9 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
               </ul>
               {(ix.byKind.get('analysis-gap')?.length ?? 0) > 0 && (
                 <button type="button" className={`finding finding--gap ${kindFilter === 'analysis-gap' ? 'finding--on' : ''}`} onClick={() => setKindFilter(kindFilter === 'analysis-gap' ? null : 'analysis-gap')}>
-                  <span className="dot" style={{ background: KIND_META['analysis-gap'].color }} />
+                  <KindGlyph kind="analysis-gap" />
                   <span className="finding__label">Analysis gaps</span>
+                  <span />
                   <span className="finding__count">{ix.byKind.get('analysis-gap')?.length}</span>
                 </button>
               )}
@@ -215,7 +217,7 @@ function NodeList({ nodes, selectedId, onSelect, limit = 200 }: { nodes: StudioN
       {nodes.slice(0, limit).map((n) => (
         <li key={n.id}>
           <button type="button" className={`node-list__item ${n.id === selectedId ? 'is-selected' : ''}`} onClick={() => onSelect(n.id)} title={displayName(n)}>
-            <span className="dot" style={{ background: KIND_META[n.kind].color }} />
+            <KindGlyph kind={n.kind} />
             <span className="node-list__name">{displayName(n)}</span>
             <span className="muted node-list__kind">{KIND_META[n.kind].label}</span>
           </button>
