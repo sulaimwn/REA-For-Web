@@ -1,0 +1,25 @@
+{
+  "name": "@rea-studio/ask",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "test": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
+    "@rea-studio/schema": "0.0.0"
+  },
+  "devDependencies": {
+    "@rea-studio/rea-adapter": "0.0.0"
+  }
+}

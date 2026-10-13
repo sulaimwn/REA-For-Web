@@ -31,7 +31,7 @@ export function GraphPane({ ix, focus, selectedId, onSelect, onFocus }: Props) {
   const view = useMemo(() => buildView(ix, focus), [ix, focus]);
   const nodes = useMemo(() => view.nodes.map((n) => ({ ...n, selected: n.id === selectedId })), [view, selectedId]);
   const focusNode = focus.mode === 'node' ? ix.byId.get(focus.id) : undefined;
-  const token = focus.mode === 'overview' ? 'overview' : focus.id;
+  const token = focus.mode === 'overview' ? 'overview' : focus.mode === 'set' ? `set:${focus.ids.join(',')}` : focus.id;
 
   return (
     <section className="graph-pane" aria-label="Graph">
@@ -39,6 +39,11 @@ export function GraphPane({ ix, focus, selectedId, onSelect, onFocus }: Props) {
         <button type="button" className={`chip ${focus.mode === 'overview' ? 'chip--on' : ''}`} onClick={() => onFocus({ mode: 'overview' })}>
           Architecture overview
         </button>
+        {focus.mode === 'set' && (
+          <span className="graph-pane__crumb">
+            › <strong>{focus.label}</strong>
+          </span>
+        )}
         {focusNode && (
           <span className="graph-pane__crumb">
             › Neighborhood of <strong>{displayName(focusNode)}</strong>

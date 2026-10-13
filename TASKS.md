@@ -22,6 +22,7 @@ Details for a task go under its heading below the table.
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | review | T004, T005 |
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | review | T005       |
+| T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | review | T013       |
 
 ---
 

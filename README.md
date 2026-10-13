@@ -36,6 +36,19 @@ variables, so they're marked **unresolved** rather than guessed.
 
 ![The neighborhood of renderer.js: IPC channels, the worker, storage keys and imports, with REA's unfiltered endpoint candidates last](docs/screenshots/ghd-renderer.png)
 
+## Ask questions about an app
+
+Open the **Ask** tab in the explorer and ask in plain English, e.g. *"How does the
+app save notes?"* Claude looks things up in the analysis (search, follow links,
+trace paths), answers with every node linked to the graph, and the graph switches
+to show exactly the nodes the answer used. It says when something is unresolved
+instead of guessing.
+
+It uses **your own Anthropic API key**, sent only from your browser to
+api.anthropic.com, and each answer shows its token cost. The same tools will
+power pre-generated demo tours and an MCP connector for using Claude or ChatGPT
+subscriptions (`packages/ask`).
+
 ## Explore your own app (local mode)
 
 Analyze an app on your machine and open the result in the browser. Nothing is uploaded.

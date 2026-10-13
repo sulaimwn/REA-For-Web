@@ -25,6 +25,28 @@ Results store (compressed StudioProject, keyed by file hash)
 Graph API  →  Browser UI (tree · graph · evidence)
 ```
 
+### Ask (`packages/ask`)
+
+```
+question ──► Claude (Messages API, manual tool loop, ≤ 8 tool rounds)
+               ▲   │ tool_use
+               │   ▼
+        tool_result  ASK_TOOLS over one StudioProject (read-only, size-capped):
+                     project_overview · search_nodes · get_node · get_neighbors · find_path
+               │
+               ▼
+answer (markdown; nodes linked as [name](node:<id>)) ──► explorer shows the cited nodes
+```
+
+- One toolkit, three hosts: the browser Ask panel (bring your own key, `dangerouslyAllowBrowser`;
+  the key never touches our servers), Node scripts for pre-generated demo tours, and a future
+  MCP connector. No StudioProject data leaves the browser except what the model asks for through tools.
+- Requests: default `claude-opus-5-5` (Sonnet 5.5 / Haiku 5.5 selectable), `output_config.effort: medium`,
+  top-level `cache_control` (tools + system + history are cached across rounds), `fallbacks: "default"`
+  on Opus/Sonnet (server-side refusal fallback). Forced `tool_choice` isn't allowed on these models,
+  so the last round sends a mid-conversation system note plus `tool_choice: none`.
+- Citations are validated against the project; unknown ids are dropped.
+
 ### Local mode (no upload, no server)
 
 ```

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import type { Focus } from '../lib/graph-view';
 import { indexProject, type DemoEntry } from '../lib/project';
 import { GraphPane } from './GraphPane';
+import { AskPanel } from './AskPanel';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
 
@@ -47,6 +48,8 @@ interface ProjectExplorerProps {
 export function ProjectExplorer({ project, title, note = null, actions }: ProjectExplorerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>({ mode: 'overview' });
+  const [sideTab, setSideTab] = useState<'inspector' | 'ask'>('inspector');
+  const showAnswerNodes = useCallback((ids: string[]) => setFocus({ mode: 'set', ids, label: 'Nodes in the answer' }), []);
   const ix = useMemo(() => indexProject(project), [project]);
 
   // Shareable links: ?node=<selected id>&focus=<neighborhood id> restore the view.
@@ -110,7 +113,21 @@ export function ProjectExplorer({ project, title, note = null, actions }: Projec
       <div className="panes">
         <Sidebar ix={ix} selectedId={selectedId} onSelect={selectAndFocus} />
         <GraphPane ix={ix} focus={focus} selectedId={selectedId} onSelect={select} onFocus={setFocus} />
-        <Inspector ix={ix} node={selectedId ? ix.byId.get(selectedId) ?? null : null} onSelect={selectAndFocus} onFocus={setFocus} />
+        <div className="side">
+          <div className="tabs side__tabs" role="tablist">
+            {(['inspector', 'ask'] as const).map((t) => (
+              <button key={t} type="button" role="tab" aria-selected={sideTab === t} className={`tab ${sideTab === t ? 'tab--on' : ''}`} onClick={() => setSideTab(t)}>
+                {t === 'inspector' ? 'Inspector' : 'Ask'}
+              </button>
+            ))}
+          </div>
+          <div className="side__panel" hidden={sideTab !== 'inspector'}>
+            <Inspector ix={ix} node={selectedId ? ix.byId.get(selectedId) ?? null : null} onSelect={selectAndFocus} onFocus={setFocus} />
+          </div>
+          <div className="side__panel" hidden={sideTab !== 'ask'}>
+            <AskPanel project={project} onSelect={select} onShowNodes={showAnswerNodes} />
+          </div>
+        </div>
       </div>
     </div>
   );
