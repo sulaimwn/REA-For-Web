@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- REA for Web: three linked parts of an app map (runtime, boundary, system) on the site's ink. -->
+  <rect width="32" height="32" rx="7" fill="#161815"/>
+  <path d="M9.5 9.5 22.5 12.5 12.5 22.5Z" fill="none" stroke="#e8e9e4" stroke-width="2.2" stroke-linejoin="round"/>
+  <circle cx="9.5" cy="9.5" r="4.2" fill="#6f9be0"/>
+  <circle cx="22.5" cy="12.5" r="4.2" fill="#ef7b45"/>
+  <circle cx="12.5" cy="22.5" r="4.2" fill="#5cc0a3"/>
+</svg>
