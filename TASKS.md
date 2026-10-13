@@ -33,7 +33,7 @@ Details for a task go under its heading below the table.
 | R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
 | R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | done | T021 |
 | R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
-| T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | review | T007, T024 |
+| T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | done | T007, T024 |
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | review | T025 |
 
 ---

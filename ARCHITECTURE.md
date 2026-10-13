@@ -279,7 +279,13 @@ JSON inside the sandbox; the upload pipeline moves bytes and StudioProject.
 The analysis image has no storage credentials or network access. See
 `docs/uploads.md` for setup, private-beta access and retention guarantees.
 Upload job status may include `uploadName`, returned only after authorizing that
-job. Shared cached projects use `target.asar` when package metadata is missing;
+job. Shared cached projects use `target.<kind>` when artifact metadata is missing;
 the viewer applies the current job's filename as the adapter's fallback. Package
 names recovered from the artifact stay unchanged. An uploader's filename is
 never reused as another uploader's cache label.
+
+T025 extends filename admission to `.asar`, `.exe`, `.dll` and `.apk` without new
+request/response fields. Staging preserves the kind; revision 7 cache keys include
+the kind, preventing cross-parser cache reuse when the same bytes are renamed.
+Raw object names and expiry support all four kinds. Old authorized ASAR results
+from revisions 2–6 remain readable. Native image selection stays operator-owned.

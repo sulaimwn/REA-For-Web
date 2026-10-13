@@ -13,7 +13,7 @@ export default function UploadPage() {
         <h1>Explore your app</h1>
         {uploadsAvailable ? (
           <>
-            <p>Upload an Electron .asar archive to build an evidence-backed map.</p>
+            <p>Upload an Electron app, a Windows program, or an Android APK to see how it works.</p>
             <UploadForm />
           </>
         ) : (

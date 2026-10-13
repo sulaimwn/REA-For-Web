@@ -12,8 +12,8 @@ interactive, evidence-backed map of how it works. Analysis is powered by
 See `ARCHITECTURE.md` for the design. Current local-mode targets: Electron/JS,
 .NET/native Windows programs, Android APKs and website captures. Program files
 are analyzed statically; website capture loads the requested page in a fresh
-browser. The Docker runner supports programs/APKs; upload admission still only
-accepts ASAR until its separate integration task lands.
+browser. The Docker runner and upload pipeline support .asar, .exe, .dll and .apk
+files. Native/APK uploads require the native image on the trusted analysis host.
 
 ## Before you start any work
 

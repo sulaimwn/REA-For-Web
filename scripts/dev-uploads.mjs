@@ -18,6 +18,10 @@ if (
 )
   throw new Error('Invalid local port.');
 const container = `rea-studio-upload-redis-${redisPort}`;
+// Preserve the original default volume; alternate ports get isolated queue data.
+const redisVolume = redisPort === 6380 ? 'rea-studio-upload-redis' : container;
+const nativeWorker = process.env.REA_NATIVE_WORKER ?? '1';
+if (!['0', '1'].includes(nativeWorker)) throw new Error('REA_NATIVE_WORKER must be 0 or 1.');
 function run(command, args, env = process.env) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -54,6 +58,7 @@ const env = {
   PIPELINE_DATA_ROOT: join(data, 'objects'),
   PIPELINE_WORK_ROOT: join(root, '.pipeline-work'),
   PIPELINE_UPLOAD_SECRET: secret,
+  REA_NATIVE_WORKER: nativeWorker,
 };
 await run(process.execPath, [process.env.npm_execpath, 'run', 'build']);
 await run('docker', [
@@ -64,6 +69,9 @@ await run('docker', [
   'rea-studio-worker:rea-6.4.0',
   '.',
 ]);
+if (nativeWorker === '1') await run('docker', [
+  'build', '-f', 'apps/worker/Dockerfile.native', '-t', 'rea-studio-worker-native:rea-6.4.0', '.',
+]);
 await run('docker', [
   'run',
   '--detach',
@@ -73,7 +81,7 @@ await run('docker', [
   '--publish',
   `127.0.0.1:${redisPort}:6379`,
   '--mount',
-  'type=volume,source=rea-studio-upload-redis,target=/data',
+  `type=volume,source=${redisVolume},target=/data`,
   'redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499',
   'redis-server',
   '--appendonly',

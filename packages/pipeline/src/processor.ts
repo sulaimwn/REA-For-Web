@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import { Worker, type Job } from 'bullmq';
 import { VerifiedBytes, uploadKey, resultKey } from './storage.js';
 import type { PipelineConfig, UploadRecord, JobResult } from './server.js';
-import { UPLOAD_TTL_SECONDS } from './contracts.js';
+import { UPLOAD_TTL_SECONDS, uploadKind, validateUpload, validateJobId } from './contracts.js';
 
 export type AnalysisRunner = (options: {
   targetPath: string;
@@ -38,11 +38,15 @@ export async function processUpload(
   analyze: AnalysisRunner,
 ): Promise<JobResult> {
   const r = job.data;
+  const request = validateUpload(r);
+  validateJobId(r.id);
+  const kind = uploadKind(request.name)!;
   const root = resolve(config.workRoot);
   await mkdir(root, { recursive: true });
   const temp = await mkdtemp(join(root, 'upload-'));
-  const target = join(temp, 'target.asar');
-  const key = resultKey(r.sha256);
+  const targetName = `target.${kind}`;
+  const target = join(temp, targetName);
+  const key = resultKey(r.sha256, kind);
   let progressPending = Promise.resolve();
   try {
     if (r.createdAt < Date.now() - UPLOAD_TTL_SECONDS * 1000)
@@ -52,7 +56,7 @@ export async function processUpload(
     // Never reuse a cached project until downloaded bytes prove possession of
     // the requested hash. Uploaded SHA and REA's subject id remain distinct.
     await pipeline(
-      await config.store.read(uploadKey(r.id)),
+      await config.store.read(uploadKey(r.id, kind)),
       new VerifiedBytes(r),
       createWriteStream(target, { flags: 'wx', mode: 0o600 }),
       { signal: AbortSignal.timeout(60000) },
@@ -73,7 +77,7 @@ export async function processUpload(
       targetPath: target,
       // Shared cache entries contain artifact facts, never an uploader's label.
       // The authorized job supplies its own filename to the viewer separately.
-      targetName: 'target.asar',
+      targetName,
       outputRoot: join(temp, 'results'),
       onProgress: (progress) => {
         // Serialize bounded progress updates; persist failures before publication.
@@ -112,14 +116,14 @@ export async function processUpload(
     throw new Error(
       typeof code === 'string' && /^[a-z_]{1,50}$/u.test(code)
         ? `Analysis failed (${code}).`
-        : 'Analysis failed. Check that this is a valid .asar archive.',
+        : 'Analysis failed. Check that this is a valid application file.',
     );
   } finally {
     // Wait for all queued writes even when analysis failed; retain raw data
     // only when cleanup itself fails, so the expiry sweep can remove it.
     await progressPending.catch(() => {});
     try {
-      await config.store.delete(uploadKey(r.id));
+      await config.store.delete(uploadKey(r.id, kind));
     } catch {
       throw new Error('Raw upload cleanup failed.');
     } finally {

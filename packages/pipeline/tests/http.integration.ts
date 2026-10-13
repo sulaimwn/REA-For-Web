@@ -196,3 +196,70 @@ test(
     );
   },
 );
+
+test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-format rejection', { timeout: 300_000 }, async () => {
+  const configuredOrigin = process.env.PIPELINE_TEST_ORIGIN;
+  if (!configuredOrigin || !['localhost', '127.0.0.1'].includes(new URL(configuredOrigin).hostname)) {
+    throw new Error('Set PIPELINE_TEST_ORIGIN to the local upload app with REA_NATIVE_WORKER=1.');
+  }
+  const origin = configuredOrigin;
+  const root = resolve(import.meta.dirname, '../../../..');
+  async function submit(name: string, body: Buffer) {
+    const prepared = await fetch(`${origin}/api/uploads`, {
+      method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, bytes: body.length, sha256: createHash('sha256').update(body).digest('hex') }),
+    });
+    assert.equal(prepared.status, 201);
+    const ticket = await prepared.json() as UploadTicket;
+    const uploaded = await fetch(ticket.uploadUrl, { method: 'PUT', headers: { ...ticket.headers, Origin: origin }, body });
+    assert.equal(uploaded.status, 204);
+    const queued = await fetch(`${origin}/api/uploads/${ticket.jobId}/complete`, {
+      method: 'POST', headers: { Origin: origin, Authorization: `Bearer ${ticket.jobToken}` },
+    });
+    assert.equal(queued.status, 202);
+    let status: JobStatus | undefined;
+    for (let attempt = 0; attempt < 600; attempt++) {
+      const response = await fetch(`${origin}/api/jobs/${ticket.jobId}`, { headers: { Authorization: `Bearer ${ticket.jobToken}` } });
+      assert.equal(response.status, 200);
+      status = await response.json() as JobStatus;
+      if (status.status === 'succeeded' || status.status === 'failed') break;
+      await delay(200);
+    }
+    assert.ok(status);
+    return { ticket, status };
+  }
+  const managed = await readFile(join(root, 'fixtures/sample-apps/tiny-dotnet/TinyNotes.exe'));
+  const native = await readFile(join(root, 'fixtures/sample-apps/tiny-native/tiny-notes.exe'));
+  const android = await readFile(join(root, 'fixtures/sample-apps/tiny-android/tiny-notes.apk'));
+  for (const [name, body, appKind] of [
+    ['notes.exe', managed, 'dotnet'], ['notes.dll', managed, 'dotnet'],
+    ['native.exe', native, 'native'], ['notes.apk', android, 'android'],
+  ] as const) {
+    const { ticket, status } = await submit(name, body);
+    assert.equal(status.status, 'succeeded', `${name}: ${status.error}`);
+    assert.equal(status.uploadName, name);
+    assert.equal((await fetch(`${origin}/api/jobs/${ticket.jobId}/project`)).status, 404);
+    const response = await fetch(`${origin}/api/jobs/${ticket.jobId}/project`, { headers: { Authorization: `Bearer ${ticket.jobToken}` } });
+    assert.equal(response.status, 200);
+    const project = await response.json() as StudioProject;
+    assert.equal(project.target.appKind, appKind);
+    assert.equal(project.id, status.projectId);
+    if (appKind === 'dotnet') assert.equal(project.nodes.filter((n) => n.kind === 'native-import').length, 3);
+    if (appKind === 'native') assert.equal(project.nodes.filter((n) => n.kind === 'native-function').length, 49);
+    if (appKind === 'android') {
+      assert.equal(project.nodes.filter((n) => n.kind === 'android-component').length, 4);
+      assert.equal(project.analysis.coverage.status, 'partial');
+      assert.equal(project.nodes.filter((n) => n.kind === 'bridge-api').length, 1);
+    }
+    const duplicate = await submit(`another-${name}`, body);
+    assert.equal(duplicate.status.status, 'succeeded');
+    assert.equal(duplicate.status.cacheHit, true);
+    assert.equal(duplicate.status.projectId, status.projectId);
+  }
+  // A cached .NET result is not a valid ASAR parse, even with the exact same hash.
+  const renamed = await submit('renamed.asar', managed);
+  assert.equal(renamed.status.status, 'failed');
+  assert.equal((await fetch(`${origin}/api/jobs/${renamed.ticket.jobId}/project`, {
+    headers: { Authorization: `Bearer ${renamed.ticket.jobToken}` },
+  })).status, 409);
+});

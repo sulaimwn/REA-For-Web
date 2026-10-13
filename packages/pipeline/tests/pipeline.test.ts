@@ -14,7 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { gunzipSync } from 'node:zlib';
 import { LocalStore, uploadKey, resultKey, R2Store } from '../src/storage.js';
-import { validateUpload, MAX_UPLOAD_BYTES } from '../src/contracts.js';
+import { validateUpload, MAX_UPLOAD_BYTES, UPLOAD_KINDS, uploadKind } from '../src/contracts.js';
 import { processUpload, expireStaging } from '../src/processor.js';
 import { UploadControl, type PipelineConfig, type UploadRecord } from '../src/server.js';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -101,9 +101,14 @@ function record(): UploadRecord {
 
 test('upload admission rejects hostile paths, wrong format, oversized files and malformed hashes', () => {
   assert.deepEqual(validateUpload(request), request);
+  for (const kind of UPLOAD_KINDS) {
+    const value = { ...request, name: `tiny.${kind.toUpperCase()}`, native: true };
+    assert.equal(uploadKind(validateUpload(value).name), kind);
+    assert.equal('native' in validateUpload(value), false, 'only accepted upload fields are retained');
+  }
   for (const patch of [
     { name: '../tiny.asar' },
-    { name: 'tiny.exe' },
+    { name: 'tiny.zip' },
     { bytes: MAX_UPLOAD_BYTES + 1 },
     { bytes: 1.5 },
     { sha256: 'a' },
@@ -189,6 +194,64 @@ test('claimed cache hash cannot bypass byte verification; failure removes raw an
   assert.equal(await store.head(uploadKey(r.id)), null);
   assert.deepEqual(await readdir(config.workRoot), []);
 });
+
+test('program kinds reach the runner with their extension, partition caches, and clean raw uploads', async (t) => {
+  const { config, store, root } = await setup(t);
+  let calls = 0;
+  for (const kind of UPLOAD_KINDS) {
+    for (const cached of [false, true]) {
+      const r = { ...record(), name: `label.${kind}` };
+      await receive(store, r);
+      const result = await processUpload(config, { data: r, updateProgress: async () => {} }, async ({ targetPath, targetName }) => {
+        assert.equal(targetName, `target.${kind}`);
+        assert.ok(targetPath.endsWith(`target.${kind}`));
+        assert.deepEqual(await readFile(targetPath), bytes);
+        calls++;
+        const projectPath = join(root, `normalized-${calls}.json`);
+        await writeFile(projectPath, JSON.stringify({ id: projectId, kind }));
+        return { projectPath, projectId };
+      });
+      assert.equal(result.cacheHit, cached);
+      assert.equal(result.resultKey, resultKey(r.sha256, kind));
+      assert.equal(await store.head(uploadKey(r.id, kind)), null);
+      assert.deepEqual(await readdir(config.workRoot), []);
+    }
+  }
+  assert.equal(calls, 4, 'the same bytes under a different kind must be analyzed again');
+});
+
+test('renaming a cached artifact cannot bypass the new kind’s parser or publish a result', async (t) => {
+  const { config, store, root } = await setup(t);
+  const existing = record();
+  await receive(store, existing);
+  await processUpload(config, { data: existing, updateProgress: async () => {} }, async () => {
+    const projectPath = join(root, 'cached.json');
+    await writeFile(projectPath, '{}');
+    return { projectPath, projectId };
+  });
+  const renamed = { ...record(), name: 'renamed.exe' };
+  await receive(store, renamed);
+  let analyzed = false;
+  await assert.rejects(processUpload(config, { data: renamed, updateProgress: async () => {} }, async () => {
+    analyzed = true;
+    throw Object.assign(new Error('invalid executable'), { code: 'invalid_input' });
+  }), /invalid_input/);
+  assert.equal(analyzed, true);
+  assert.equal(await store.head(resultKey(renamed.sha256, 'exe')), null);
+  assert.equal(await store.head(uploadKey(renamed.id, 'exe')), null);
+  assert.deepEqual(await readdir(config.workRoot), []);
+});
+
+test('old authorized ASAR result paths remain readable after the cache revision changes', async (t) => {
+  const { store, root } = await setup(t);
+  const file = join(root, 'saved-result.json.gz');
+  await writeFile(file, 'saved bytes');
+  for (const version of [2, 3, 4, 5, 6]) {
+    const key = `results/schema-0.1.0-rea-6.4.0-adapter-${version}/${request.sha256}.json.gz`;
+    await store.put(key, file, {});
+    assert.equal((await (await store.read(key)).toArray()).join(''), 'saved bytes');
+  }
+});
 test('analysis failures expose no internal paths or secrets and publish no result', async (t) => {
   const { config, store } = await setup(t),
     r = record();
@@ -215,13 +278,14 @@ test('expiry sweep removes old uploads and retains fresh objects', async (t) => 
     fresh = record();
   await receive(store, old);
   await receive(store, fresh);
-  await utimes(
-    join(root, 'objects', uploadKey(old.id)),
-    new Date(0),
-    new Date(0),
-  );
+  for (const kind of UPLOAD_KINDS) {
+    const r = { ...old, name: `expired.${kind}` };
+    await receive(store, r);
+    await utimes(join(root, 'objects', uploadKey(r.id, kind)), new Date(0), new Date(0));
+  }
   await store.expireUploads();
   assert.equal(await store.head(uploadKey(old.id)), null);
+  for (const kind of UPLOAD_KINDS) assert.equal(await store.head(uploadKey(old.id, kind)), null);
   assert.ok(await store.head(uploadKey(fresh.id)));
 });
 test('R2 upload signature binds object key, type, length, and a ten-minute expiry without contacting R2', async () => {
@@ -231,15 +295,16 @@ test('R2 upload signature binds object key, type, length, and a ten-minute expir
     requestChecksumCalculation: 'WHEN_REQUIRED',
     credentials: { accessKeyId: 'test', secretAccessKey: 'not-a-real-key' },
   });
-  const store = new R2Store(client, 'private-bucket'),
-    id = randomUUID(),
-    ticket = await store.signUpload(id, request, 'https://studio.example');
-  const url = new URL(ticket.url);
-  assert.ok(url.pathname.endsWith(uploadKey(id)));
-  assert.equal(url.searchParams.get('X-Amz-Expires'), '600');
-  const signed = url.searchParams.get('X-Amz-SignedHeaders')!;
-  assert.match(signed, /content-length/u);
-  assert.match(signed, /content-type/u);
+  const store = new R2Store(client, 'private-bucket'), id = randomUUID();
+  for (const kind of UPLOAD_KINDS) {
+    const ticket = await store.signUpload(id, { ...request, name: `app.${kind}` }, 'https://studio.example');
+    const url = new URL(ticket.url);
+    assert.ok(url.pathname.endsWith(uploadKey(id, kind)));
+    assert.equal(url.searchParams.get('X-Amz-Expires'), '600');
+    const signed = url.searchParams.get('X-Amz-SignedHeaders')!;
+    assert.match(signed, /content-length/u);
+    assert.match(signed, /content-type/u);
+  }
   client.destroy();
 });
 test('expired queued uploads never reach analysis and are removed', async (t) => {
