@@ -11,12 +11,15 @@
     "prebuild": "npm run demo-data",
     "build": "next build",
     "start": "next start",
+    "pretypecheck": "npm run demo-data",
     "typecheck": "next typegen && tsc --noEmit",
     "tours": "node scripts/generate-tours.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
     "@dagrejs/dagre": "3.1.1",
+    "@fontsource-variable/atkinson-hyperlegible-mono": "5.3.0",
+    "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
     "@rea-studio/ask": "0.0.0",
     "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",

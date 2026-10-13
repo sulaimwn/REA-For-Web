@@ -25,7 +25,7 @@ Details for a task go under its heading below the table.
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare deploy preparation | claude | review | T007, T013 |
-| T019 | UI redesign: product-first landing and evidence-focused explorer | claude | review | T016, T017 |
+| T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 
 ---
 
@@ -77,13 +77,6 @@ Ready for cross-review. See
 Presigned upload to object storage (Cloudflare R2), SHA-256 dedupe, job queue,
 results stored compressed, raw upload deleted after analysis.
 
-**Ready for cross-review:** private upload API and UI, local signed storage plus
-an R2 implementation, persistent Redis/BullMQ queue, verified-byte cache reuse,
-existing Docker analysis runner, compressed normalized results, token-protected
-progress/results, and raw/staging cleanup. Local HTTP and browser flows pass with
-the real Docker worker. Live R2 and hosted deployment are not connected yet.
-See `docs/uploads.md` and `notes/handoffs/2026-10-12-T007-codex.md`.
-
 ### T008 — Per-file analysis of big bundles
 In whole-app runs, 139/156 GitHub Desktop files lost their relationships to REA's
 shared result budget; `main.js` analyzed alone had none. Try analyzing large
@@ -107,3 +100,9 @@ on `codex/T007-upload-pipeline`: preserve every REA endpoint candidate, add an
 optional Studio heuristic assessment, and keep unassessed candidates visible.
 Rule validated on full GitHub Desktop output: 2 of 89 endpoint candidates plausible,
 exactly the two real ones. UI then hides `unlikely` endpoints by default.
+
+### T019 — UI redesign
+The human: the UI looks obviously AI-generated. Research the common tells (purple
+accents, pill badges, centered hero + card row, glow, eyebrow labels) and redesign
+from the product: a reverse-engineering evidence tool. Landing leads with the real
+explorer. Restyle landing, explorer, inspector, Ask and /open. No behavior changes.

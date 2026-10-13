@@ -11,6 +11,8 @@ The form separates file preparation from transfer. Its upload percentage and
 byte count come from browser transfer events; 100% still waits for the server's
 successful response. The job page then shows queue and analysis stages with
 REA's progress text. Analysis has no invented completion percentage.
+The homepage and upload page read service availability at request time. Without
+the configured service, the upload page offers local analysis instead of a form.
 
 ## Try it locally
 

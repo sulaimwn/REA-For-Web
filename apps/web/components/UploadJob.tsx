@@ -5,6 +5,7 @@ import type { StudioProject } from '@rea-studio/schema';
 import type { JobStatus } from '@rea-studio/pipeline/contracts';
 import { ProjectExplorer } from './Explorer';
 import { projectForUpload } from '../lib/upload-project';
+import { SiteFooter, SiteHeader } from './SiteChrome';
 
 export function UploadJob({ id }: { id: string }) {
   const [status, setStatus] = useState<JobStatus | null>(null),
@@ -67,7 +68,9 @@ export function UploadJob({ id }: { id: string }) {
     );
   const failed = status?.status === 'failed';
   return (
-    <main className="landing">
+    <>
+    <SiteHeader uploadsAvailable />
+    <main className="doc">
       <Link href="/upload">← Upload an app</Link>
       <h1>
         {status?.errorCode === 'timeout'
@@ -98,7 +101,7 @@ export function UploadJob({ id }: { id: string }) {
           {status.progress && (
             <p className="muted">Last step: {status.progress.message}</p>
           )}
-          <Link className="chip" href="/upload">
+          <Link className="btn" href="/upload">
             Upload this app again
           </Link>
         </>
@@ -108,6 +111,8 @@ export function UploadJob({ id }: { id: string }) {
           analysis runs.
         </p>
       ) : null}
+      <SiteFooter />
     </main>
+    </>
   );
 }

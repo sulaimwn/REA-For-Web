@@ -1,11 +1,11 @@
 'use client';
 
 import type { StudioProject } from '@rea-studio/schema';
-import Link from 'next/link';
 import { useState, type DragEvent } from 'react';
 import { ProjectFileError, readProjectFile } from '../lib/open-project';
 import { ProjectExplorer } from './Explorer';
 import { ProjectBoundary } from './ProjectBoundary';
+import { REPO_URL, SiteFooter, SiteHeader } from './SiteChrome';
 
 export function OpenProject() {
   const [project, setProject] = useState<StudioProject | null>(null);
@@ -40,7 +40,7 @@ export function OpenProject() {
         title={project.target.name}
         note="Opened from a file on this computer. Nothing was uploaded"
         actions={
-          <button type="button" className="chip" onClick={() => setProject(null)}>
+          <button type="button" className="btn" onClick={() => setProject(null)}>
             Open another file
           </button>
         }
@@ -50,20 +50,20 @@ export function OpenProject() {
   }
 
   return (
-    <main className="home">
-      <p className="hero__eyebrow">
-        <Link href="/">REA Studio</Link> · Local mode
-      </p>
+    <>
+    <SiteHeader />
+    <main className="doc">
       <h1>Explore your own app, without uploading it.</h1>
-      <p className="hero__lede">
+      <p>
         Analyze the app on your machine, then open the result here. The file is read by your browser and never leaves
         your computer.
       </p>
 
       <ol className="steps">
         <li>
-          <strong>Analyze</strong> an extracted Electron app folder or an <code>.asar</code> (REA only reads the files; it
-          never runs the app):
+          <strong>Analyze</strong> an extracted Electron app folder or an <code>.asar</code>, from a clone of the{' '}
+          <a href={REPO_URL}>REA Studio repository</a> after <code>npm install</code>. REA only reads the files; it never runs
+          the app.
           <pre className="code">npm run analyze -w rea-studio -- path/to/app.asar</pre>
           This writes <code>app.studio.json</code>. See the <code>apps/cli</code> README for options.
         </li>
@@ -90,6 +90,8 @@ export function OpenProject() {
           {error}
         </p>
       )}
+      <SiteFooter />
     </main>
+    </>
   );
 }

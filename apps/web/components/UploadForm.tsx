@@ -138,7 +138,7 @@ export function UploadForm() {
       </details>
       <button
         type="button"
-        className="chip"
+        className="btn btn--primary"
         disabled={!file || busy}
         onClick={() => void start()}
       >
@@ -147,7 +147,7 @@ export function UploadForm() {
       {busy && canCancel && (
         <button
           type="button"
-          className="chip"
+          className="btn"
           onClick={() => controller.current?.abort()}
         >
           Cancel upload
