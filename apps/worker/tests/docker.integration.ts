@@ -92,6 +92,19 @@ test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async 
   assert.deepEqual(await workerContainers(), before);
 });
 
+test("real REA source timeout publishes its retained partial Evidence and removes the container", { timeout: 60_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const result = await runAnalysis({
+    targetPath: sample, outputRoot: join(temp, "results"),
+    limits: { timeoutMs: 30_000, sourceTimeoutMs: 1 },
+  });
+  const project = JSON.parse(await readFile(result.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.analysis.coverage.status, "partial");
+  assert.ok(project.nodes.some(node => node.kind === "analysis-gap"));
+  assert.deepEqual(await workerContainers(), before);
+});
+
 test("real Docker rejects oversized input and malformed ASAR without publishing results", { timeout: 60_000 }, async t => {
   const before = await workerContainers();
   const temp = await workspace(t);

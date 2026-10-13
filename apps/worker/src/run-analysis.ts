@@ -61,7 +61,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
     "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=268435456",
     "--mount", `type=bind,source=${target},target=/input/target${kind === "asar" ? ".asar" : ""},bind-recursive=disabled,readonly`,
     WORKER_IMAGE, kind, String(limits.maxFiles), String(limits.maxInputBytes),
-    String(limits.maxOutputBytes), String(limits.heapMb), String(limits.timeoutMs),
+    String(limits.maxOutputBytes), String(limits.heapMb), String(limits.timeoutMs), String(limits.sourceTimeoutMs),
   ];
 }
 

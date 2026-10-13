@@ -17,6 +17,7 @@ export type JobStatus = {
   projectId?: string;
   cacheHit?: boolean;
   error?: string;
+  errorCode?: 'timeout';
 };
 export class PipelineError extends Error {
   constructor(

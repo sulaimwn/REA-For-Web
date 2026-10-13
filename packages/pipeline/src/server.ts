@@ -210,8 +210,6 @@ export class UploadControl {
         projectId: job.returnvalue.projectId,
         cacheHit: job.returnvalue.cacheHit,
       };
-    if (state === 'failed')
-      return { jobId: id, status: 'failed', error: job.failedReason };
     const p = job.progress;
     const progress =
       typeof p === 'object' && p !== null && 'phase' in p && 'message' in p
@@ -220,6 +218,19 @@ export class UploadControl {
             message: String(p.message).slice(0, 300),
           }
         : undefined;
+    if (state === 'failed')
+      return {
+        jobId: id,
+        status: 'failed',
+        ...(progress ? { progress } : {}),
+        ...(job.failedReason === 'Analysis failed (timeout).'
+          ? {
+              errorCode: 'timeout' as const,
+              error:
+                'This app exceeded the analysis time limit. Its upload has been removed; upload it again to retry.',
+            }
+          : { error: job.failedReason }),
+      };
     return {
       jobId: id,
       status: state === 'active' ? 'running' : 'queued',

@@ -74,13 +74,16 @@ export function UploadJob({ id }: { id: string }) {
         }}
       />
     );
+  const failed = status?.status === 'failed';
   return (
     <main className="landing">
       <Link href="/upload">← Upload an app</Link>
       <h1>
-        {error || status?.status === 'failed'
-          ? 'Analysis unavailable'
-          : 'Analyzing your app'}
+        {status?.errorCode === 'timeout'
+          ? 'Analysis timed out'
+          : error || failed
+            ? 'Analysis unavailable'
+            : 'Analyzing your app'}
       </h1>
       <p role="status" aria-live="polite">
         {error ??
@@ -90,7 +93,21 @@ export function UploadJob({ id }: { id: string }) {
             ? 'Waiting for the analysis worker…'
             : 'Checking analysis status…')}
       </p>
-      <p className="muted">You can reload this page while analysis runs.</p>
+      {failed ? (
+        <>
+          {status.progress && (
+            <p className="muted">Last step: {status.progress.message}</p>
+          )}
+          <Link className="chip" href="/upload">
+            Upload this app again
+          </Link>
+        </>
+      ) : !error ? (
+        <p className="muted">
+          Large apps may take several minutes. You can reload this page while
+          analysis runs.
+        </p>
+      ) : null}
     </main>
   );
 }

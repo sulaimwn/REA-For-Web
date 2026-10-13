@@ -58,6 +58,13 @@ rea analyze-javascript-application "%LOCALAPPDATA%/GitHubDesktop/app-3.6.5/resou
 
 ## Measurements
 
+`fixtures/samples/tiny-electron.timeout.rea-6.4.0.json` is a real REA 6.4.0
+response from the same tiny fixture with `--analysis-timeout-ms 1`. It exits
+nonzero with `provider_timeout`; `details.partial_observation` contains retained
+application Evidence with partial graph coverage and explicit source timeout
+gaps. This fixture checks the adapter's opt-in handling of retained timeout
+Evidence, including rejection of incomplete cleanup and malformed results.
+
 | Target | Input | Time | Output | Gzipped | Peak RAM (tree) | Result |
 |---|---|---|---|---|---|---|
 | tiny-electron | 8 files, <0.01 MB | 2.6 s | 0.6 MB | 0.08 MB | 0.4 GB | exit 0, coverage complete |

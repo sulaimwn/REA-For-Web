@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { adaptReaFile } from "@rea-studio/rea-adapter/file";
 import { runWithDocker, containerArgs, assertEngine } from "../src/run-analysis.js";
 import { executeCommand, type CommandOptions } from "../src/command.js";
-import { DEFAULT_LIMITS, resolveLimits } from "../src/limits.js";
+import { DEFAULT_LIMITS, resolveLimits, queueLimitsFromEnv } from "../src/limits.js";
 import { preflightTarget } from "../src/preflight.js";
 import { ProgressDecoder, type AnalysisProgress } from "../src/progress.js";
 
@@ -59,6 +59,23 @@ test("sandbox has no network, root privileges, writable input, or writable host 
   assert.equal(args.filter(a => a === "--mount").length, 1);
   assert.ok(args[args.indexOf("--mount") + 1]!.endsWith(",readonly"));
   assert.ok(args.some(a => a.startsWith("--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=")));
+});
+
+test("queue deadlines allow larger apps while rejecting unbounded operator settings", () => {
+  const defaults = queueLimitsFromEnv({});
+  assert.equal(defaults.timeoutMs, 900_000);
+  assert.equal(defaults.sourceTimeoutMs, 180_000);
+  const configured = queueLimitsFromEnv({ REA_ANALYSIS_TIMEOUT_MS: "1800000" });
+  assert.equal(configured.timeoutMs, 1_800_000);
+  assert.equal(configured.memoryMb, defaults.memoryMb);
+  assert.equal(configured.cpus, defaults.cpus);
+  assert.deepEqual(containerArgs("job", sample, "directory", configured).slice(-2), ["1800000", "180000"]);
+  assert.equal(queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "1000" }).sourceTimeoutMs, 1000);
+  assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "900001" }), { code: "invalid_input" });
+  assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "0" }), { code: "invalid_input" });
+  for (const value of ["", "0", "Infinity", "NaN", "900000.5", "1800001"]) {
+    assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_TIMEOUT_MS: value }), { code: "invalid_input" });
+  }
 });
 
 test("refuses an engine that cannot enforce resource limits", async t => {

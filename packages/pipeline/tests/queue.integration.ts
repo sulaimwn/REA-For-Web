@@ -31,10 +31,15 @@ test(
     };
     const c = new UploadControl(config);
     let calls = 0;
+    let simulateTimeout = false;
     const worker = startAnalysisWorker(config, async ({ onProgress }) => {
       calls++;
       onProgress({ phase: 'test', message: 'Fixture normalization' });
       await delay(150);
+      if (simulateTimeout)
+        throw Object.assign(new Error('/private/path?secret=token'), {
+          code: 'timeout',
+        });
       const path = join(root, 'project.json');
       await writeFile(path, JSON.stringify({ id: 'b'.repeat(64) }));
       return { projectPath: path, projectId: 'b'.repeat(64) };
@@ -97,5 +102,33 @@ test(
       await reconnect.close();
     });
     await assert.rejects(c.project(r.id, '0'.repeat(64)));
+    await t.test('timeout keeps the last progress, offers a fresh upload, and removes raw data', async () => {
+      simulateTimeout = true;
+      const otherBytes = Buffer.from('different inert archive for timeout');
+      const timeoutTicket = await c.create({
+        name: 'slow.asar',
+        bytes: otherBytes.length,
+        sha256: createHash('sha256').update(otherBytes).digest('hex'),
+      });
+      const slow = await c.authorize(timeoutTicket.jobId, timeoutTicket.jobToken);
+      const signed = new URL(timeoutTicket.uploadUrl);
+      await store.receive(
+        slow.id, slow, Number(signed.searchParams.get('expires')),
+        signed.searchParams.get('signature')!, Readable.from(otherBytes),
+      );
+      await c.complete(slow.id, timeoutTicket.jobToken);
+      let failed = await c.status(slow.id, timeoutTicket.jobToken);
+      for (let attempt = 0; attempt < 100 && failed.status !== 'failed'; attempt++) {
+        await delay(100);
+        failed = await c.status(slow.id, timeoutTicket.jobToken);
+      }
+      assert.equal(failed.status, 'failed');
+      assert.equal(failed.errorCode, 'timeout');
+      assert.match(failed.error!, /upload it again/u);
+      assert.doesNotMatch(failed.error!, /private|secret/u);
+      assert.equal(failed.progress?.message, 'Fixture normalization');
+      assert.equal(await store.head(uploadKey(slow.id)), null);
+      await assert.rejects(c.project(slow.id, timeoutTicket.jobToken), /not ready/u);
+    });
   },
 );

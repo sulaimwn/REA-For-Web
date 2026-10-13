@@ -45,10 +45,10 @@ export interface ObjectStore {
 }
 export const uploadKey = (id: string) => `uploads/${id}.asar`;
 export const resultKey = (hash: string) =>
-  `results/schema-0.1.0-rea-6.4.0-adapter-2/${hash}.json.gz`;
+  `results/schema-0.1.0-rea-6.4.0-adapter-3/${hash}.json.gz`;
 function safeKey(key: string) {
   if (
-    !/^(uploads\/[a-f0-9-]+\.asar|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-2\/[a-f0-9]{64}\.json\.gz)$/u.test(
+    !/^(uploads\/[a-f0-9-]+\.asar|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-[23]\/[a-f0-9]{64}\.json\.gz)$/u.test(
       key,
     )
   ) {

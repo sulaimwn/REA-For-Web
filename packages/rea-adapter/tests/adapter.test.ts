@@ -20,6 +20,46 @@ const TINY = 'tiny-electron.rea-6.4.0.json';
 const GHD = 'github-desktop-3.6.5.trimmed.rea-6.4.0.json';
 const opts = { reaVersion: '6.4.0' };
 
+describe('retained REA timeout Evidence', () => {
+  const raw = load('tiny-electron.timeout.rea-6.4.0.json') as {
+    code: string;
+    details: {
+      cleanup?: string;
+      partial_observation: {
+        subject: { digest: { sha256?: string } };
+        normalized_result: { graph: { coverage: { status: string } } };
+      };
+    };
+  };
+  const partialOpts = { ...opts, retainedTimeoutEvidence: 'require' as const };
+  it('requires opt-in and preserves the exact partial facts and coverage', () => {
+    assert.throws(() => adaptReaResult(raw, opts), ReaOutputError);
+    const result = adaptReaResult(raw, partialOpts);
+    assert.equal(result.project.analysis.coverage.status, 'partial');
+    assert.deepEqual(result, adaptReaResult(raw.details.partial_observation, opts));
+    assertInvariants(result.project);
+    assert.ok(result.project.nodes.some(n => n.kind === 'analysis-gap'));
+  });
+  it('rejects cleanup failures and non-timeout error envelopes', () => {
+    const cleanup = structuredClone(raw);
+    cleanup.details.cleanup = 'incomplete';
+    assert.throws(() => adaptReaResult(cleanup, partialOpts), ReaOutputError);
+    for (const code of ['cleanup_incomplete', 'cancelled', 'invalid_request']) {
+      assert.throws(() => adaptReaResult({ ...raw, code }, partialOpts), ReaOutputError);
+    }
+    assert.throws(() => adaptReaResult(load(TINY), partialOpts), ReaOutputError);
+  });
+  it('rejects missing, malformed, or falsely complete retained Evidence', () => {
+    assert.throws(() => adaptReaResult({ ...raw, details: {} }, partialOpts), ReaOutputError);
+    const complete = structuredClone(raw);
+    complete.details.partial_observation.normalized_result.graph.coverage.status = 'complete';
+    assert.throws(() => adaptReaResult(complete, partialOpts), ReaOutputError);
+    const malformed = structuredClone(raw);
+    delete malformed.details.partial_observation.subject.digest.sha256;
+    assert.throws(() => adaptReaResult(malformed, partialOpts), ReaOutputError);
+  });
+});
+
 const ofKind = <K extends StudioNode['kind']>(p: StudioProject, kind: K) =>
   p.nodes.filter((n): n is Extract<StudioNode, { kind: K }> => n.kind === kind);
 const finding = (p: StudioProject, category: string) => {

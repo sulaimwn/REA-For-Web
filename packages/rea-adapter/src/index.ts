@@ -29,6 +29,8 @@ export class ReaOutputError extends Error {
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
   reaVersion: string;
+  /** Opt in to REA's retained Evidence after a clean per-source timeout. */
+  retainedTimeoutEvidence?: 'allow' | 'require';
 }
 
 /** What the adapter changed or skipped. Not part of StudioProject; for logs and tests. */
@@ -126,6 +128,24 @@ function basename(path: string | undefined): string {
 
 /** Converts parsed REA JSON and reports what was dropped or merged. */
 export function adaptReaResult(raw: unknown, options: AdapterOptions): { project: StudioProject; report: AdapterReport } {
+  const timedOut = raw && typeof raw === 'object' &&
+    (raw as Record<string, unknown>).code === 'provider_timeout';
+  if (options.retainedTimeoutEvidence === 'require' && !timedOut) {
+    throw new ReaOutputError('REA failed without safely retained timeout Evidence');
+  }
+  if (options.retainedTimeoutEvidence && timedOut) {
+    const details = (raw as Record<string, unknown>).details as Record<string, unknown> | undefined;
+    if (!details || details.operation !== SUPPORTED_OPERATION ||
+        (details.cleanup !== undefined && details.cleanup !== 'complete')) {
+      throw new ReaOutputError('Timeout result has no safely retained application Evidence');
+    }
+    const partial = details.partial_observation;
+    assertReaResult(partial);
+    if (partial.normalized_result.graph.coverage?.status !== 'partial') {
+      throw new ReaOutputError('Retained timeout Evidence must report partial coverage');
+    }
+    raw = partial;
+  }
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {

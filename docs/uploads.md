@@ -52,7 +52,7 @@ The server admits at most 100 upload tickets per UTC day for the private beta.
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys
-include schema 0.1.0, REA 6.4.0 and adapter revision 2. Increment the cache revision
+include schema 0.1.0, REA 6.4.0 and adapter/cache revision 3. Increment the cache revision
 when adapter semantics or analysis settings change. Cache reuse happens only
 after the worker has downloaded and verified a fresh upload with the same hash.
 This proves possession before exposing a cached result.
@@ -64,6 +64,24 @@ on stalled-job detection; the container's own deadline remains in force.
 Normalized results stay in the private cache. Raw uploads and abandoned staging
 older than 24 hours are swept at worker startup and hourly while it runs.
 Queued records older than 24 hours are rejected before analysis.
+
+Analysis has a 15-minute whole-job deadline, enforced by both the host and the
+container. On slower machines the operator can set `REA_ANALYSIS_TIMEOUT_MS`
+on the trusted queue worker (1,000–1,800,000 ms; maximum 30 minutes). Upload
+requests cannot change it. CPU, memory, file and output caps still apply.
+Each source has a separate three-minute deadline (`REA_SOURCE_TIMEOUT_MS` on the
+trusted worker; it must fit within the whole-job deadline). REA reports a source
+timeout as `provider_timeout` with retained application Evidence. The adapter
+accepts that Evidence only with explicit opt-in, valid application/graph/digest
+fields, partial coverage, and no incomplete-cleanup report. The worker handles
+REA's nonzero exit only for this checked timeout case. The result opens with
+partial coverage and REA's analysis gaps; files after the interrupted source have
+not been analyzed. No facts are invented to fill those gaps.
+
+Other errors, whole-job deadlines, missing/malformed Evidence and cleanup
+failures still fail without a project. Failed jobs show the last progress step
+and a link to upload again; they cannot resume because raw uploads and partial
+output files were removed.
 
 ## Connect Cloudflare R2 later
 
