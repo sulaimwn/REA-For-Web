@@ -58,13 +58,31 @@ Ask Claude or Codex to "enable the custom domain in wrangler.jsonc". That uncomm
 ## Costs
 The site is static pages plus small JSON files, which fits comfortably in Cloudflare's free
 Workers plan for a new project. Check Cloudflare's current pricing page before relying on
-exact limits. Ask questions are billed to each visitor's own Anthropic key, not to you.
+exact limits.
+
+**Ask questions:**
+- **Free tier (T030):** by default, visitors ask without a key. The site answers with an open
+  model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on your account's free Workers AI
+  allowance: 10,000 neurons a day, roughly 30–60 questions.
+  - On the Workers Free plan, requests past the allowance fail instead of being billed. Visitors
+    then see "Today's free questions are used up" and can use their own Claude key.
+  - Each visitor is also limited to 12 model calls a minute and 120 a day, best effort per
+    Cloudflare location.
+  - **If you upgrade to Workers Paid,** usage past the allowance is billed ($0.011 per 1,000
+    neurons). Set a spending alert, or remove the `ai` binding from `wrangler.jsonc` to turn the
+    free tier off.
+  - If a deploy fails with an authorization error about Workers AI, edit the API token from step 3
+    and add **Account → Workers AI → Read**.
+- **With their own key:** visitors' Claude questions are billed to their own Anthropic key, not to you.
 
 ## For maintainers
 - Config: `apps/web/wrangler.jsonc`, `apps/web/open-next.config.ts`, `apps/web/public/_headers`.
 - Scripts (Linux/macOS/WSL): `npm run build:packages`, then `npm run cf:build -w @rea-studio/web`
   (`cf:preview` runs it locally in Cloudflare's runtime; `cf:deploy` deploys with your
   `CLOUDFLARE_API_TOKEN`).
+- `cf:preview` uses the `offline` wrangler environment. It has no Workers AI binding, which would
+  need a Cloudflare login even locally, so the free Ask tier answers 503 there. `next dev`
+  behaves the same way.
 - Pinned: Next.js `16.3.8`, `@opennextjs/cloudflare@1.20.10`, `wrangler@4.148.0`.
   Next.js `16.4.0` currently fails in the adapter runtime
   ([upstream issue #1448](https://github.com/opennextjs/opennextjs-cloudflare/issues/1448)).
