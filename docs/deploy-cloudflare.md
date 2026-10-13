@@ -71,10 +71,12 @@ exact limits.
 - **Free tier (T030):** by default, visitors ask without a key. The site answers with an open
   model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) when the Workers AI binding is enabled, on your account's free Workers AI
   allowance: 10,000 neurons a day. The number of questions varies with their length and tool lookups.
-  - **Ships disabled until the plan is confirmed.** A purchased domain does not establish the
-    Workers plan. In Cloudflare's dashboard, confirm the Workers plan is **Workers Free**, then uncomment
-    the `ai` binding in `apps/web/wrangler.jsonc`. Until then, Ask offers the visitor's own key.
-    Do not enable it on Workers Paid without a reviewed hard account budget.
+  - **Enabled in this release's configuration.** The account was confirmed on **Workers Free** on 2026-10-13 (T038), so the
+    `ai` binding in `apps/web/wrangler.jsonc` is enabled. Free questions require a successful deployment
+    with that binding; verify a real question afterward. A purchased domain or an R2 subscription
+    does not change the Workers plan. For a fork on another account, confirm the plan first, and
+    comment the binding out if it's not Workers Free. Without the binding, Ask offers the visitor's
+    own key. Do not enable it on Workers Paid without a reviewed hard account budget.
   - On the Workers Free plan, requests past the allowance fail instead of being billed. Visitors
     then see "Today's free questions are used up" and can use their own Claude key.
   - Each visitor is also limited to 12 model calls a minute and 120 a day, best effort per

@@ -17,7 +17,7 @@ or website scripts and frameworks.
 
 - **Explore a demo:** open the [website](https://reaforweb.com) and choose a sample or real app, including GitHub Desktop, VS Code, Caprine, jq, and Binary Eye.
 - **Explore your own app:** analyze it locally, then open the resulting `.studio.json` at [reaforweb.com/open](https://reaforweb.com/open). The project file is read in your browser.
-- **Ask a question:** open the explorer's Ask tab and supply your own Anthropic API key. Free Ask is not enabled on the current public release.
+- **Ask a question:** open the explorer's Ask tab. Use your own Anthropic API key, or the free model where available. The Workers AI binding is enabled in this release's configuration; free questions require its successful deployment.
 
 The website is live. **Hosted app uploads are not available yet**; the upload
 pipeline works locally, and the separate analysis host is still pending setup.
@@ -54,14 +54,17 @@ variables, so they're marked **unresolved** rather than guessed.
 ## Ask questions about an app
 
 Open the **Ask** tab in the explorer and ask in plain English, e.g. *"How does the
-app save notes?"* Claude looks things up in the analysis (search, follow links,
+app save notes?"* The model looks things up in the analysis (search, follow links,
 trace paths), answers with every node linked to the graph, and the graph switches
 to show exactly the nodes the answer used. It says when something is unresolved
 instead of guessing.
 
-It uses **your own Anthropic API key**, sent only from your browser to
-api.anthropic.com, and each answer shows its token cost. The same analysis tools are available through the MCP connector; see
-[MCP setup](docs/mcp.md).
+- **Free, no key, where enabled:** an open model (Llama 3.3 70B on Cloudflare Workers AI) answers
+  within a daily limit.
+- **Your own Anthropic API key:** Claude gives better answers. The key is sent only
+  from your browser to api.anthropic.com, and each answer shows its token cost.
+- **Your Claude subscription (or another MCP client):** connect the site's
+  [MCP server](docs/mcp.md) and ask there with the same tools (`packages/ask`).
 
 ## Explore your own app (local mode)
 
@@ -174,7 +177,8 @@ worker and web in dependency order. After changing a shared package while
 The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
 [the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
 custom-domain configuration. Hosted app uploads need a separate analysis
-backend. Ask uses each visitor's own Anthropic API key.
+backend. With the configured Workers AI binding deployed, Ask answers free
+questions, or uses each visitor's own Anthropic API key.
 
 ## Credits
 

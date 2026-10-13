@@ -3,7 +3,7 @@
 // and Ask tool list, and calls the free model. Guards: same-origin requests only, bounded input, a
 // per-visitor rate limit, and Workers AI's daily allocation on the Workers Free plan. Paid plans can bill.
 import {
-  FREE_ASK_LIMITS, FREE_ASK_MODEL, FREE_ASK_SYSTEM_PROMPT, freeAskTools,
+  FREE_ASK_LIMITS, FREE_ASK_MODEL, FREE_ASK_SYSTEM_PROMPT, freeAskTools, wireBytes,
   type FreeChatResponse, type FreeMessage,
 } from '@rea-studio/ask/free';
 
@@ -75,7 +75,7 @@ export function parseFreeAskBody(value: unknown): { messages: FreeMessage[]; fin
     if (i === 0 && (role !== 'user' || content.length > FREE_ASK_LIMITS.maxQuestionChars)) return 'The first message must be a short question.';
     if (content.length > FREE_ASK_LIMITS.maxMessageChars) return 'A message is too long.';
     total += content.length;
-    totalBytes += new TextEncoder().encode(content).byteLength;
+    totalBytes += wireBytes(content);
     // Forward only validated fields; arbitrary browser-supplied message metadata stays out of inference.
     clean.push({ role: role as FreeMessage['role'], content });
   }
