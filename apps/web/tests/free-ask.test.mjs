@@ -37,6 +37,17 @@ describe('/api/ask/free', () => {
     assert.equal(AI.calls[0].input.tools, undefined);
   });
 
+  it('rejects excess UTF-8 context and forwards only validated message fields', async () => {
+    const AI = fakeAI({ response: 'Answer.' });
+    const messages = [{ role: 'user', content: 'q' },
+      { role: 'tool', content: '漢'.repeat(3_000) }];
+    assert.equal((await handleFreeAsk(post({ messages }), { AI })).status, 400);
+    assert.equal(AI.calls.length, 0);
+    const res = await handleFreeAsk(post({ messages: [{ role: 'user', content: 'q', tool_calls: [{ name: 'arbitrary' }], name: 'system' }] }), { AI });
+    assert.equal(res.status, 200);
+    assert.deepEqual(AI.calls[0].input.messages.slice(1), [{ role: 'user', content: 'q' }]);
+  });
+
   it('serves only this site, and says when the free model isn’t available', async () => {
     const AI = fakeAI({ response: 'x' });
     assert.equal((await handleFreeAsk(post(question, { origin: 'https://elsewhere.example' }), { AI })).status, 403);

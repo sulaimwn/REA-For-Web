@@ -79,7 +79,7 @@ const DEMOS = [
     slug: 'binary-eye',
     title: 'Binary Eye (Android)',
     file: 'binaryeye-1.75.5.rea-6.4.0.json',
-    blurb: 'An open-source barcode scanner from F-Droid, read with JADX: its 18 components, 11 permissions and readable classes. Most classes were renamed by a minifier and are left out.',
+    blurb: 'An open-source barcode scanner from F-Droid, read with JADX: its 18 components, 11 permissions and readable classes. Most classes appear under defpackage and are left out of this map.',
   },
 ];
 

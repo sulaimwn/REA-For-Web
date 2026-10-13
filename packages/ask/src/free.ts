@@ -21,6 +21,9 @@ export const FREE_ASK_LIMITS = {
   /** Per message; tool results are truncated to fit. */
   maxMessageChars: 6_000,
   maxTotalChars: 48_000,
+  /** UTF-8 budget also bounds multilingual input below the model context and the HTTP body limit. */
+  // Even worst-case JSON escapes (six bytes per character) leave room in the 64 KiB request body.
+  maxTotalBytes: 8_000,
   maxToolRounds: 5,
   maxAnswerTokens: 1_024,
 } as const;
@@ -61,8 +64,23 @@ export class FreeAskUnavailableError extends Error {
   override name = 'FreeAskUnavailableError';
 }
 
-const fit = (text: string) => text.length <= FREE_ASK_LIMITS.maxMessageChars ? text
-  : `${text.slice(0, FREE_ASK_LIMITS.maxMessageChars - 80)} …[cut short: ask about a more specific node]`;
+const encoder = new TextEncoder();
+const bytes = (text: string) => encoder.encode(text).byteLength;
+const CUT_NOTE = ' …[cut short: ask about a more specific node]';
+/** Keep both UTF-16 character and UTF-8 byte limits; preserve complete surrogate pairs. */
+function fit(text: string, maxChars: number, maxBytes: number): string {
+  if (text.length <= maxChars && bytes(text) <= maxBytes) return text;
+  let low = 0;
+  let high = Math.min(text.length, maxChars - CUT_NOTE.length);
+  const prefixBytes = maxBytes - bytes(CUT_NOTE);
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (bytes(text.slice(0, mid)) <= prefixBytes) low = mid;
+    else high = mid - 1;
+  }
+  if (low > 0 && /[\uD800-\uDBFF]/u.test(text[low - 1]!)) low--;
+  return `${text.slice(0, low)}${CUT_NOTE}`;
+}
 
 export async function askProjectFree(opts: FreeAskOptions): Promise<FreeAskResult> {
   const graph = 'byId' in opts.project ? opts.project : indexGraph(opts.project);
@@ -71,12 +89,12 @@ export async function askProjectFree(opts: FreeAskOptions): Promise<FreeAskResul
   if (question.length > FREE_ASK_LIMITS.maxQuestionChars) throw new Error(`Keep free questions under ${FREE_ASK_LIMITS.maxQuestionChars} characters.`);
   const messages: FreeMessage[] = [{ role: 'user', content: question }];
   let toolCalls = 0;
+  let budgetReached = false;
   for (let round = 0; ; round++) {
     opts.signal?.throwIfAborted();
-    const total = messages.reduce((n, m) => n + m.content.length, 0);
     // Answer now if the context or round budget is spent.
-    const final = round >= FREE_ASK_LIMITS.maxToolRounds || messages.length + 2 > FREE_ASK_LIMITS.maxMessages
-      || total + FREE_ASK_LIMITS.maxMessageChars > FREE_ASK_LIMITS.maxTotalChars;
+    const final = budgetReached || round >= FREE_ASK_LIMITS.maxToolRounds
+      || messages.length + 3 > FREE_ASK_LIMITS.maxMessages;
     if (final && round > 0) messages.push({ role: 'user', content: STEP_LIMIT_NOTE });
     const reply = await opts.chat({ messages, final }, opts.signal);
     // An unknown tool name gets runAskTool's "Unknown tool" result, so the model can correct itself.
@@ -88,11 +106,23 @@ export async function askProjectFree(opts: FreeAskOptions): Promise<FreeAskResul
       return { answer, citedNodeIds: citedNodeIds(answer, graph), toolCalls, model: FREE_ASK_MODEL };
     }
     for (const call of calls.slice(0, 3)) {
+      const assistant = JSON.stringify({ name: call.name, arguments: call.arguments });
+      const totalChars = messages.reduce((n, m) => n + m.content.length, 0);
+      const totalBytes = messages.reduce((n, m) => n + bytes(m.content), 0);
+      // Reserve a final instruction before *each* call, including multi-call replies and large arguments.
+      const roomChars = FREE_ASK_LIMITS.maxTotalChars - totalChars - assistant.length - STEP_LIMIT_NOTE.length;
+      const roomBytes = FREE_ASK_LIMITS.maxTotalBytes - totalBytes - bytes(assistant) - bytes(STEP_LIMIT_NOTE);
+      if (messages.length + 3 > FREE_ASK_LIMITS.maxMessages || assistant.length > FREE_ASK_LIMITS.maxMessageChars
+        || roomChars < CUT_NOTE.length || roomBytes < bytes(CUT_NOTE)) {
+        budgetReached = true;
+        break;
+      }
       opts.onStep?.({ type: 'tool', name: call.name, input: call.arguments });
       toolCalls++;
       // Workers AI's documented convention: the chosen call as the assistant turn, then its result.
-      messages.push({ role: 'assistant', content: JSON.stringify({ name: call.name, arguments: call.arguments }) });
-      messages.push({ role: 'tool', content: fit(runAskTool(graph, call.name, call.arguments)) });
+      messages.push({ role: 'assistant', content: assistant });
+      messages.push({ role: 'tool', content: fit(runAskTool(graph, call.name, call.arguments),
+        Math.min(FREE_ASK_LIMITS.maxMessageChars, roomChars), roomBytes) });
     }
   }
 }

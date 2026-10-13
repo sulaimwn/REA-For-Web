@@ -63,7 +63,7 @@ exact limits.
 **Ask questions:**
 - **Free tier (T030):** by default, visitors ask without a key. The site answers with an open
   model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on your account's free Workers AI
-  allowance: 10,000 neurons a day, roughly 30–60 questions.
+  allowance: 10,000 neurons a day. The number of questions varies with their length and tool lookups.
   - On the Workers Free plan, requests past the allowance fail instead of being billed. Visitors
     then see "Today's free questions are used up" and can use their own Claude key.
   - Each visitor is also limited to 12 model calls a minute and 120 a day, best effort per

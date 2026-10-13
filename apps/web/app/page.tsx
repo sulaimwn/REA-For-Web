@@ -23,7 +23,7 @@ export default function HomePage() {
             <h1>See how an app is put together.</h1>
             <p>
               Give REA for Web an app and it maps how it’s built: an Electron app’s processes, preload bridges and IPC
-              channels; a Windows or Linux program’s functions and the system calls they make; an Android app’s components,
+              channels; a Windows or Linux program’s functions and calls into external code; an Android app’s components,
               permissions and code. Each part comes with REA’s evidence. Uploaded apps are read, never run.
             </p>
             <div className="intro__try">

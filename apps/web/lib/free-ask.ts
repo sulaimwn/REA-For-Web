@@ -1,7 +1,7 @@
 // /api/ask/free (T030): one free-tier model call for the Ask panel, on Cloudflare Workers AI.
 // The browser runs the tool loop; this route only accepts that conversation, adds the fixed system prompt
 // and Ask tool list, and calls the free model. Guards: same-origin requests only, bounded input, a
-// per-visitor rate limit, and Workers AI's own daily free allocation (requests fail, never bill, past it).
+// per-visitor rate limit, and Workers AI's daily allocation on the Workers Free plan. Paid plans can bill.
 import {
   FREE_ASK_LIMITS, FREE_ASK_MODEL, FREE_ASK_SYSTEM_PROMPT, freeAskTools,
   type FreeChatResponse, type FreeMessage,
@@ -67,15 +67,20 @@ export function parseFreeAskBody(value: unknown): { messages: FreeMessage[]; fin
   const messages = body.messages as unknown[];
   if (messages.length < 1 || messages.length > FREE_ASK_LIMITS.maxMessages) return 'Too many messages.';
   let total = 0;
+  let totalBytes = 0;
+  const clean: FreeMessage[] = [];
   for (const [i, m] of messages.entries()) {
     const { role, content } = (m ?? {}) as { role?: unknown; content?: unknown };
     if (!['user', 'assistant', 'tool'].includes(role as string) || typeof content !== 'string') return 'Invalid message.';
     if (i === 0 && (role !== 'user' || content.length > FREE_ASK_LIMITS.maxQuestionChars)) return 'The first message must be a short question.';
     if (content.length > FREE_ASK_LIMITS.maxMessageChars) return 'A message is too long.';
     total += content.length;
+    totalBytes += new TextEncoder().encode(content).byteLength;
+    // Forward only validated fields; arbitrary browser-supplied message metadata stays out of inference.
+    clean.push({ role: role as FreeMessage['role'], content });
   }
-  if (total > FREE_ASK_LIMITS.maxTotalChars) return 'The conversation is too long.';
-  return { messages: messages as FreeMessage[], final: body.final === true };
+  if (total > FREE_ASK_LIMITS.maxTotalChars || totalBytes > FREE_ASK_LIMITS.maxTotalBytes) return 'The conversation is too long.';
+  return { messages: clean, final: body.final === true };
 }
 
 /** Workers AI's function-calling reply → `{ response, tool_calls }` (arguments as objects). */
@@ -135,7 +140,7 @@ export async function handleFreeAsk(request: Request, env: FreeAskEnv): Promise<
     return json(200, normalizeFreeReply(raw));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // Workers AI rejects requests past the account's daily free allocation (error 4006) instead of billing.
+    // Workers Free rejects requests past its daily allocation (4006). Paid accounts may bill overages.
     if (/4006|daily free allocation|neurons/iu.test(message)) {
       return fail(429, 'exhausted', 'Today’s free questions are used up. They reset at midnight UTC; you can also use your own Claude key.');
     }

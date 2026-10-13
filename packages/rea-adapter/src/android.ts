@@ -404,7 +404,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       finding('storage', of('storage').length, [heuristicNote]),
       finding('types', of('managed-type').length, [
         `${classNames.length} app classes inspected (components are listed as components); bundled libraries left out`,
-        ...(minifiedClasses > 0 ? [`${minifiedClasses} more classes were renamed into the default package by a minifier (R8/ProGuard) and left out; their names say nothing about the app`] : []),
+        ...(minifiedClasses > 0 ? [`JADX lists ${minifiedClasses} more classes under defpackage; these are left out of the map. Studio heuristic: this can reflect minification, but names alone do not identify their origin or a particular minifier`] : []),
       ]),
       finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body; reason unknown`] : []), ...(skippedSynthetic ? [`${skippedSynthetic} proven empty initializers or compiler-style method names left out (Studio heuristic)`] : [])]),
     ],

@@ -41,7 +41,7 @@ describe('free Ask tier loop', () => {
   });
 
   it('stops calling tools after the round limit and asks for a final answer', async () => {
-    const { chat, seen } = scripted(Array.from({ length: 20 }, () => ({ name: 'project_overview', arguments: {} })), 'Done.');
+    const { chat, seen } = scripted(Array.from({ length: 20 }, () => ({ name: 'search_nodes', arguments: { query: 'no-such-node' } })), 'Done.');
     const r = await askProjectFree({ chat, project: tiny, question: 'Tour?' });
     assert.equal(r.toolCalls, FREE_ASK_LIMITS.maxToolRounds);
     assert.equal(seen.at(-1)!.final, true);
@@ -61,6 +61,52 @@ describe('free Ask tier loop', () => {
     assert.match(seen.at(-1)!.messages.at(-1)!.content, /Unknown tool delete_everything/u);
     await assert.rejects(askProjectFree({ chat, project: tiny, question: '  ' }), /Ask a question/u);
     await assert.rejects(askProjectFree({ chat, project: tiny, question: 'x'.repeat(FREE_ASK_LIMITS.maxQuestionChars + 1) }), /under/u);
+  });
+
+  it('keeps multi-tool replies inside every request limit before asking for a final answer', async () => {
+    const seen: { messages: FreeMessage[]; final: boolean }[] = [];
+    const chat: FreeChat = async (request) => {
+      seen.push({ messages: request.messages.map((m) => ({ ...m })), final: request.final });
+      assert.ok(request.messages.length <= FREE_ASK_LIMITS.maxMessages, `${request.messages.length} messages`);
+      assert.ok(request.messages.reduce((n, m) => n + m.content.length, 0) <= FREE_ASK_LIMITS.maxTotalChars);
+      assert.ok(new TextEncoder().encode(request.messages.map((m) => m.content).join('')).byteLength <= FREE_ASK_LIMITS.maxTotalBytes);
+      for (const m of request.messages) assert.ok(m.content.length <= FREE_ASK_LIMITS.maxMessageChars);
+      return request.final ? { response: 'Done.', tool_calls: [] } : {
+        response: '', tool_calls: Array.from({ length: 3 }, () => ({ name: 'search_nodes', arguments: { query: 'no-such-node' } })),
+      };
+    };
+    const r = await askProjectFree({ chat, project: tiny, question: 'Tour?' });
+    assert.equal(r.answer, 'Done.');
+    assert.equal(seen.at(-1)!.final, true);
+  });
+
+  it('bounds multilingual and escaped tool results, and refuses oversized model arguments', async () => {
+    for (const name of ['漢字😀'.repeat(600), '\u0000'.repeat(7_000)]) {
+      const project = structuredClone(tiny.project);
+      project.target.name = name;
+      let rounds = 0;
+      const chat: FreeChat = async (request) => {
+        rounds++;
+        assert.ok(new TextEncoder().encode(request.messages.map((m) => m.content).join('')).byteLength <= FREE_ASK_LIMITS.maxTotalBytes);
+        assert.ok(new TextEncoder().encode(JSON.stringify(request)).byteLength < 64 * 1024);
+        for (const m of request.messages) assert.ok(m.content.length <= FREE_ASK_LIMITS.maxMessageChars);
+        return request.final ? { response: 'Done.', tool_calls: [] } : {
+          response: '', tool_calls: Array.from({ length: 3 }, () => ({ name: 'project_overview', arguments: {} })),
+        };
+      };
+      assert.equal((await askProjectFree({ chat, project, question: 'Tour?' })).answer, 'Done.');
+      assert.ok(rounds <= FREE_ASK_LIMITS.maxToolRounds + 1);
+    }
+    let requests = 0;
+    const oversized: FreeChat = async (request) => {
+      requests++;
+      for (const m of request.messages) assert.ok(m.content.length <= FREE_ASK_LIMITS.maxMessageChars);
+      return request.final ? { response: 'Cannot inspect that.', tool_calls: [] }
+        : { response: '', tool_calls: [{ name: 'search_nodes', arguments: { query: 'x'.repeat(10_000) } }] };
+    };
+    const result = await askProjectFree({ chat: oversized, project: tiny, question: 'Tour?' });
+    assert.equal(result.toolCalls, 0);
+    assert.equal(requests, 2);
   });
 
   it('describes the same tools in Workers AI’s function shape, under the same system prompt', () => {

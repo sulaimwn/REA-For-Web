@@ -44,7 +44,8 @@ describe('Binary Eye 1.75.5 (Android, minified)', () => {
     assert.ok(of(p, 'android-permission').some((n) => n.name === 'android.permission.CAMERA'));
     assert.ok(of(p, 'android-component').some((c) => c.launcher));
   });
-  it('says how many classes a minifier renamed and left out', () => {
-    assert.ok(notes(p, 'types').some((n) => /^\d{4} more classes were renamed into the default package by a minifier/u.test(n)), notes(p, 'types').join(' | '));
+  it('counts omitted default-package classes and labels the minification explanation as a heuristic', () => {
+    assert.ok(notes(p, 'types').some((n) => /^JADX lists \d{4} more classes under defpackage/u.test(n)), notes(p, 'types').join(' | '));
+    assert.ok(notes(p, 'types').some((n) => /Studio heuristic:.*names alone do not identify their origin/u.test(n)));
   });
 });
