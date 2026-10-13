@@ -97,7 +97,7 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
       <header className="topbar">
         {!embedded && (
           <Link href="/" className="wordmark">
-            REA Studio
+            REA for Web
           </Link>
         )}
         <div className="topbar__app">

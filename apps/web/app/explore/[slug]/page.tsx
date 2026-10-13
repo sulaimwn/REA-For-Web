@@ -5,6 +5,9 @@ import { loadDemos } from '../../../lib/demos';
 
 type Params = { slug: string };
 
+// Only the demos known at build time exist; unknown slugs 404 without rendering on the server.
+export const dynamicParams = false;
+
 export function generateStaticParams(): Params[] {
   return loadDemos().map((d) => ({ slug: d.slug }));
 }
@@ -12,7 +15,7 @@ export function generateStaticParams(): Params[] {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const demo = loadDemos().find((d) => d.slug === slug);
-  return { title: demo ? `${demo.title} · REA Studio` : 'REA Studio' };
+  return { title: demo ? `${demo.title} · REA for Web` : 'REA for Web' };
 }
 
 export default async function ExplorePage({ params }: { params: Promise<Params> }) {

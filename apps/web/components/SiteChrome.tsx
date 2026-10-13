@@ -6,7 +6,7 @@ export function SiteHeader({ uploadsAvailable = false }: { uploadsAvailable?: bo
   return (
     <header className="site-head">
       <Link href="/" className="wordmark">
-        REA Studio
+        REA for Web
       </Link>
       <nav aria-label="Site">
         <Link href="/#demos">Demos</Link>
@@ -27,7 +27,7 @@ export function SiteFooter() {
       <span>
         Analysis by <a href="https://github.com/morluto/rea">REA</a> (MIT). Static analysis only: no app is ever run.
       </span>
-      <a href={REPO_URL}>REA Studio source</a>
+      <a href={REPO_URL}>REA for Web source</a>
     </footer>
   );
 }

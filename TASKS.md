@@ -24,7 +24,7 @@ Details for a task go under its heading below the table.
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | done | T013       |
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
-| T018 | Cloudflare deploy preparation | claude | review | T007, T013 |
+| T018 | Cloudflare website deployment: demos, local mode and bring-your-own-key Ask | claude | done | T013, T016 |
 | T020 | MIT license (the human's choice) | claude | done | — |
 | T021 | **Essential.** Beyond Electron: plan + schema proposal for websites by URL, Android APKs, .NET, then native | —     | todo | T007 |
 | T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | —     | todo | T016, T018 |

@@ -150,9 +150,10 @@ worker and web in dependency order. After changing a shared package while
 
 ### Deploying the static demo
 
-The demo needs no backend. On Vercel (not yet tested): set the project's root
-directory to `apps/web`, the install command to `npm ci` and the build command
-to `cd ../.. && npm run build:packages && npm run build -w @rea-studio/web`.
+The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
+[the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
+the free `workers.dev` address. Hosted app uploads need a separate analysis
+backend. Ask uses each visitor's own Anthropic API key.
 
 ## Credits
 

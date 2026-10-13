@@ -25,3 +25,8 @@ worker-results/
 
 # generated demo data (apps/web/scripts/build-demo-projects.mjs)
 apps/web/public/projects/
+
+# Cloudflare (OpenNext / Wrangler) build output and local secrets
+.open-next/
+.wrangler/
+.dev.vars

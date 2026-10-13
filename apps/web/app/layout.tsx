@@ -6,7 +6,7 @@ import "@fontsource-variable/atkinson-hyperlegible-mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "REA Studio",
+  title: "REA for Web",
   description: "See how an Electron app is put together: processes, windows, preload bridges, IPC and native code, with the evidence for each part.",
 };
 
