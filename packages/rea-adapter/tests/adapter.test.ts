@@ -12,6 +12,7 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { adaptReaResult, ReaOutputError, toStudioProject } from '../src/index.js';
+import { assessEndpoint } from '../src/heuristics.js';
 import type { ReaResult } from '../src/rea-types.js';
 
 // Compiled to dist-tests/tests/, so the repo root is four levels up.
@@ -438,5 +439,52 @@ describe('full REA output (optional)', { skip: !full || !existsSync(full) }, () 
   it('adapts without dangling edges', () => {
     const p = toStudioProject(JSON.parse(readFileSync(full ?? '', 'utf8')), opts);
     assertInvariants(p);
+  });
+});
+
+describe('endpoint plausibility (T012, endpoint-shape)', () => {
+  const verdicts = (file: string) => {
+    const { project, report } = adaptReaResult(load(file), opts);
+    const endpoints = project.nodes.filter((n): n is Extract<StudioNode, { kind: 'endpoint' }> => n.kind === 'endpoint');
+    return { project, report, endpoints, plausible: endpoints.filter((e) => e.assessment?.verdict === 'plausible').map((e) => e.value).sort() };
+  };
+
+  it('keeps exactly the two real GitHub Desktop endpoints of 89 candidates', () => {
+    const { endpoints, plausible, report } = verdicts(GHD);
+    assert.equal(endpoints.length, 89, 'every REA candidate is kept');
+    assert.deepEqual(plausible, ['POST /gists', 'https://central.github.com/api/usage/desktop']);
+    assert.deepEqual(report.endpointVerdicts, { plausible: 2, unlikely: 87 });
+    assert.ok(endpoints.every((e) => e.assessment?.heuristic === 'endpoint-shape' && e.assessment.basis.length > 0));
+    // A Studio inference on top of REA's fact: node origin and evidence are REA's, unchanged.
+    assert.ok(endpoints.every((e) => e.origin.source === 'rea' && e.evidence.length > 0));
+  });
+
+  it('keeps the one real VS Code endpoint (a fetch through a renamed binding)', () => {
+    assert.deepEqual(verdicts('vscode-core-1.141.0.trimmed.rea-6.4.0.json').plausible, ['https://api.github.com/mobile/upload/policy']);
+  });
+
+  it('explains verdicts and reports the plausible count in the endpoints finding', () => {
+    const { project, endpoints } = verdicts(GHD);
+    const key = endpoints.find((e) => e.value === 'content-length' && e.mechanism === 'call:headers.get');
+    assert.match(key?.assessment?.basis ?? '', /\.get\(\)/);
+    const finding = project.findings.find((f) => f.category === 'endpoints');
+    assert.equal(finding?.count, 89);
+    assert.ok(finding?.notes.some((n) => n.startsWith('2 look like real network endpoints')));
+  });
+});
+
+describe('endpoint-shape rule', () => {
+  const v = (value: string, mechanism: string) => assessEndpoint({ value, mechanism }).verdict;
+  it('accepts URLs, METHOD /path, and paths passed to fetch/request', () => {
+    assert.equal(v('wss://example.com/socket', 'call:e.get'), 'plausible');
+    assert.equal(v('GET /repos', 'call:x.get'), 'plausible');
+    assert.equal(v('/api/v1/items', 'call:fetch'), 'plausible');
+    assert.equal(v('/api/v1/items', 'call:client.request'), 'plausible');
+  });
+  it('rejects lookups, bare words, empty values and paths outside requests', () => {
+    assert.equal(v('content-length', 'call:headers.get'), 'unlikely');
+    assert.equal(v('', 'call:c.delete'), 'unlikely');
+    assert.equal(v('/test/path/to/git', 'property:path'), 'unlikely');
+    assert.equal(v('example.com', 'call:fetch'), 'unlikely');
   });
 });

@@ -16,7 +16,7 @@ import {
 } from '@rea-studio/schema';
 import { toEvidence } from './evidence.js';
 import { buildFindings } from './findings.js';
-import { linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
+import { assessEndpoints, linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
 import { num, str } from './read.js';
@@ -62,6 +62,8 @@ export interface AdapterReport {
   unrecognizedNodeKinds: Record<string, number>;
   /** Edges added by Studio heuristics, by heuristic name (origin `studio-heuristic`). */
   heuristicEdges: Record<string, number>;
+  /** Studio `endpoint-shape` verdicts added to REA endpoint candidates (T012). */
+  endpointVerdicts: { plausible: number; unlikely: number };
 }
 
 function assertReaResult(raw: unknown): asserts raw is ReaResult {
@@ -173,6 +175,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     droppedSelfEdges: 0,
     unrecognizedNodeKinds: {},
     heuristicEdges: {},
+    endpointVerdicts: { plausible: 0, unlikely: 0 },
   };
 
   // --- nodes
@@ -282,6 +285,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   const bridgeReads = linkBridgeMemberReads(r.semantic_graph?.nodes ?? [], nodes);
   edges.push(...bridgeReads);
   report.heuristicEdges[BRIDGE_MEMBER_READ] = bridgeReads.length;
+  // Verdicts on REA's endpoint candidates; the candidates themselves are kept unchanged.
+  report.endpointVerdicts = assessEndpoints(nodes);
 
   // --- project
   const rootPackage = nodes.find((n) => n.kind === 'package' && n.path === 'package.json');

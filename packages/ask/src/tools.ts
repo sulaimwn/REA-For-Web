@@ -130,7 +130,9 @@ function search(g: ProjectGraph, query: string, kind: string) {
     const text = searchableText(n);
     if (!words.every((w) => text.includes(w))) continue;
     const name = nodeName(n).toLowerCase();
-    const score = (name === q ? 0 : name.includes(q) ? 1 : 2) * 10 + (n.kind === 'endpoint' || n.kind === 'analysis-gap' ? 5 : 0);
+    // Real-looking endpoints rank normally; candidates judged unlikely (T012) and gaps rank last.
+    const noise = n.kind === 'endpoint' ? (n.assessment?.verdict === 'plausible' ? 0 : 8) : n.kind === 'analysis-gap' ? 5 : 0;
+    const score = (name === q ? 0 : name.includes(q) ? 1 : 2) * 10 + noise;
     hits.push({ n, score });
   }
   hits.sort((a, b) => a.score - b.score || nodeName(a.n).length - nodeName(b.n).length);

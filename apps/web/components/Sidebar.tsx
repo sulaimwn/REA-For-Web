@@ -2,7 +2,7 @@
 
 import type { FindingCategory, StudioNode, StudioNodeKind } from '@rea-studio/schema';
 import { useMemo, useState } from 'react';
-import { displayName, KIND_META, searchText, type ProjectIndex } from '../lib/project';
+import { displayName, isUnlikelyEndpoint, KIND_META, searchText, type ProjectIndex } from '../lib/project';
 import { KindGlyph } from './KindGlyph';
 
 const CATEGORY_KIND: Record<FindingCategory, StudioNodeKind> = {
@@ -131,7 +131,11 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
     return out;
   }, [ix, q]);
 
-  const listed = kindFilter ? ix.byKind.get(kindFilter) ?? [] : [];
+  // Endpoint candidates Studio judged unlikely (T012) stay one click away, never removed.
+  const [showUnlikely, setShowUnlikely] = useState(false);
+  const all = kindFilter ? ix.byKind.get(kindFilter) ?? [] : [];
+  const unlikely = all.filter(isUnlikelyEndpoint);
+  const listed = showUnlikely ? all : all.filter((n) => !isUnlikelyEndpoint(n));
 
   return (
     <nav className="sidebar" aria-label="Explorer">
@@ -181,6 +185,11 @@ export function Sidebar({ ix, selectedId, onSelect }: Props) {
                         </ul>
                       )}
                       {on && <NodeList nodes={listed} selectedId={selectedId} onSelect={onSelect} limit={300} />}
+                      {on && unlikely.length > 0 && (
+                        <button type="button" className="link finding__more" onClick={() => setShowUnlikely(!showUnlikely)}>
+                          {showUnlikely ? `Hide the ${unlikely.length} unlikely candidates` : `Show ${unlikely.length} unlikely REA candidates`}
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -219,7 +228,7 @@ function NodeList({ nodes, selectedId, onSelect, limit = 200 }: { nodes: StudioN
           <button type="button" className={`node-list__item ${n.id === selectedId ? 'is-selected' : ''}`} onClick={() => onSelect(n.id)} title={displayName(n)}>
             <KindGlyph kind={n.kind} />
             <span className="node-list__name">{displayName(n)}</span>
-            <span className="muted node-list__kind">{KIND_META[n.kind].label}</span>
+            <span className={isUnlikelyEndpoint(n) ? 'flag node-list__kind' : 'muted node-list__kind'}>{isUnlikelyEndpoint(n) ? 'unlikely' : KIND_META[n.kind].label}</span>
           </button>
         </li>
       ))}

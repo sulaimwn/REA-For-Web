@@ -256,6 +256,7 @@ button { font: inherit; color: inherit; }
 .finding__count { font-variant-numeric: tabular-nums; font-size: 13px; text-align: right; }
 .finding--none .finding__count { font-size: 12px; }
 .finding__notes { margin: 2px 0 6px 26px; padding: 0; list-style: none; font-size: 12.5px; color: var(--ink-3); }
+.finding__more { margin: 0 0 8px 22px; font-size: 12.5px; }
 .node-list { list-style: none; margin: 0 0 8px; padding: 0 0 0 10px; border-left: 1px solid var(--rule); margin-left: 11px; }
 .node-list__item, .tree__leaf, .tree__dir {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 6px; border: 0; border-radius: 2px;
