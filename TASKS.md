@@ -33,8 +33,17 @@ Details for a task go under its heading below the table.
 | R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
 | R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | done | T021 |
 | R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
+| T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | in progress | T007, T024 |
 
 ---
+
+### T025 — Program and APK uploads
+Accept the existing ASAR format plus Windows .exe/.dll and Android .apk files.
+Keep upload tokens, SHA verification, private storage, expiry and cleanup intact.
+Preserve the file kind in worker staging and partition deduplication by analysis
+kind so renaming an artifact cannot bypass parsing through a cache hit. Image
+selection remains an operator setting. Verify public fixtures through the real
+local HTTP upload flow; hosted uploads still require an analysis backend.
 
 ### T001 — Generate real REA fixtures
 Install REA (`npm install --global rea-agents`) and run
