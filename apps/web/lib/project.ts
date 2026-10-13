@@ -11,6 +11,17 @@ export interface DemoEntry {
   edges: number;
   coverage: string;
   sample: string | null;
+  /** Number of published guided tours (see scripts/generate-tours.mjs). */
+  tours: number;
+}
+
+/** A pre-generated Ask answer shipped with a demo. */
+export interface Tour {
+  question: string;
+  answer: string;
+  citedNodeIds: string[];
+  steps: { name: string; input: unknown }[];
+  model: string;
 }
 
 export interface KindMeta {

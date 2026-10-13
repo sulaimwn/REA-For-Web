@@ -5,7 +5,7 @@ import '@xyflow/react/dist/style.css';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Focus } from '../lib/graph-view';
-import { indexProject, type DemoEntry } from '../lib/project';
+import { indexProject, type DemoEntry, type Tour } from '../lib/project';
 import { GraphPane } from './GraphPane';
 import { AskPanel } from './AskPanel';
 import { Inspector } from './Inspector';
@@ -15,9 +15,16 @@ import { Sidebar } from './Sidebar';
 export function Explorer({ demo }: { demo: DemoEntry }) {
   const [project, setProject] = useState<StudioProject | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tours, setTours] = useState<Tour[]>([]);
 
   useEffect(() => {
     let live = true;
+    if (demo.tours > 0) {
+      fetch(`/projects/${demo.slug}.tours.json`)
+        .then((r) => (r.ok ? (r.json() as Promise<{ tours: Tour[] }>) : { tours: [] }))
+        .then((d) => live && setTours(d.tours))
+        .catch(() => undefined); // Tours are optional; the explorer works without them.
+    }
     fetch(`/projects/${demo.slug}.json`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -28,11 +35,11 @@ export function Explorer({ demo }: { demo: DemoEntry }) {
     return () => {
       live = false;
     };
-  }, [demo.slug]);
+  }, [demo.slug, demo.tours]);
 
   if (error) return <main className="center">Couldn’t load this project ({error}).</main>;
   if (!project) return <main className="center">Loading {demo.title}…</main>;
-  return <ProjectExplorer project={project} title={demo.title} note={demo.sample} />;
+  return <ProjectExplorer project={project} title={demo.title} note={demo.sample} tours={tours} />;
 }
 
 interface ProjectExplorerProps {
@@ -42,10 +49,12 @@ interface ProjectExplorerProps {
   note?: string | null;
   /** Extra controls for the top bar, e.g. "Open another file". */
   actions?: ReactNode;
+  /** Pre-generated Ask answers to show in the Ask tab. */
+  tours?: Tour[];
 }
 
 /** The three-pane explorer for an already-loaded StudioProject. */
-export function ProjectExplorer({ project, title, note = null, actions }: ProjectExplorerProps) {
+export function ProjectExplorer({ project, title, note = null, actions, tours = [] }: ProjectExplorerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>({ mode: 'overview' });
   const [sideTab, setSideTab] = useState<'inspector' | 'ask'>('inspector');
@@ -125,7 +134,7 @@ export function ProjectExplorer({ project, title, note = null, actions }: Projec
             <Inspector ix={ix} node={selectedId ? ix.byId.get(selectedId) ?? null : null} onSelect={selectAndFocus} onFocus={setFocus} />
           </div>
           <div className="side__panel" hidden={sideTab !== 'ask'}>
-            <AskPanel project={project} onSelect={select} onShowNodes={showAnswerNodes} />
+            <AskPanel project={project} tours={tours} onSelect={select} onShowNodes={showAnswerNodes} />
           </div>
         </div>
       </div>
