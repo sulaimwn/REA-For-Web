@@ -4,6 +4,7 @@ COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/cli/package.json ./apps/cli/package.json
 COPY packages/ask/package.json ./packages/ask/package.json
+COPY packages/mcp/package.json ./packages/mcp/package.json
 COPY apps/worker ./apps/worker
 COPY packages/schema ./packages/schema
 COPY packages/rea-adapter ./packages/rea-adapter

@@ -58,7 +58,10 @@ export function GraphPane({ ix, focus, selectedId, onSelect, onFocus }: Props) {
         )}
         <span className="graph-pane__meta">
           {view.nodes.length} nodes · {view.edges.length} links
-          {view.hidden > 0 && ` · ${view.hidden} more neighbors hidden (see inspector)`}
+          {view.hidden > 0 &&
+            (focus.mode === 'overview'
+              ? ` · ${view.hidden} more parts not drawn (use search or the findings list)`
+              : ` · ${view.hidden} more neighbors hidden (see inspector)`)}
         </span>
       </div>
       {view.nodes.length === 0 ? (

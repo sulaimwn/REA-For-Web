@@ -7,6 +7,8 @@ export interface DemoEntry {
   blurb: string;
   name: string;
   version: string | null;
+  /** `StudioProject.target.appKind`; lets the MCP endpoint list demos without loading them. */
+  appKind: string;
   nodes: number;
   edges: number;
   coverage: string;
@@ -55,13 +57,20 @@ export const KIND_META: Record<StudioNodeKind, KindMeta> = {
   'bundle-chunk': { label: 'Bundle chunk', plural: 'Bundle chunks', family: 'code', overview: false },
   'source-file': { label: 'Source file', plural: 'Source files', family: 'code', overview: false },
   'source-map': { label: 'Source map', plural: 'Source maps', family: 'code', overview: false },
+  // .NET (T021): the assembly is the runnable unit; P/Invoke is where managed code crosses into native code.
+  assembly: { label: '.NET assembly', plural: 'Assemblies', family: 'runtime', overview: true },
+  'managed-type': { label: 'Type', plural: 'Types', family: 'code', overview: true },
+  'managed-method': { label: 'Method', plural: 'Methods', family: 'code', overview: true },
+  'native-import': { label: 'Native call (P/Invoke)', plural: 'Native calls', family: 'boundary', overview: true },
+  'external-member': { label: 'External API', plural: 'External APIs', family: 'system', overview: false },
   'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', family: 'gap', overview: false },
 };
 
 /** Which kinds to show first in grids and neighborhoods. Noisy, unfiltered kinds go last. */
 export const KIND_ORDER: readonly StudioNodeKind[] = [
   'process', 'window', 'bridge-api', 'ipc-channel', 'ipc-handler', 'native-addon', 'worker', 'storage',
-  'package', 'file', 'module', 'bundle-chunk', 'external-module', 'source-map', 'source-file', 'endpoint', 'analysis-gap',
+  'assembly', 'native-import', 'managed-type', 'managed-method',
+  'package', 'file', 'module', 'bundle-chunk', 'external-module', 'external-member', 'source-map', 'source-file', 'endpoint', 'analysis-gap',
 ];
 
 
@@ -113,7 +122,8 @@ export function displayName(n: StudioNode): string {
     case 'worker':
       return n.resolvedPath ?? n.expression ?? 'worker';
     case 'file':
-      return n.path === '' ? 'artifact root' : n.path;
+      // A website's root is its page; show the URL (T021).
+      return n.path === '' ? (/^https?:\/\//u.test(n.label) ? n.label : 'artifact root') : n.path;
     case 'endpoint':
       return n.value.trim() === '' ? '(blank value)' : n.value;
     case 'analysis-gap':
@@ -129,12 +139,34 @@ export function displayName(n: StudioNode): string {
       return n.specifier;
     case 'package':
       return `${n.name}${n.version ? `@${n.version}` : ''}`;
+    case 'assembly':
+      return `${n.name}${n.version ? ` ${n.version}` : ''}`;
+    case 'managed-type':
+      return n.fullName;
+    case 'managed-method':
+      return `${shortType(n.declaringType)}.${n.name}`;
+    case 'native-import':
+      return `${n.library}!${n.entryPoint}`;
+    case 'external-member':
+      return `${n.name}(${n.parameterTypes.join(', ')})`;
   }
+}
+
+/** `TinyNotes.NoteStore` → `NoteStore`, keeping compiler-made names such as `<PushAsync>d__0` intact. */
+function shortType(fullName: string): string {
+  if (fullName.startsWith('<')) return fullName;
+  const i = fullName.lastIndexOf('.');
+  return i === -1 ? fullName : fullName.slice(i + 1);
 }
 
 export function basename(path: string): string {
   const i = path.lastIndexOf('/');
   return i === -1 ? path : path.slice(i + 1);
+}
+
+/** An REA endpoint candidate Studio's `endpoint-shape` heuristic judged unlikely (T012). Hidden by default, never removed. */
+export function isUnlikelyEndpoint(n: StudioNode): boolean {
+  return n.kind === 'endpoint' && n.assessment?.verdict === 'unlikely';
 }
 
 /** Text a search query matches against. */

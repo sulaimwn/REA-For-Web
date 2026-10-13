@@ -1,18 +1,22 @@
 # rea-studio (local mode CLI)
 
-Analyze an Electron app **on your own machine** and write a REA Studio project
-file you can open in the browser. Nothing is uploaded.
+Analyze an Electron app or a .NET program **on your own machine** and write a
+REA for Web project file you can open in the browser. Nothing is uploaded.
 
 ```sh
 # from the repository root
-npm run analyze -w rea-studio -- path/to/app          # extracted app directory
+npm run analyze -w rea-studio -- path/to/app          # extracted Electron app directory
 npm run analyze -w rea-studio -- path/to/app.asar     # or an .asar archive
+npm run analyze -w rea-studio -- path/to/Program.exe  # or a .NET program (.exe or .dll)
 ```
 
-This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.4.0`, pinned)
-`analyze-javascript-application`, converts its output with
-`@rea-studio/rea-adapter`, and writes `<app>.studio.json` in the directory you
-ran npm from. Then open the site's **/open** page (locally: `npm run dev`, then
+This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.4.0`, pinned),
+converts its output with `@rea-studio/rea-adapter`, and writes `<app>.studio.json`
+in the directory you ran npm from. Electron/JS apps use
+`analyze-javascript-application`. .NET programs use the three `inspect-managed-*`
+commands and `project-managed-application-graph`: REA reads the .NET metadata and
+IL without loading the assembly. Native (non-.NET) executables are refused with an
+explanation; they need Ghidra (see `docs/targets.md`). Then open the site's **/open** page (locally: `npm run dev`, then
 http://localhost:3000/open) and drop the file in. Your browser reads it; it
 isn't sent anywhere.
 

@@ -14,18 +14,24 @@ import {
   type StudioProject,
   type TargetInfo,
 } from '@rea-studio/schema';
+import { ReaOutputError } from './errors.js';
 import { toEvidence } from './evidence.js';
 import { buildFindings } from './findings.js';
-import { linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
+import { adaptManagedBundle, isManagedBundle } from './managed.js';
+import { adaptWebBundle, isWebBundle } from './web.js';
+import { assessEndpoints, linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
 import { num, str } from './read.js';
 
 export const SUPPORTED_OPERATION = 'analyze_javascript_application';
 
-export class ReaOutputError extends Error {
-  override name = 'ReaOutputError';
-}
+export { ReaOutputError };
+export { MANAGED_OPERATION, isManagedBundle } from './managed.js';
+export { WEB_OPERATION, isWebBundle } from './web.js';
+
+export { recoverDroppedRelationships } from './recover.js';
+export type { IsolatedRun, RecoveryReport } from './recover.js';
 
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
@@ -62,6 +68,10 @@ export interface AdapterReport {
   unrecognizedNodeKinds: Record<string, number>;
   /** Edges added by Studio heuristics, by heuristic name (origin `studio-heuristic`). */
   heuristicEdges: Record<string, number>;
+  /** Studio `endpoint-shape` verdicts added to REA endpoint candidates (T012). */
+  endpointVerdicts: { plausible: number; unlikely: number };
+  /** .NET only: REA call edges left out, by reason (e.g. `method-spec` targets REA doesn't name). */
+  skippedManagedCalls?: Record<string, number>;
 }
 
 function assertReaResult(raw: unknown): asserts raw is ReaResult {
@@ -159,6 +169,10 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     }
     raw = partial;
   }
+  // .NET programs: a bundle of REA's managed inspections plus their projection (T021).
+  if (isManagedBundle(raw)) return adaptManagedBundle(raw, options);
+  // Websites: REA's browser-captured script analysis (T021).
+  if (isWebBundle(raw)) return adaptWebBundle(raw, options);
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {
@@ -173,6 +187,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     droppedSelfEdges: 0,
     unrecognizedNodeKinds: {},
     heuristicEdges: {},
+    endpointVerdicts: { plausible: 0, unlikely: 0 },
   };
 
   // --- nodes
@@ -282,6 +297,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   const bridgeReads = linkBridgeMemberReads(r.semantic_graph?.nodes ?? [], nodes);
   edges.push(...bridgeReads);
   report.heuristicEdges[BRIDGE_MEMBER_READ] = bridgeReads.length;
+  // Verdicts on REA's endpoint candidates; the candidates themselves are kept unchanged.
+  report.endpointVerdicts = assessEndpoints(nodes);
 
   // --- project
   const rootPackage = nodes.find((n) => n.kind === 'package' && n.path === 'package.json');
