@@ -3,8 +3,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { NATIVE_FINDING_CATEGORIES, NODE_KINDS, RELATIONS, type StudioNode } from '@rea-studio/schema';
 import { adaptReaResult, interestingNativeStrings, isNativeBundle, nativeProcedureAddresses, ReaOutputError, toStudioProject } from '../src/index.js';
+import { collectNativeBundle } from '../src/native-session.js';
 
 const samples = new URL('../../../../fixtures/samples/', import.meta.url);
 const raw = JSON.parse(readFileSync(new URL('tiny-native.rea-6.4.0.json', samples), 'utf8')) as Record<string, unknown>;
@@ -59,5 +61,28 @@ describe('native program (REA + Ghidra) adapter', () => {
 
   it('rejects a bundle without a digest', () => {
     assert.throws(() => toStudioProject({ binary_overview: {}, list_procedures: { normalized_result: [] } }, { reaVersion: '6.4.0' }), ReaOutputError);
+  });
+});
+
+describe('native session (MCP client for `rea --mcp`)', () => {
+  const fakeRea = fileURLToPath(new URL('../../tests/helpers/fake-rea-mcp.mjs', import.meta.url));
+  const env = { ...process.env, FAKE_REA_FIXTURE: fileURLToPath(new URL('tiny-native.rea-6.4.0.json', samples)) };
+
+  it('collects exactly the bundle the adapter reads, answering server pings', async () => {
+    const progress: string[] = [];
+    const bundle = await collectNativeBundle({ reaScript: fakeRea, program: 'tiny-notes.exe', env, onProgress: (m) => progress.push(m) });
+    assert.deepEqual(bundle, raw);
+    assert.equal(progress.length, 1);
+  });
+
+  it('reports a failed REA tool with its message', async () => {
+    await assert.rejects(
+      collectNativeBundle({ reaScript: fakeRea, program: 'x.exe', env: { ...env, FAKE_REA_FAIL: 'open_binary' } }),
+      /REA open_binary failed: provider_unavailable/,
+    );
+  });
+
+  it('fails cleanly when REA exits', async () => {
+    await assert.rejects(collectNativeBundle({ reaScript: fakeRea, program: 'x.exe', env: { ...env, FAKE_REA_FIXTURE: 'missing.json' } }), /exited/);
   });
 });

@@ -46,7 +46,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 ### Native executables (Ghidra) — working
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
-  - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`apps/cli/src/native.ts`).
+  - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`packages/rea-adapter/src/native-session.ts`).
   - The collector asks for the overview, all procedures and strings, then each function's callees. For strings that look like a URL, a registry key or a data file, it asks for their references and the function that contains them.
 - **Adapter** (`packages/rea-adapter/src/native.ts`):
   - functions become `native-function` nodes;

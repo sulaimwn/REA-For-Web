@@ -11,6 +11,10 @@
     "./file": {
       "types": "./dist/file.d.ts",
       "import": "./dist/file.js"
+    },
+    "./native-session": {
+      "types": "./dist/native-session.d.ts",
+      "import": "./dist/native-session.js"
     }
   },
   "files": [
