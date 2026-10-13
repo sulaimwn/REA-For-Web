@@ -19,7 +19,7 @@ export function parseStudioProject(text: string): StudioProject {
     throw new ProjectFileError('This file isn’t valid JSON.');
   }
   const p = raw as Partial<StudioProject> | null;
-  if (!p || typeof p !== 'object') throw new ProjectFileError('This file isn’t a REA Studio project.');
+  if (!p || typeof p !== 'object') throw new ProjectFileError('This file isn’t a REA for Web project.');
   if ('normalized_result' in p) {
     throw new ProjectFileError('This is raw REA output. Convert it first with `rea-studio analyze`, which writes a .studio.json file.');
   }
@@ -43,7 +43,7 @@ export function parseStudioProject(text: string): StudioProject {
         typeof n.label !== 'string' || !Array.isArray(n.evidence) || !object(n.origin)) ||
       p.edges.some((e) => !object(e) || typeof e.id !== 'string' || typeof e.source !== 'string' ||
         typeof e.target !== 'string' || typeof e.relation !== 'string' || !object(e.evidence) || !object(e.origin) || !object(e.details))) {
-    throw new ProjectFileError('This project file has missing or invalid details. Export it again with REA Studio.');
+    throw new ProjectFileError('This project file has missing or invalid details. Export it again with REA for Web.');
   }
   return p as StudioProject;
 }
