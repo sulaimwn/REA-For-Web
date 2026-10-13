@@ -56,6 +56,7 @@ Details for a task go under its heading below the table.
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
 | T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | done | T026, T029 |
 | T044 | Verify real free Ask answers and node citations after the human deploys the reviewed AI-binding release | codex | blocked | T041, R006 |
+| T045 | Readable overview for big programs: a call tree from the entry point instead of the first 250 parts by kind (jq, big .NET) | claude | in progress | T021, T031 |
 
 ---
 
