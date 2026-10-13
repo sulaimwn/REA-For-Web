@@ -57,6 +57,7 @@ Details for a task go under its heading below the table.
 | T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | done | T026, T029 |
 | T044 | Verify real free Ask answers and node citations after the human deploys the reviewed AI-binding release | codex | blocked | T041, R006 |
 | T045 | Readable overview for big programs: a call tree from the entry point instead of the first 250 parts by kind (jq, big .NET) | claude | review | T021, T031 |
+| T046 | Faster program/APK analysis: job CPUs as an operator setting (`REA_ANALYSIS_CPUS`); measured Ghidra 139 s → 57 s on 2 CPUs; correct the worker's speed notes | claude | in progress | T024, T027 |
 
 ---
 
