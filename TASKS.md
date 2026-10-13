@@ -37,8 +37,19 @@ Details for a task go under its heading below the table.
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | done | T025 |
 | T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | in progress | T025 |
 | T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | review | T021, T024 |
+| T030 | **Human request.** Free Ask tier: Cloudflare Workers AI open model with tool calls, per-visitor rate limit, no key needed; Claude key stays as the upgrade | claude | in progress | T016, T018 |
+| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
+| T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | review | T025 |
+| R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | in progress | T028 |
 
 ---
+
+### T029 — Queue progress recovery
+Reproduce the processor waiting indefinitely on a Redis progress write, then
+bound those writes without publishing a result whose progress persistence failed.
+Verify failed analysis still removes its raw upload and staging, terminal errors
+remain sanitized, and ordinary progress/result publication remains intact. No
+upload API or schema changes; do not overlap Claude's speed/ELF work.
 
 ### T026 — Hosted upload deployment preparation
 Prepare a provider-independent Linux deployment for the existing upload API:
