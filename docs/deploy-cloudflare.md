@@ -52,9 +52,9 @@ the run should go green in a few minutes. The site is then live at
 
 ### 6. Point reaforweb.com at it (about 2 minutes, in your browser)
 Once a deploy has succeeded (the `reaforweb` Worker exists):
-1. Cloudflare dashboard → **Workers & Pages** → **reaforweb** → **Settings** → **Domains & Routes** → **Add** →
-   **Custom domain**.
-2. Enter `reaforweb.com` → **Add domain**. Repeat for `www.reaforweb.com` if you want it.
+1. Cloudflare dashboard → **Workers & Pages** → **reaforweb** → **Domains** → **Add Domain**.
+2. Select the existing `reaforweb.com` domain. Leave **Subdomain** empty, keep **Production** selected,
+   and click **Add domain**. Repeat with `www` in **Subdomain** for `www.reaforweb.com`.
 
 Cloudflare creates the DNS record and the HTTPS certificate. It usually works within a few minutes.
 Later deploys keep the domain, and no token changes are needed.
