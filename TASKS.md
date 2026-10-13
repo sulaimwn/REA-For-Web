@@ -27,7 +27,7 @@ Details for a task go under its heading below the table.
 | T018 | Cloudflare website deployment: demos, local mode and bring-your-own-key Ask | claude | done | T013, T016 |
 | T020 | MIT license (the human's choice) | claude | done | — |
 | T021 | **Essential.** Beyond Electron: plan + schema proposal for websites by URL, Android APKs, .NET, then native | —     | todo | T007 |
-| T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | in progress | T016, T018 |
+| T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | review | T016, T018 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
 
 ---
