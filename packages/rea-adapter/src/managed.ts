@@ -43,8 +43,8 @@ export function isManagedBundle(raw: unknown): boolean {
 }
 
 export const NOT_MANAGED_MESSAGE =
-  'This is a native program, not .NET: REA found no .NET metadata in it. REA analyzes native code with Ghidra, ' +
-  'which REA for Web doesn’t set up yet (see docs/targets.md).';
+  'This is a native program, not .NET: REA found no .NET metadata in it. REA analyzes native code with Ghidra: ' +
+  'set GHIDRA_INSTALL_DIR to an extracted Ghidra 12.1.x release (with JDK 21) and run again (see docs/targets.md).';
 
 /**
  * Checks `rea inspect-managed-artifact` output before the other managed commands run:

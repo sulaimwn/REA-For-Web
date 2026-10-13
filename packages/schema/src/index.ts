@@ -95,11 +95,17 @@ export const JAVASCRIPT_FINDING_CATEGORIES = [
 /** Finding categories of a .NET program (REA managed static analysis, T021), in display order. */
 export const DOTNET_FINDING_CATEGORIES = ['types', 'methods', 'native-imports', 'external-apis'] as const;
 
+/** Finding categories of a native program (REA with Ghidra, T021), in display order. */
+export const NATIVE_FINDING_CATEGORIES = ['functions', 'native-imports', 'endpoints', 'storage'] as const;
+
+/** Finding categories of an Android app (REA with its JADX provider, T021), in display order. */
+export const ANDROID_FINDING_CATEGORIES = ['components', 'permissions', 'bridge-apis', 'endpoints', 'storage', 'types', 'methods'] as const;
+
 /**
  * Areas the UI reports on. Each gets a FindingCoverage entry. A project lists only
- * the categories for its kind of app (see the two lists above).
+ * the categories for its kind of app (see the lists above).
  */
-export const FINDING_CATEGORIES = [...JAVASCRIPT_FINDING_CATEGORIES, ...DOTNET_FINDING_CATEGORIES] as const;
+export const FINDING_CATEGORIES = [...JAVASCRIPT_FINDING_CATEGORIES, ...DOTNET_FINDING_CATEGORIES, 'functions', 'components', 'permissions'] as const;
 export type FindingCategory = (typeof FINDING_CATEGORIES)[number];
 
 /**
@@ -360,11 +366,21 @@ export interface NativeImportNode extends NodeBase<'native-import'> {
   library: string;
   /** Native export name, e.g. `MessageBoxW` or `seal_note`. */
   entryPoint: string;
-  /** Managed method that declares it, e.g. `SealNote`. */
-  managedName: string;
+  /** .NET: the managed method that declares it (e.g. `SealNote`); null for a native program's own imports. */
+  managedName: string | null;
   /** e.g. `winapi`, `cdecl`. */
   callingConvention: string | null;
   charSet: string | null;
+}
+
+/** A function in a native program, as Ghidra analyzed it through REA (T021). Import thunks are folded into their import. */
+export interface NativeFunctionNode extends NodeBase<'native-function'> {
+  /** Entry address, e.g. `0x1400016a0`. */
+  address: string;
+  /** Symbol name, or Ghidra's `FUN_<address>` when the binary has no symbol. */
+  name: string;
+  /** The program's entry point (`entry`, or a C runtime start symbol). */
+  entryPoint: boolean;
 }
 
 /**
@@ -376,6 +392,31 @@ export interface ExternalMemberNode extends NodeBase<'external-member'> {
   name: string;
   parameterTypes: string[];
   returnType: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Android nodes (T021). From REA's JADX provider (`inspect_android_package` and friends); the APK is
+// never installed or run. Java classes and methods use `managed-type` / `managed-method`.
+
+/** An activity, service, broadcast receiver or content provider declared in AndroidManifest.xml. */
+export interface AndroidComponentNode extends NodeBase<'android-component'> {
+  componentType: 'activity' | 'service' | 'receiver' | 'provider';
+  /** Fully qualified class name, e.g. `com.example.app.SyncService`. */
+  className: string;
+  /** `android:exported`: other apps may start it. Null when the manifest doesn't say. */
+  exported: boolean | null;
+  /** Intent filter actions, e.g. `android.intent.action.BOOT_COMPLETED`. */
+  intentActions: string[];
+  /** Content provider authorities. */
+  authorities: string | null;
+  /** The home-screen entry (MAIN + LAUNCHER). */
+  launcher: boolean;
+}
+
+/** A permission the app requests (`<uses-permission>`). */
+export interface AndroidPermissionNode extends NodeBase<'android-permission'> {
+  /** e.g. `android.permission.INTERNET`. */
+  name: string;
 }
 
 /** Part of the artifact REA could not analyze (REA `unknown`). Shown so gaps are visible. */
@@ -407,6 +448,9 @@ export type StudioNode =
   | ManagedMethodNode
   | NativeImportNode
   | ExternalMemberNode
+  | NativeFunctionNode
+  | AndroidComponentNode
+  | AndroidPermissionNode
   | AnalysisGapNode;
 
 export type StudioNodeKind = StudioNode['kind'];
@@ -433,6 +477,9 @@ export const NODE_KINDS = [
   'managed-method',
   'native-import',
   'external-member',
+  'native-function',
+  'android-component',
+  'android-permission',
   'analysis-gap',
 ] as const satisfies readonly StudioNodeKind[];
 
@@ -456,6 +503,8 @@ export const RELATIONS = [
   'handles',
   'calls',
   'persists_to',
+  /** Android: a class's code refers to another class (REA `trace_android_references`). */
+  'references',
 ] as const;
 export type Relation = (typeof RELATIONS)[number];
 
@@ -504,14 +553,16 @@ export interface TargetInfo {
   sha256: string;
   /**
    * Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a
-   * .NET executable or DLL; `url` for a website captured through a browser.
+   * Windows program (.NET or native) executable or DLL; `apk` for an Android package; `url` for a
+   * website captured through a browser.
    */
-  format: 'asar' | 'directory' | 'pe' | 'url';
+  format: 'asar' | 'directory' | 'pe' | 'apk' | 'url';
   /**
    * `electron` when REA found any Electron process (main, preload or renderer); otherwise `javascript`.
-   * `dotnet` for managed PE/CLI programs; `web` for a website (T021).
+   * `dotnet` for managed PE/CLI programs; `native` for machine-code programs; `android` for an
+   * APK; `web` for a website (T021).
    */
-  appKind: 'electron' | 'javascript' | 'dotnet' | 'web';
+  appKind: 'electron' | 'javascript' | 'dotnet' | 'web' | 'native' | 'android';
 }
 
 export interface AnalysisInfo {

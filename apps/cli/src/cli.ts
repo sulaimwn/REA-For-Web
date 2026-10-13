@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // rea-studio analyze <app>: runs REA's static analysis on this machine (JavaScript/
-// Electron apps, or .NET programs), converts the result with @rea-studio/rea-adapter,
+// Electron apps, Windows programs, Android APKs; websites load in a browser), converts the result with @rea-studio/rea-adapter,
 // and writes a .studio.json file the website opens locally (/open). Nothing is
 // uploaded, and REA only reads the app's files; the app is never run.
 import { spawn } from 'node:child_process';
@@ -11,7 +11,9 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { recoverDroppedRelationships, type IsolatedRun } from '@rea-studio/rea-adapter';
-import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, extractedArtifactRoot, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
+import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, extractedArtifactRoot, isManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
+import { collectNativeBundle, ghidraConfigured } from '@rea-studio/rea-adapter/native-session';
+import { collectAndroidBundle, jadxConfigured } from '@rea-studio/rea-adapter/android-session';
 import type { StudioNode, StudioProject } from '@rea-studio/schema';
 import { findChrome, openPage } from './browser.js';
 import { pipeBoundedOutput } from './output.js';
@@ -19,8 +21,10 @@ import { pipeBoundedOutput } from './output.js';
 const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>] [--no-recover]
 
   <app>            An extracted Electron/JS app directory, an .asar file,
-                   a .NET program (.exe or .dll), or a website (https://…,
-                   opened in a headless Chrome with a throwaway profile).
+                   a Windows program (.exe or .dll: .NET, or native with
+                   GHIDRA_INSTALL_DIR set), an Android app (.apk, with
+                   REA_JADX_MCP_JAR set), or a website (https://…, opened in
+                   a headless Chrome with a throwaway profile).
   --out <file>     Where to write the project (default: <app name>.studio.json).
   --max-heap-mb    Heap for REA's JavaScript analyzer workers (REA default: 1024).
   --no-recover     Skip re-analyzing files whose relationships REA's whole-app
@@ -29,7 +33,7 @@ const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>
 Then open the file at /open on the REA for Web site. It stays on your machine.`;
 
 /** What kind of REA analysis the input needs. */
-type TargetKind = 'javascript' | 'managed' | 'web';
+type TargetKind = 'javascript' | 'managed' | 'android' | 'web';
 const MANAGED_EXTENSIONS = new Set(['.exe', '.dll']);
 
 /** Raw REA output this large can't be parsed as one JavaScript string anyway. */
@@ -85,11 +89,11 @@ function parseArgs(argv: string[]): Options {
   if (!existsSync(abs)) throw new CliError(`Not found: ${abs}`);
   const isDir = statSync(abs).isDirectory();
   const ext = isDir ? '' : extname(abs).toLowerCase();
-  if (!isDir && ext !== '.asar' && !MANAGED_EXTENSIONS.has(ext)) {
-    throw new CliError('The app must be a directory, an .asar file, or a .NET .exe/.dll.');
+  if (!isDir && ext !== '.asar' && ext !== '.apk' && !MANAGED_EXTENSIONS.has(ext)) {
+    throw new CliError('The app must be a directory, an .asar file, an .exe/.dll program or an .apk.');
   }
   const name = basename(abs, isDir ? '' : extname(abs)) || 'app';
-  const kind: TargetKind = MANAGED_EXTENSIONS.has(ext) ? 'managed' : 'javascript';
+  const kind: TargetKind = MANAGED_EXTENSIONS.has(ext) ? 'managed' : ext === '.apk' ? 'android' : 'javascript';
   return { target: abs, kind, out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb, recover };
 }
 
@@ -268,13 +272,33 @@ async function main() {
         projection: join(work, 'managed-graph.json'),
       };
       await runRea(rea.script, ['inspect-managed-artifact', opts.target], files.artifact);
-      await checkManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES); // e.g. a native .exe stops here
-      await runRea(rea.script, ['inspect-managed-members', opts.target], files.members);
-      await runRea(rea.script, ['inspect-managed-native-boundaries', opts.target], files.boundaries);
-      const input = join(work, 'managed-graph-input.json');
-      await writeFile(input, await managedProjectionInput(files, MAX_REA_OUTPUT_BYTES));
-      await runRea(rea.script, ['project-managed-application-graph', input], files.projection);
-      ({ project } = await adaptManagedFiles(files, adapterOptions));
+      if (!(await isManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES)) && ghidraConfigured()) {
+        // A native program: REA's Ghidra provider maps its functions, imports, calls and strings.
+        process.stderr.write('  native program: analyzing with Ghidra through REA\n');
+        const bundle = join(work, 'native-bundle.json');
+        await writeFile(bundle, JSON.stringify(await collectNativeBundle({
+          reaScript: rea.script, program: opts.target, onProgress: (m) => process.stderr.write(`  ${m}\n`),
+        })));
+        ({ project } = await adaptReaFile(bundle, adapterOptions));
+      } else {
+        await checkManagedArtifactFile(files.artifact, MAX_REA_OUTPUT_BYTES); // a native .exe without Ghidra stops here
+        await runRea(rea.script, ['inspect-managed-members', opts.target], files.members);
+        await runRea(rea.script, ['inspect-managed-native-boundaries', opts.target], files.boundaries);
+        const input = join(work, 'managed-graph-input.json');
+        await writeFile(input, await managedProjectionInput(files, MAX_REA_OUTPUT_BYTES));
+        await runRea(rea.script, ['project-managed-application-graph', input], files.projection);
+        ({ project } = await adaptManagedFiles(files, adapterOptions));
+      }
+    } else if (opts.kind === 'android') {
+      // Android: REA's JADX provider reads the manifest, the app's classes and their decompiled code.
+      if (!jadxConfigured()) {
+        throw new CliError('Android apps need REA’s JADX provider: set REA_JADX_MCP_JAR to a jadx-headless-mcp 0.7.1 JAR (and have a JDK). REA doesn’t download it.');
+      }
+      const bundle = join(work, 'android-bundle.json');
+      await writeFile(bundle, JSON.stringify(await collectAndroidBundle({
+        reaScript: rea.script, apk: opts.target, onProgress: (m) => process.stderr.write(`  ${m}\n`),
+      })));
+      ({ project } = await adaptReaFile(bundle, adapterOptions));
     } else {
       const raw = join(work, 'rea-output.json');
       const command = ['analyze-javascript-application', opts.target];
