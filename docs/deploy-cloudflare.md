@@ -62,15 +62,19 @@ exact limits.
 
 **Ask questions:**
 - **Free tier (T030):** by default, visitors ask without a key. The site answers with an open
-  model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on your account's free Workers AI
+  model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) when the Workers AI binding is enabled, on your account's free Workers AI
   allowance: 10,000 neurons a day. The number of questions varies with their length and tool lookups.
+  - **Ships disabled until the plan is confirmed.** A purchased domain does not establish the
+    Workers plan. In **Workers & Pages → Plans**, confirm **Workers Free**, then uncomment
+    the `ai` binding in `apps/web/wrangler.jsonc`. Until then, Ask offers the visitor's own key.
+    Do not enable it on Workers Paid without a reviewed hard account budget.
   - On the Workers Free plan, requests past the allowance fail instead of being billed. Visitors
     then see "Today's free questions are used up" and can use their own Claude key.
   - Each visitor is also limited to 12 model calls a minute and 120 a day, best effort per
     Cloudflare location.
   - **If you upgrade to Workers Paid,** usage past the allowance is billed ($0.011 per 1,000
-    neurons). Set a spending alert, or remove the `ai` binding from `wrangler.jsonc` to turn the
-    free tier off.
+    neurons). Remove the `ai` binding before upgrading to turn the free tier off. A spending
+    alert is a notification and does not enforce a budget.
   - If a deploy fails with an authorization error about Workers AI, edit the API token from step 3
     and add **Account → Workers AI → Read**.
 - **With their own key:** visitors' Claude questions are billed to their own Anthropic key, not to you.
