@@ -45,8 +45,11 @@ private container temporary storage and is removed after normalization. Only
 - **Linux programs (T028):** `.elf`/`.so` jobs run in the native image only and go straight to Ghidra,
   with no .NET check. REA's Ghidra provider reads ELF only on Linux hosts, which the image is. The tiny
   sample takes about 31 s.
-- **Known limit:** the collector makes one `procedure_callees` call per function (about 0.2 s each),
-  so programs with many thousands of functions can hit the job deadline.
+- **Where the time goes (T046):** Ghidra's import and auto-analysis, which REA runs on the first query. The
+  collector's per-function `procedure_callees` calls are cheap: 200 took 1.0 s on jq 1.8.2 for Windows, while
+  that program's first `list_procedures` took 204 s. CPUs matter most: jq for macOS took 124–145 s on 1 CPU,
+  52–57 s on 2 and 42 s on 4 (`REA_ANALYSIS_CPUS`; see [uploads](../../docs/uploads.md)). Very large programs
+  can still reach the job deadline in Ghidra's own analysis.
 
 ## Build and run
 

@@ -72,6 +72,15 @@ test("queue deadlines allow larger apps while rejecting unbounded operator setti
   assert.deepEqual(containerArgs("job", sample, "directory", configured).slice(-3, -1), ["1800000", "180000"]);
   assert.equal(queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "1000" }).sourceTimeoutMs, 1000);
   assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "900001" }), { code: "invalid_input" });
+  // T046: CPUs per job are an operator setting within the sandbox's existing 0.1–4 range; the default stays 1.
+  assert.equal(defaults.cpus, 1);
+  const twoCpus = queueLimitsFromEnv({ REA_ANALYSIS_CPUS: "2" });
+  assert.equal(twoCpus.cpus, 2);
+  assert.ok(containerArgs("job", sample, "directory", twoCpus).includes("--cpus=2"));
+  assert.equal(queueLimitsFromEnv({ REA_ANALYSIS_CPUS: "1.5" }).cpus, 1.5);
+  for (const bad of ["0", "5", "", "two", "-1", "Infinity"]) {
+    assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_CPUS: bad }), { code: "invalid_input" }, bad);
+  }
   assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "0" }), { code: "invalid_input" });
   for (const value of ["", "0", "Infinity", "NaN", "900000.5", "1800001"]) {
     assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_TIMEOUT_MS: value }), { code: "invalid_input" });
