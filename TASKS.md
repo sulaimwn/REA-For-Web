@@ -14,7 +14,7 @@ Details for a task go under its heading below the table.
 | T005 | Web: static demo page rendering a fixture graph   | claude | done | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | codex | done | T006       |
-| T008 | **Essential.** Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
+| T008 | **Essential.** Per-file REA analysis of big bundles to avoid the shared result budget | claude | in progress | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking; endpoint filtering is T012 | claude | done | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
