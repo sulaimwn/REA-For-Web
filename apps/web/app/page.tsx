@@ -23,7 +23,7 @@ export default function HomePage() {
             <p>
               REA for Web reads an app’s shipped files and maps how it’s built: an Electron app’s processes, windows, preload
               bridges and IPC channels, or a .NET program’s types, call graph and calls into native code. Each part comes with
-              REA’s evidence. Nothing is executed.
+              REA’s evidence. Program files are never executed; website capture loads the requested page in a fresh browser.
             </p>
           </div>
           <dl className="spec">

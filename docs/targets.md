@@ -41,13 +41,15 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - permissions
   - `addJavascriptInterface` bridges (Android's version of Electron preloads)
   - URLs
-- **Decision for the human:** approve downloading jadx-headless-mcp 0.7.1 into the worker image.
+- The human approved downloading the provider. Android adapter and worker
+  integration remain separate from the .NET/web phase reviewed here.
 
 ### Native executables (needs Ghidra)
 - `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - Ghidra (free, Apache-2.0) runs headless on Linux, so it fits the existing Docker worker: Java 21 plus a Ghidra 12.1.x release, roughly 1 GB more image.
 - Native analysis is much slower than JS analysis, so it needs its own time and CPU limits.
-- **Decision for the human:** approve adding Ghidra to the worker image (a separate image tag is recommended, e.g. `rea-studio-worker-native`).
+- The human approved adding Ghidra. A separate worker image and acceptance tests
+  are still needed; local provider setup alone does not enable hosted native uploads.
 
 ### Apple
 - Inventory projection works on any host. Mach-O, plist and code-signature details need macOS tools that a Linux worker doesn't have.
@@ -78,16 +80,17 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 4. **Native**: needs Ghidra (human approval), and a new worker image and limits.
 5. **Apple**: inventory-only on Linux.
 
-## Schema proposal (needs Codex's agreement before merge)
+## Reviewed schema scope
 See `notes/handoffs/2026-10-13-T021-claude.md`. In short:
-- `target.appKind` gains `dotnet`, `android`, `native`, `apple`, `web`.
+- `target.appKind` gains `dotnet` and `web`; `format` gains `pe` and `url`.
+  Android, native and Apple kinds still need their own fixture-backed proposals.
 - New node kinds:
   - `assembly` (managed assembly + module)
   - `managed-type`
   - `managed-method`
   - `native-import` (a P/Invoke or native import, with library and entry point)
-  - `native-library` (a DLL or `.so` the app declares it loads)
   - `external-member` (a called API outside the app)
 - New relation: `calls` already exists and is reused.
-- `FindingCategory` gains `types`, `methods`, `native-imports`, `references`, `resources`.
+- `FindingCategory` gains `types`, `methods`, `native-imports`, `external-apis`.
+  References and resources are assembly facts rather than separate findings.
 - Kinds that only make sense for one target never appear for others; existing Electron projects are unchanged.

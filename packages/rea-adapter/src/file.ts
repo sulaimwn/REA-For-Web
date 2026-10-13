@@ -1,8 +1,9 @@
 // Node-only worker boundary. Keep JSON parsing and interpretation in this package.
-import { open, readFile, stat } from 'node:fs/promises';
-import { basename, isAbsolute } from 'node:path';
+import { open } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { adaptReaResult, ReaOutputError, type AdapterOptions } from './index.js';
 import { assertManagedArtifact } from './managed.js';
+import { tmpdir } from 'node:os';
 
 /** Reads a finalized, private REA output file as JSON, with a byte cap. */
 async function readReaJson(path: string, maxBytes: number): Promise<unknown> {
@@ -88,13 +89,15 @@ export async function adaptManagedFiles(files: ManagedReaFiles & { projection: s
  * files out of an .asar). REA picks the folder; the caller must delete it afterwards.
  */
 export async function extractedArtifactRoot(path: string, maxBytes: number): Promise<string> {
-  if ((await stat(path)).size > maxBytes) throw new ReaOutputError('REA extraction result is over its byte limit');
-  let raw: { operation?: unknown; parameters?: { output_root?: unknown }; error?: unknown; message?: unknown };
-  try { raw = JSON.parse(await readFile(path, 'utf8')) as typeof raw; }
-  catch (cause) { throw new ReaOutputError('REA extraction result is not valid JSON', { cause }); }
+  const raw = await readReaJson(path, maxBytes) as { operation?: unknown; parameters?: { output_root?: unknown }; error?: unknown; message?: unknown };
+  if (!raw || typeof raw !== 'object') throw new ReaOutputError('REA extraction result has no extraction folder');
   if (raw.error !== undefined) throw new ReaOutputError(`REA couldn’t extract the archive: ${String(raw.message ?? raw.error)}`);
   const root = raw.parameters?.output_root;
-  if (raw.operation !== 'extract_artifact' || typeof root !== 'string' || !isAbsolute(root) || !basename(root).startsWith('rea-extracted-')) {
+  const parent = typeof root === 'string' ? resolve(dirname(root)) : '';
+  const expectedParent = resolve(tmpdir());
+  const sameParent = process.platform === 'win32' ? parent.toLowerCase() === expectedParent.toLowerCase() : parent === expectedParent;
+  if (raw.operation !== 'extract_artifact' || typeof root !== 'string' || !isAbsolute(root) || !basename(root).startsWith('rea-extracted-') ||
+      !sameParent) {
     throw new ReaOutputError('REA extraction result has no extraction folder');
   }
   return root;

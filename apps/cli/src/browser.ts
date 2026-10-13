@@ -41,16 +41,30 @@ export async function openPage(chrome: string, url: string, settleMs = 3000): Pr
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-sync',
     '--disable-extensions', '--disable-background-networking', '--remote-debugging-address=127.0.0.1',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, url,
-  ], { stdio: 'ignore' });
-  const close = async () => {
-    child.kill();
-    await new Promise((r) => (child.exitCode !== null ? r(null) : child.once('exit', r)));
+  ], { stdio: 'ignore', windowsHide: true });
+  let startupError: Error | undefined;
+  let closed = false;
+  const exited = new Promise<void>((resolve) => {
+    child.once('error', (error) => { startupError = error; closed = true; resolve(); });
+    child.once('close', () => { closed = true; resolve(); });
+  });
+  let closing: Promise<void> | undefined;
+  const close = (): Promise<void> => closing ??= (async () => {
+    if (!closed) child.kill();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([exited, new Promise<void>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Chrome did not shut down.')), 5000);
+      })]);
+    } finally { if (timer) clearTimeout(timer); }
     await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-  };
+  })();
   try {
     // Chrome writes its chosen port to DevToolsActivePort in the profile.
     let port: string | undefined;
     for (let i = 0; i < 100 && !port; i++) {
+      if (startupError) throw new Error(`Chrome could not start: ${startupError.message}`);
+      if (closed) throw new Error('Chrome exited before opening its debugging port.');
       port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8').catch(() => '')).split(/\r?\n/u)[0] || undefined;
       if (!port) await pause(100);
     }
@@ -58,7 +72,8 @@ export async function openPage(chrome: string, url: string, settleMs = 3000): Pr
     const endpoint = `http://127.0.0.1:${port}`;
     let targetId: string | undefined;
     for (let i = 0; i < 150 && !targetId; i++) {
-      const pages = (await fetch(`${endpoint}/json/list`).then((r) => r.json()).catch(() => [])) as { id: string; type: string; url: string }[];
+      if (closed) throw new Error('Chrome exited before loading the page.');
+      const pages = (await fetch(`${endpoint}/json/list`, { signal: AbortSignal.timeout(3000) }).then((r) => r.json()).catch(() => [])) as { id: string; type: string; url: string }[];
       targetId = pages.find((p) => p.type === 'page' && /^https?:/u.test(p.url))?.id;
       if (!targetId) await pause(200);
     }

@@ -58,7 +58,7 @@ export function adaptWebBundle(raw: unknown, options: AdapterOptions): { project
     state: 'observed',
     // REA gives no per-item confidence for routes and endpoints.
     confidence: 'unknown',
-    authority: 'browser-capture-static-analysis',
+    authority: typeof (raw as { authority?: unknown }).authority === 'string' ? (raw as { authority: string }).authority : 'unknown',
     extractor,
     location: file === null ? null : typeof line === 'number' && typeof column === 'number'
       ? { kind: 'source-range', file, start: { line, column }, end: { line, column } }

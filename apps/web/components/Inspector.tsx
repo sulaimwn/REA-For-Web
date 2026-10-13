@@ -86,7 +86,7 @@ function facts(n: StudioNode): Fact[] {
       return [
         ['Full name', n.fullName],
         ['Namespace', n.namespace || '(global)'],
-        ['Compiler-generated', n.compilerGenerated],
+        ['Compiler-style name (Studio heuristic)', n.compilerGenerated],
         ['Fields', n.fields.join(', ') || 'none'],
       ];
     case 'managed-method':

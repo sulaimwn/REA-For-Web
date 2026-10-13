@@ -34,6 +34,9 @@ files the explorer loads.
      ```
 
 ## Notes
+- The remote endpoint serves public demos only. It accepts JSON requests up to
+  64 KiB, permits valid HTTP(S) browser origins, and has no persistent sessions
+  or SSE stream. Local demo loading uses build assets, never the incoming Host.
 - Tool results include text taken from the analyzed app (strings, paths). The server's instructions tell
   the model to treat it as data, never as instructions. Clients should do the same.
 - "Not found" never proves absence: REA is static analysis.

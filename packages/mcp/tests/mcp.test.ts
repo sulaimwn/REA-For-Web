@@ -96,4 +96,31 @@ describe('rea-for-web-mcp (stdio)', () => {
     assert.equal(code, 1);
     assert.match(stderr, /isn't a REA for Web project/);
   });
+
+  it('retains every local project when generated ids collide with existing suffixes', async () => {
+    const files = ['Same', 'Same', 'Same-2'].map((name, i) => {
+      const path = join(work, `collision-${i}.json`);
+      writeFileSync(path, JSON.stringify({ ...tiny, target: { ...tiny.target, name } }));
+      return path;
+    });
+    const bin = fileURLToPath(new URL('../../dist/stdio.js', import.meta.url));
+    const client = new Client({ name: 'test', version: '0' });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [bin, ...files], stderr: 'pipe' }));
+    try {
+      const list = JSON.parse(textOf(await client.callTool({ name: 'list_projects', arguments: {} }))) as { projects: { id: string }[] };
+      assert.equal(list.projects.length, 3);
+      assert.equal(new Set(list.projects.map(p => p.id)).size, 3);
+    } finally { await client.close(); }
+  });
+
+  it('rejects incomplete project metadata before accepting MCP requests', async () => {
+    const file = join(work, 'incomplete.json');
+    writeFileSync(file, JSON.stringify({ schemaVersion: '0.1.0', target: { name: 'fake' }, nodes: [], edges: [] }));
+    const bin = fileURLToPath(new URL('../../dist/stdio.js', import.meta.url));
+    const child = spawn(process.execPath, [bin, file], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let stderr = '';
+    child.stderr.on('data', d => { stderr += String(d); });
+    assert.equal(await new Promise(resolve => child.once('close', resolve)), 1);
+    assert.match(stderr, /missing project details/);
+  });
 });

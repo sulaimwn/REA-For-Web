@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
-    "test": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && npm run build --workspace=@rea-studio/ask && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
+    "test": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && npm run build --workspace=@rea-studio/ask && npm run build --workspace=@rea-studio/mcp && tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
     "start": "node dist/stdio.js"
   },
   "dependencies": {

@@ -50,6 +50,8 @@ describe('recovering relationships REA dropped (T008)', () => {
     const count = (p: StudioProject, c: string) => p.findings.find((f) => f.category === c)?.count ?? 0;
     assert.ok(count(project, 'imports') > count(base, 'imports'));
     assert.ok(count(project, 'ipc') > count(base, 'ipc'));
+    assert.deepEqual(project.ipcSummary, base.ipcSummary, 'retain the original REA summary');
+    assert.ok(project.findings.find((f) => f.category === 'ipc')?.notes.some((n) => n.includes('before per-file recovery')));
   });
 
   it('merges shared things instead of duplicating them, with no dangling links', () => {
@@ -67,6 +69,7 @@ describe('recovering relationships REA dropped (T008)', () => {
     const again = recoverDroppedRelationships(project, runs);
     assert.equal(again.report.addedNodes, 0);
     assert.equal(again.report.addedEdges, 0);
+    assert.deepEqual(again.project, project, 'metadata and limitations are idempotent too');
     assert.equal(outgoing(base, 'main.js', 'imports').length, 0, 'input not mutated');
   });
 
@@ -74,6 +77,18 @@ describe('recovering relationships REA dropped (T008)', () => {
     const r = recoverDroppedRelationships(base, [{ path: 'nope.js', project: runs[0]!.project }]);
     assert.deepEqual(r.report.skipped, [{ path: 'nope.js', reason: 'not a file of this app' }]);
     assert.equal(r.project.edges.length, base.edges.length);
+  });
+
+  it('keeps the original warning when the isolated run is still incomplete', () => {
+    const incomplete = structuredClone(runs[0]!);
+    const f = incomplete.project.nodes.find((n) => n.kind === 'file' && n.path === incomplete.path);
+    const original = base.nodes.find((n) => n.kind === 'file' && n.path === incomplete.path);
+    assert.ok(f?.kind === 'file' && original?.kind === 'file');
+    f.analysisIssue = structuredClone(original.analysisIssue);
+    const result = recoverDroppedRelationships(base, [incomplete]);
+    assert.deepEqual(result.report.recoveredFiles, []);
+    assert.equal(result.report.skipped.length, 1);
+    assert.deepEqual(result.project, base);
   });
 });
 
@@ -85,12 +100,26 @@ describe('relative imports in a file analyzed alone', () => {
   isolated.nodes.push({ id: 'iso:./notes-store', kind: 'external-module', label: './notes-store', specifier: './notes-store', resolution: 'not-found', evidence: [], origin: { source: 'rea' } });
   isolated.edges.push({ id: 'iso:import', source: main!.id, target: 'iso:./notes-store', relation: 'imports', evidence: main!.evidence[0]!, origin: { source: 'rea' }, details: {} });
 
-  it('links it to the app file it names instead of adding a false "not found" module', () => {
-    const { project, report } = recoverDroppedRelationships(tiny, [{ path: 'src/main/main.js', project: isolated }]);
+  it('preserves REA’s unresolved import and labels path resolution as a Studio inference', () => {
+    const base = structuredClone(tiny);
+    const store = base.nodes.find((n) => n.kind === 'file' && n.path === 'src/main/notes-store.js');
+    base.edges = base.edges.filter((e) => !(e.source === main!.id && e.target === store?.id && e.relation === 'imports'));
+    const { project, report } = recoverDroppedRelationships(base, [{ path: 'src/main/main.js', project: isolated }]);
     assert.equal(report.resolvedRelativeImports, 1);
-    assert.ok(!project.nodes.some((n) => n.id === 'iso:./notes-store'));
-    const store = project.nodes.find((n) => n.kind === 'file' && n.path === 'src/main/notes-store.js');
+    assert.ok(project.nodes.some((n) => n.id === 'iso:./notes-store'));
     const mainId = project.nodes.find((n) => n.kind === 'file' && n.path === 'src/main/main.js')?.id;
-    assert.ok(project.edges.some((e) => e.source === mainId && e.target === store?.id && e.relation === 'imports'));
+    const link = project.edges.find((e) => e.source === mainId && e.target === store?.id && e.origin.source === 'studio-heuristic');
+    assert.ok(link);
+    assert.equal(link.evidence.state, 'inferred');
+    assert.ok(project.edges.some((e) => e.target === 'iso:./notes-store' && e.origin.source === 'rea'));
+  });
+
+  it('does not resolve paths that climb outside the app', () => {
+    const run = structuredClone(isolated);
+    const ref = run.nodes.find((n) => n.id === 'iso:./notes-store');
+    assert.ok(ref?.kind === 'external-module');
+    ref.specifier = '../../../../src/main/notes-store.js';
+    const result = recoverDroppedRelationships(tiny, [{ path: 'src/main/main.js', project: run }]);
+    assert.equal(result.report.resolvedRelativeImports, 0);
   });
 });

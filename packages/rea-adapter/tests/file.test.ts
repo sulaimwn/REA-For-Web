@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { adaptReaFile } from '../src/file.js';
+import { tmpdir } from 'node:os';
+import { adaptReaFile, extractedArtifactRoot } from '../src/file.js';
 import { adaptReaResult, ReaOutputError } from '../src/index.js';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -59,4 +60,21 @@ test('malformed digests are rejected at the adapter boundary', async () => {
   const raw = JSON.parse(await readFile(fixture, 'utf8'));
   raw.subject.digest.sha256 = '../invalid-cache-key';
   assert.throws(() => adaptReaResult(raw, options), ReaOutputError);
+});
+
+test('extraction cleanup accepts only REA folders directly under the system temp directory', async t => {
+  const temp = await mkdtemp(join(repo, '.worker-test-'));
+  t.after(async () => {
+    assert.equal(dirname(temp), repo);
+    await rm(temp, { recursive: true, force: true });
+  });
+  const path = join(temp, 'extraction.json');
+  const valid = join(tmpdir(), 'rea-extracted-review-example');
+  await writeFile(path, JSON.stringify({ operation: 'extract_artifact', parameters: { output_root: valid } }));
+  assert.equal(await extractedArtifactRoot(path, options.maxBytes), valid);
+  for (const root of [join(repo, 'rea-extracted-other'), join(tmpdir(), 'nested', 'rea-extracted-other'), tmpdir()]) {
+    await writeFile(path, JSON.stringify({ operation: 'extract_artifact', parameters: { output_root: root } }));
+    await assert.rejects(extractedArtifactRoot(path, options.maxBytes), ReaOutputError);
+  }
+  await assert.rejects(extractedArtifactRoot(path, 1), ReaOutputError);
 });

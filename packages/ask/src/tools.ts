@@ -77,11 +77,13 @@ const REPORTED_SEPARATELY = new Set(['id', 'label', 'evidence', 'origin']);
 
 /** Kind-specific node fields; id, label, evidence and origin are reported separately. */
 function facts(n: StudioNode): Record<string, unknown> {
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     Object.entries(n)
       .filter(([k]) => !REPORTED_SEPARATELY.has(k))
       .map(([k, v]) => [k, Array.isArray(v) && v.length > LIST_CAP ? [...v.slice(0, LIST_CAP), `… ${v.length - LIST_CAP} more`] : v]),
   );
+  if (n.kind === 'managed-type') result['classificationNote'] = 'compilerGenerated is a Studio name-pattern heuristic; false does not prove a type was not compiler-generated.';
+  return result;
 }
 
 function edgeView(g: ProjectGraph, e: StudioEdge, from: string) {
@@ -98,7 +100,7 @@ function edgeView(g: ProjectGraph, e: StudioEdge, from: string) {
 }
 
 function rootId(g: ProjectGraph): string | undefined {
-  return g.project.nodes.find((n) => n.kind === 'file' && n.path === '')?.id;
+  return g.project.nodes.find((n) => n.kind === 'file' && n.path === '' || n.kind === 'assembly')?.id;
 }
 
 function overview(g: ProjectGraph) {

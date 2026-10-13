@@ -26,7 +26,7 @@ export interface ProjectSource {
   load(id: string): Promise<StudioProject | null>;
 }
 
-export const MCP_INSTRUCTIONS = `REA for Web exposes evidence-backed maps of applications built by REA static analysis (it reads an app's shipped files and never runs the app).
+export const MCP_INSTRUCTIONS = `REA for Web exposes evidence-backed maps built by REA. Program files are analyzed statically without execution. Website captures load the requested page in a fresh browser before static script analysis.
 
 Call list_projects first, then pass a project id to the other tools: start with project_overview, then search_nodes, get_node, get_neighbors and find_path.
 - Base answers on tool results and cite node ids and file:line evidence.

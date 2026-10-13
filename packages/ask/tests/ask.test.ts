@@ -58,6 +58,20 @@ describe('ask tools', () => {
     assert.match(call(tiny, 'teleport').error, /Unknown tool/);
   });
 
+  it('does not imply a .NET call path just because methods share an assembly', () => {
+    const managed = project('tiny-dotnet.rea-6.4.0.json');
+    managed.edges = managed.edges.filter((e) => e.relation === 'contains');
+    const methods = managed.nodes.filter((n) => n.kind === 'managed-method');
+    const from = methods.find((n) => n.declaringType === 'TinyNotes.Program');
+    const to = methods.find((n) => n.declaringType === 'TinyNotes.NoteStore');
+    assert.ok(from && to, 'the real fixture covers two different declaring types');
+    const graph = indexGraph(managed);
+    assert.equal(call(graph, 'find_path', { from_id: from.id, to_id: to.id }).found, false);
+    const type = managed.nodes.find((n) => n.kind === 'managed-type' && n.compilerGenerated);
+    assert.ok(type);
+    assert.match(call(graph, 'get_node', { id: type.id }).facts.classificationNote, /heuristic/);
+  });
+
   it('keeps oversized application text out of API tool results', () => {
     const huge = structuredClone(tiny.project);
     huge.target.name = 'x'.repeat(100_000);

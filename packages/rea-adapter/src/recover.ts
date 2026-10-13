@@ -6,7 +6,8 @@
 // package.json at the same relative paths), the same file comes back complete. This merges
 // such per-file runs into the whole-app project: everything reachable from the file in its
 // own run (imports, storage writes, IPC, bundled modules, endpoints, workers, gaps), matched
-// to what the whole-app project already has so nothing is duplicated. Both sides are REA facts.
+// to what the whole-app project already has so nothing is duplicated. Both runs retain REA
+// evidence; relative path matches added by Studio are separately labeled inferences.
 import type { IpcChannelNode, StudioEdge, StudioNode, StudioNodeKind, StudioProject } from '@rea-studio/schema';
 import { buildFindings } from './findings.js';
 
@@ -25,7 +26,7 @@ export interface RecoveryReport {
   addedEdges: number;
   /** Isolated-run nodes matched to an existing node (same import, IPC channel, site…). */
   mergedNodes: number;
-  /** Relative imports the isolated run couldn't resolve, linked to the app file they name. */
+  /** Relative imports linked to candidate shipped files by a labeled Studio path heuristic. */
   resolvedRelativeImports: number;
 }
 
@@ -50,7 +51,10 @@ const isRelative = (specifier: string) => /^\.{1,2}\//u.test(specifier);
 function resolveInApp(fromFile: string, specifier: string, files: ReadonlyMap<string, StudioNode>): StudioNode | undefined {
   const parts = fromFile.split('/').slice(0, -1);
   for (const segment of specifier.split('/')) {
-    if (segment === '..') parts.pop();
+    if (segment === '..') {
+      if (parts.length === 0) return undefined;
+      parts.pop();
+    }
     else if (segment !== '.' && segment !== '') parts.push(segment);
   }
   const p = parts.join('/');
@@ -77,9 +81,13 @@ export function recoverDroppedRelationships(base: StudioProject, runs: IsolatedR
   for (const run of runs) {
     const baseFile = fileByPath.get(run.path);
     const isoById = new Map(run.project.nodes.map((n) => [n.id, n]));
-    const isoFile = run.project.nodes.find((n) => n.kind === 'file' && n.path === run.path);
+    const isoFile = run.project.nodes.find((n): n is Extract<StudioNode, { kind: 'file' }> => n.kind === 'file' && n.path === run.path);
     if (!baseFile || !isoFile) {
       report.skipped.push({ path: run.path, reason: !baseFile ? 'not a file of this app' : 'the run has no node for this file' });
+      continue;
+    }
+    if (isoFile.analysisIssue !== null) {
+      report.skipped.push({ path: run.path, reason: 'the isolated file analysis is still incomplete' });
       continue;
     }
     const isoOut = new Map<string, StudioEdge[]>();
@@ -123,11 +131,27 @@ export function recoverDroppedRelationships(base: StudioProject, runs: IsolatedR
         if (!target || !source || STRUCTURAL.has(target.kind)) continue;
         // Only the file's own imports: relative imports inside bundled modules are relative to their
         // original source tree, not the shipped file, and the whole-app run leaves those unresolved too.
-        if (source.id === isoFile.id && target.kind === 'external-module' && isRelative(target.specifier) && target.resolution !== 'external' && !mapped.has(target.id)) {
+        if (source.id === isoFile.id && target.kind === 'external-module' && isRelative(target.specifier) && target.resolution !== 'external') {
           const local = resolveInApp(run.path, target.specifier, fileByPath);
           if (local) {
-            mapped.set(target.id, local.id);
-            report.resolvedRelativeImports++;
+            const inferredKey = `${baseFile.id}|${local.id}|imports`;
+            if (!edgeKeys.has(inferredKey)) {
+              const id = `isolated-relative-import:${baseFile.id}:${local.id}`;
+              project.edges.push({
+                id, source: baseFile.id, target: local.id, relation: 'imports',
+                origin: { source: 'studio-heuristic', heuristic: 'isolated-relative-import', basis: `Relative specifier ${target.specifier} matches shipped file ${local.kind === 'file' ? local.path : local.label}.` },
+                evidence: {
+                  ...structuredClone(e.evidence), state: 'inferred', confidence: 'medium',
+                  authority: 'studio-heuristic', extractor: 'isolated-relative-import',
+                  limitations: [...e.evidence.limitations, 'Matched a relative specifier against shipped file paths; package exports and runtime resolution were not checked.'],
+                },
+                details: structuredClone(e.details),
+              });
+              edgeKeys.add(inferredKey);
+              edgeIds.add(id);
+              report.addedEdges++;
+              report.resolvedRelativeImports++;
+            }
           }
         }
         const s = map(source);
@@ -147,8 +171,10 @@ export function recoverDroppedRelationships(base: StudioProject, runs: IsolatedR
         }
       }
     }
-    baseFile.analysisIssue = null;
-    report.recoveredFiles.push(run.path);
+    if (baseFile.analysisIssue !== null) {
+      baseFile.analysisIssue = null;
+      report.recoveredFiles.push(run.path);
+    }
   }
 
   if (report.recoveredFiles.length > 0) {
@@ -157,8 +183,10 @@ export function recoverDroppedRelationships(base: StudioProject, runs: IsolatedR
     a.limitations = [
       ...a.limitations,
       `${report.recoveredFiles.length} files lost their relationships to REA's shared whole-app result budget and were re-analyzed one at a time; their relationships come from those runs.`,
+      'IPC summary counts and pairing remain from the original whole-app REA run; recovered per-file IPC has not been re-correlated across the app.',
     ];
     project.findings = buildFindings(project.nodes, project.edges, project.ipcSummary, a.coverage.status);
+    project.findings.find((f) => f.category === 'ipc')?.notes.push('IPC operation counts and pairing above come from the original whole-app run, before per-file recovery.');
   }
   return { project, report };
 }

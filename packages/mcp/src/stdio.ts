@@ -5,7 +5,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { StudioProject } from '@rea-studio/schema';
+import { NODE_KINDS, STUDIO_SCHEMA_VERSION, type StudioProject } from '@rea-studio/schema';
 import { createReaMcpServer, summarize, type ProjectSource } from './server.js';
 
 const USAGE = 'Usage: rea-for-web-mcp <project.studio.json> [more.studio.json ...]';
@@ -16,7 +16,12 @@ function asProject(raw: unknown, file: string): StudioProject {
   if (!p || typeof p !== 'object' || 'normalized_result' in p) {
     throw new Error(`${file} isn't a REA for Web project. Convert raw REA output with \`rea-studio analyze\` first.`);
   }
-  if (typeof p.schemaVersion !== 'string' || !Array.isArray(p.nodes) || !Array.isArray(p.edges) || !p.target || typeof p.target.name !== 'string') {
+  const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (p.schemaVersion !== STUDIO_SCHEMA_VERSION || !Array.isArray(p.nodes) || !Array.isArray(p.edges) || !p.target || typeof p.target.name !== 'string' ||
+      !object(p.analysis) || !object(p.analysis.engine) || !object(p.analysis.coverage) || !Array.isArray(p.findings) || !object(p.ipcSummary) ||
+      p.findings.some(f => !object(f) || typeof f.category !== 'string' || !Array.isArray(f.notes)) ||
+      p.nodes.some(n => !object(n) || typeof n.id !== 'string' || typeof n.label !== 'string' || !NODE_KINDS.includes(n.kind) || !Array.isArray(n.evidence) || !object(n.origin)) ||
+      p.edges.some(e => !object(e) || typeof e.id !== 'string' || typeof e.source !== 'string' || typeof e.target !== 'string' || !object(e.details) || !object(e.evidence) || !object(e.origin))) {
     throw new Error(`${file} is missing project details. Export it again with \`rea-studio analyze\`.`);
   }
   return p as StudioProject;
@@ -24,12 +29,13 @@ function asProject(raw: unknown, file: string): StudioProject {
 
 /** Stable, readable ids: the app name, plus a counter if two files share one. */
 function projectIds(projects: { project: StudioProject }[]): string[] {
-  const used = new Map<string, number>();
+  const used = new Set<string>();
   return projects.map(({ project }) => {
     const base = project.target.name.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '') || 'project';
-    const n = (used.get(base) ?? 0) + 1;
-    used.set(base, n);
-    return n === 1 ? base : `${base}-${n}`;
+    let id = base;
+    for (let n = 2; used.has(id); n++) id = `${base}-${n}`;
+    used.add(id);
+    return id;
   });
 }
 
