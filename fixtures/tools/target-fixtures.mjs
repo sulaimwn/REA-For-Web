@@ -29,9 +29,15 @@ function rea(args) {
 /** Replaces the sample's absolute path and folder, in both slash styles, everywhere in the JSON. */
 function scrub(value, inputPath) {
   let s = JSON.stringify(value);
-  const variants = (p) => [p, p.replaceAll('\\', '/')].map((v) => JSON.stringify(v).slice(1, -1));
+  // Escaped once (a JSON string) and twice (JSON text inside a JSON string, as JADX tool responses are).
+  const escape = (v) => JSON.stringify(v).slice(1, -1);
+  const variants = (p) => [p, p.replaceAll('\\', '/')].flatMap((v) => [escape(escape(v)), escape(v)]);
   for (const v of variants(inputPath)) s = s.split(v).join('<INPUT_PATH>');
   for (const v of variants(dirname(inputPath))) s = s.split(v).join('<INPUT_DIR>');
+  // Provider runs (JADX) also report their working copy, JAR and JDK locations.
+  for (const [path, label] of [[process.env.REA_JADX_MCP_JAR, '<JADX_JAR>'], [process.env.JAVA_HOME, '<JAVA_HOME>'], [tmpdir(), '<TEMP>']]) {
+    if (path) for (const v of variants(path)) s = s.split(v).join(label);
+  }
   const home = process.env.USERPROFILE ?? process.env.HOME;
   if (home && s.includes(JSON.stringify(home).slice(1, -1))) throw new Error('A local home path survived scrubbing.');
   return JSON.parse(s);
@@ -76,5 +82,15 @@ function write(name, inputPath, bundle) {
   const inventory = rea(['inspect-artifact', apk]);
   const evidence = (inventory.normalized_result?.substeps ?? []).filter((s) => s.operation === 'inventory_artifact' && s.evidence).map((s) => s.evidence);
   const graph = reaWithInput('project-android-application-graph', { inventory_evidence: evidence });
-  write('tiny-android', apk, { inspect_artifact: inventory, project_android_application_graph: graph });
+  const bundle = { inspect_artifact: inventory, project_android_application_graph: graph };
+  // With REA's JADX provider (REA_JADX_MCP_JAR = jadx-headless-mcp 0.7.1, plus a JDK): manifest, classes, members.
+  if (process.env.REA_JADX_MCP_JAR) {
+    bundle.inspect_android_package = rea(['inspect-android-package', apk]);
+    bundle.search_android_classes = rea(['search-android-classes', apk, '']);
+    const names = (bundle.search_android_classes.normalized_result?.classes ?? bundle.search_android_classes.normalized_result?.matches ?? [])
+      .map((c) => (typeof c === 'string' ? c : c.name ?? c.class_name ?? c.full_name))
+      .filter((n) => typeof n === 'string');
+    bundle.inspect_android_class = names.map((name) => rea(['inspect-android-class', apk, name]));
+  }
+  write('tiny-android', apk, bundle);
 }
