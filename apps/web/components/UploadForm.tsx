@@ -125,7 +125,7 @@ export function UploadForm() {
         }}
       />
       <p className="muted">
-        Electron .asar, Windows .exe/.dll, or Android .apk files up to 512 MB. The uploaded app is
+        Electron .asar, Windows .exe/.dll, Android .apk, or Linux .elf/.so files up to 512 MB. The uploaded app is
         never run.
       </p>
       <details>

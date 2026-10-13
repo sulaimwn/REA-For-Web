@@ -10,10 +10,10 @@ interactive, evidence-backed map of how it works. Analysis is powered by
 [REA](https://github.com/morluto/rea) running in a backend worker.
 
 See `ARCHITECTURE.md` for the design. Current local-mode targets: Electron/JS,
-.NET/native Windows programs, Android APKs and website captures. Program files
+.NET/native Windows programs, Linux ELF programs, Android APKs and website captures. Program files
 are analyzed statically; website capture loads the requested page in a fresh
-browser. The Docker runner and upload pipeline support .asar, .exe, .dll and .apk
-files. Native/APK uploads require the native image on the trusted analysis host.
+browser. The Docker runner and upload pipeline support .asar, .exe, .dll, .apk,
+.elf and .so files. Native/APK/ELF uploads require the native image on the trusted analysis host.
 
 ## Before you start any work
 

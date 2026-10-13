@@ -41,7 +41,7 @@ Details for a task go under its heading below the table.
 | T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
 | T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | done | T025 |
 | R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
-| T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | review | T028, R004, T025 |
+| T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | done | T028, R004, T025 |
 
 ---
 

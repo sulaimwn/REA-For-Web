@@ -197,7 +197,7 @@ test(
   },
 );
 
-test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-format rejection', { timeout: 300_000 }, async () => {
+test('HTTP program uploads: .NET, native PE/ELF, APK, aliases, dedupe and renamed-format rejection', { timeout: 300_000 }, async () => {
   const configuredOrigin = process.env.PIPELINE_TEST_ORIGIN;
   if (!configuredOrigin || !['localhost', '127.0.0.1'].includes(new URL(configuredOrigin).hostname)) {
     throw new Error('Set PIPELINE_TEST_ORIGIN to the local upload app with REA_NATIVE_WORKER=1.');
@@ -231,9 +231,11 @@ test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-fo
   const managed = await readFile(join(root, 'fixtures/sample-apps/tiny-dotnet/TinyNotes.exe'));
   const native = await readFile(join(root, 'fixtures/sample-apps/tiny-native/tiny-notes.exe'));
   const android = await readFile(join(root, 'fixtures/sample-apps/tiny-android/tiny-notes.apk'));
+  const linux = await readFile(join(root, 'fixtures/sample-apps/tiny-linux/tiny-notes'));
   for (const [name, body, appKind] of [
     ['notes.exe', managed, 'dotnet'], ['notes.dll', managed, 'dotnet'],
     ['native.exe', native, 'native'], ['notes.apk', android, 'android'],
+    ['linux.elf', linux, 'native'],
   ] as const) {
     const { ticket, status } = await submit(name, body);
     assert.equal(status.status, 'succeeded', `${name}: ${status.error}`);
@@ -245,7 +247,14 @@ test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-fo
     assert.equal(project.target.appKind, appKind);
     assert.equal(project.id, status.projectId);
     if (appKind === 'dotnet') assert.equal(project.nodes.filter((n) => n.kind === 'native-import').length, 3);
-    if (appKind === 'native') assert.equal(project.nodes.filter((n) => n.kind === 'native-function').length, 49);
+    if (appKind === 'native') {
+      assert.equal(project.target.format, name.endsWith('.elf') ? 'elf' : 'pe');
+      assert.equal(project.nodes.filter((n) => n.kind === 'native-function').length, name.endsWith('.elf') ? 11 : 49);
+      if (project.target.format === 'elf') {
+        assert.ok(project.nodes.some((n) => n.kind === 'native-function' && n.name === 'sync_notes'));
+        assert.ok(project.nodes.some((n) => n.kind === 'native-import' && n.entryPoint === 'socket' && n.library === ''));
+      }
+    }
     if (appKind === 'android') {
       assert.equal(project.nodes.filter((n) => n.kind === 'android-component').length, 4);
       assert.equal(project.analysis.coverage.status, 'partial');
@@ -255,6 +264,14 @@ test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-fo
     assert.equal(duplicate.status.status, 'succeeded');
     assert.equal(duplicate.status.cacheHit, true);
     assert.equal(duplicate.status.projectId, status.projectId);
+    if (name.endsWith('.elf')) {
+      // Both explicit ELF extensions run the same parser/cache namespace.
+      const alias = await submit('libnotes.SO', body);
+      assert.equal(alias.status.status, 'succeeded');
+      assert.equal(alias.status.cacheHit, true);
+      assert.equal(alias.status.projectId, status.projectId);
+      assert.equal(alias.status.uploadName, 'libnotes.SO');
+    }
   }
   // A cached .NET result is not a valid ASAR parse, even with the exact same hash.
   const renamed = await submit('renamed.asar', managed);
@@ -262,4 +279,13 @@ test('HTTP program uploads: .NET EXE/DLL, native EXE, APK, dedupe and renamed-fo
   assert.equal((await fetch(`${origin}/api/jobs/${renamed.ticket.jobId}/project`, {
     headers: { Authorization: `Bearer ${renamed.ticket.jobToken}` },
   })).status, 409);
+  // Existing PE/ELF caches cannot turn a wrong header into a successful parse.
+  for (const [name, body] of [['windows.elf', native], ['windows.so', native], ['linux.exe', linux]] as const) {
+    const invalid = await submit(name, body);
+    assert.equal(invalid.status.status, 'failed', `${name} must reach its own parser`);
+    assert.equal(invalid.status.cacheHit, undefined);
+    assert.equal((await fetch(`${origin}/api/jobs/${invalid.ticket.jobId}/project`, {
+      headers: { Authorization: `Bearer ${invalid.ticket.jobToken}` },
+    })).status, 409);
+  }
 });

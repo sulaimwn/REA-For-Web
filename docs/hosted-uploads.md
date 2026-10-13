@@ -194,7 +194,8 @@ npm run test:hosted
 
 The test builds the host queue code, uses an isolated Compose project and
 loopback ports 3116/6382, checks read-only/non-root web settings, host startup,
-Redis persistence and the existing real HTTP tests for all four file kinds.
+Redis persistence and the existing real HTTP tests for all five analysis kinds
+(six admitted extensions, including the `.so` alias for ELF).
 Set `HOST_TEST_WEB_PORT` / `HOST_TEST_REDIS_PORT` if needed. `HOST_TEST_RELEASE_TAG`
 selects the locally built web tag. It uses generated private local test objects
 instead of R2 and cleans up only its own temporary directory and Compose volumes.

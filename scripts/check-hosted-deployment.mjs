@@ -98,7 +98,7 @@ try {
   console.log(testOutput.slice(-1000));
   assert.equal((await readdir(join(objects, 'uploads'))).length, 0);
   assert.equal((await readdir(staging)).length, 0);
-  console.log('Packaged service checks passed: web restrictions, private Redis, persistence, host preflight, four upload kinds and cleanup. Live R2/TLS/systemd are separate operator checks.');
+  console.log('Packaged service checks passed: web restrictions, private Redis, persistence, host preflight, five analysis kinds and cleanup. Live R2/TLS/systemd are separate operator checks.');
 } finally {
   if (queue) {
     queue.kill('SIGTERM');

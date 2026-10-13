@@ -1,6 +1,6 @@
-# Upload pipeline (T007, T025)
+# Upload pipeline (T007, T025, T032)
 
-The browser hashes an .asar, .exe, .dll or .apk file in 4 MB chunks, requests a signed upload ticket,
+The browser hashes an .asar, .exe, .dll, .apk, .elf or .so file in 4 MB chunks, requests a signed upload ticket,
 uploads it, and explicitly completes the upload. Redis/BullMQ holds the job until
 a separate trusted worker downloads and verifies its size and SHA-256. The worker
 calls the existing Docker sandbox and stores only compressed StudioProject JSON.
@@ -29,7 +29,12 @@ to 127.0.0.1:6380, and runs the web app and trusted queue worker. Ctrl+C stops i
 services. Use UPLOAD_DEV_PORT / UPLOAD_REDIS_PORT if those ports are occupied.
 Alternate Redis ports use their own persistent volume; the default port keeps the original volume.
 The helper defaults to `REA_NATIVE_WORKER=1` for Ghidra/JADX support. Set it to `0`
-to build/run only the smaller image (.NET and Electron); native programs and APKs then fail clearly.
+to build/run only the smaller image (.NET and Electron); native programs, ELF and APKs then fail clearly.
+
+Linux executables often have no extension. Rename the file to end in `.elf`
+before uploading; versioned library names such as `libnotes.so.1` must end in
+`.so` or `.elf` for this explicit upload path. The worker checks the actual ELF
+header inside the sandbox; an extension alone does not make a file valid.
 
 Local objects and the signing secret live in gitignored `.pipeline-data/`;
 private staging is in `.pipeline-work/`. Redis uses the named Docker volume
@@ -41,7 +46,7 @@ generated once and never logged.
 ## API
 
 - POST /api/uploads, JSON `{name, bytes, sha256}` → `{jobId, jobToken, uploadUrl,
-  headers, expiresAt}`. Names must end in .asar, .exe, .dll or .apk (case-insensitive).
+  headers, expiresAt}`. Names must end in .asar, .exe, .dll, .apk, .elf or .so (case-insensitive).
   Request/response fields are unchanged; unknown request fields are discarded.
 - PUT the file bytes to uploadUrl, with the returned headers. A ticket expires
   after ten minutes. The local endpoint verifies bytes before publication; R2
@@ -70,6 +75,10 @@ after the worker has downloaded and verified a fresh upload with the same hash.
 This proves possession before exposing a cached result.
 Different file kinds have separate cache paths. A PE uploaded as .asar must reach
 ASAR validation rather than reuse a cached .exe result with the same hash.
+Both `.elf` and `.so` use the canonical `elf` kind and may reuse each other's
+verified result for identical bytes. PE, ASAR and APK results remain separate.
+The ELF namespace is new; revision 7 still describes the existing parser/cache
+semantics, and existing authorized results remain readable.
 
 Cached projects use a canonical `target.<kind>` fallback name, never another uploader's
 filename. The viewer applies its own authorized uploadName when the app has no
@@ -128,7 +137,7 @@ Configure the web server and trusted worker using `.env.example`:
 - PIPELINE_QUEUE_PREFIX must match on web and worker; PIPELINE_WORK_ROOT is a
   private writable staging directory on the Docker host.
 - Build both worker images and set `REA_NATIVE_WORKER=1` on the trusted queue
-  service to analyze native Windows programs and Android APKs. .NET works in the
+  service to analyze native Windows/Linux programs and Android APKs. .NET works in the
   standard image. Upload requests cannot choose an image or resource limits.
 
 Keep secrets in deployment settings or ignored environment files, never Git.
@@ -167,6 +176,8 @@ It covers a fresh archive, cached duplicate, wrong hash, missing/wrong access,
 repeated completion, cross-origin requests and a malformed archive failure.
 It also uploads the public .NET EXE/DLL, native EXE and Android APK fixtures,
 checks their normalized facts and duplicate results, and rejects a cached PE
-renamed to ASAR. Those checks require the native queue setting/image.
+renamed to ASAR. The Linux fixture also checks a fresh `.elf` analysis, `.so`
+alias deduplication, missing authorization, and refusal of PE bytes renamed to
+either ELF extension or ELF bytes renamed to PE. Those checks require the native queue setting/image.
 CI runs storage/unit tests, real Redis queue checks and the existing real Docker
 tests; HTTP/browser checks are currently local.

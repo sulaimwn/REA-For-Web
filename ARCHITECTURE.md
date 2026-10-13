@@ -291,6 +291,14 @@ the kind, preventing cross-parser cache reuse when the same bytes are renamed.
 Raw object names and expiry support all four kinds. Old authorized ASAR results
 from revisions 2–6 remain readable. Native image selection stays operator-owned.
 
+T032 adds explicit `.elf` and `.so` filename admission, as delegated in T028 and
+agreed in R004. Both use the canonical `elf` analysis kind: raw objects and staging
+end in `.elf`, and revision 7 gains an isolated `elf` cache namespace. Request and
+response fields, existing parser/cache semantics, possession checks and sandbox
+restrictions are unchanged. The native worker verifies ELF bytes; a renamed PE
+cannot reuse a PE cache entry. Bare filenames and versioned `.so.1` libraries are
+not accepted by the upload form; rename them to an admitted extension first.
+
 T026 packages the existing API/explorer as a non-root Linux web container, with
 private Redis and a trusted host queue service. Only the host queue controls
 Docker; analysis containers remain offline and credential-free. The Cloudflare
