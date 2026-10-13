@@ -20,6 +20,7 @@ Details for a task go under its heading below the table.
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | review | T004, T005 |
 | T016 | Ask: question-answering toolkit + bring-your-own-key panel (also basis for demo tours and MCP) | claude | review | T013       |
+| T017 | Guided tours: pre-generated Ask answers per demo, viewable without a key | claude | in progress | T016       |
 
 ---
 
