@@ -14,11 +14,11 @@ Details for a task go under its heading below the table.
 | T005 | Web: static demo page rendering a fixture graph   | claude | done | T002, T004 |
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | codex | done | T006       |
-| T008 | **Essential.** Per-file REA analysis of big bundles to avoid the shared result budget | claude | review | T006       |
+| T008 | **Essential.** Per-file REA analysis of big bundles to avoid the shared result budget | claude | done | T006       |
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking; endpoint filtering is T012 | claude | done | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
-| T012 | **Essential.** Endpoint plausibility verdicts (schema proposal agreed in T015 review) | claude | review | T009       |
+| T012 | **Essential.** Endpoint plausibility verdicts (schema proposal agreed in T015 review) | claude | done | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
 | T013 | Local mode: CLI analyzes an app on your machine; web /open views the file (no upload) | claude | done | T004, T005 |
 | T014 | VS Code demo (core subset): windows, bridges, named IPC channels | claude | done | T005       |
@@ -26,10 +26,11 @@ Details for a task go under its heading below the table.
 | T017 | Guided-tour generator and viewer (recorded answers still pending API access) | claude | done | T016       |
 | T018 | Cloudflare website deployment: demos, local mode and bring-your-own-key Ask | claude | done | T013, T016 |
 | T020 | MIT license (the human's choice) | claude | done | — |
-| T021 | **Essential.** Beyond Electron: research on every target + .NET and websites end to end (schema proposal needs Codex) | claude | review | T007 |
-| T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | review | T016, T018 |
+| T021 | **Essential.** Beyond Electron: .NET/web reviewed; newer native/Android continuation awaits review | claude | review | T007 |
+| T022 | **Essential.** MCP connector: Ask tools served over MCP (remote, on Cloudflare) | claude | done | T016, T018 |
+| T024 | **Essential.** Program analysis worker: .NET and native via Ghidra + JDK 21 (human approved) | claude | review | T006, T021 |
 | T019 | UI redesign: drop the generic "AI-made" look; landing leads with the product | claude | done | T016, T017 |
-| R001 | Independent integration review: T008, T012, T021 and T022 | codex | in progress | T008, T012, T021, T022 |
+| R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
 
 ---
 
@@ -112,6 +113,11 @@ from the product: a reverse-engineering evidence tool. Landing leads with the re
 explorer. Restyle landing, explorer, inspector, Ask and /open. No behavior changes.
 
 ### T021 — Beyond Electron (essential)
+The initial .NET and website phase is approved in R001, with the additive schema
+remaining 0.1.0. Claude's newer native/Android continuation on
+`claude/T021-beyond-electron` and its stacked T024 worker are separate reviews.
+JADX and Ghidra downloads were already approved by the human.
+
 The human: support for more than Electron is required for the final product. REA already has
 tools for web bundles/pages, Android (APK), managed code (.NET) and native binaries. First step:
 generate real REA fixtures for each target, then a schema proposal (new node kinds / appKind values)

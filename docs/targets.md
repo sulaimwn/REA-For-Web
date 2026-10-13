@@ -77,7 +77,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 1. **.NET**: no new tools. Schema proposal plus a working prototype on `claude/T021-dotnet-prototype`.
 2. **Websites**: no new analyzer, but needs the capture sandbox. Design above; Codex owns the worker.
 3. **Android**: needs the jadx JAR (human approval). Reuses the "bridge" UI for `addJavascriptInterface`.
-4. **Native**: needs Ghidra (human approval), and a new worker image and limits.
+4. **Native**: Ghidra is human-approved; needs a separately reviewed worker image and limits.
 5. **Apple**: inventory-only on Linux.
 
 ## Reviewed schema scope
