@@ -131,8 +131,11 @@ export class UploadControl {
     this.redis.on('error', () => {});
     this.queue = new Queue<UploadRecord, JobResult>('analysis', {
       connection: {
-        url: config.redisUrl, maxRetriesPerRequest: 1, connectTimeout: 5000,
-        commandTimeout: API_REDIS_COMMAND_TIMEOUT_MS, enableOfflineQueue: false,
+        url: config.redisUrl,
+        maxRetriesPerRequest: 1,
+        connectTimeout: 5000,
+        commandTimeout: API_REDIS_COMMAND_TIMEOUT_MS,
+        enableOfflineQueue: false,
       },
       prefix: config.prefix,
       defaultJobOptions: {
