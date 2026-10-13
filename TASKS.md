@@ -38,7 +38,7 @@ Details for a task go under its heading below the table.
 | T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | in progress | T025 |
 | T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | in progress | T021, T024 |
 | T030 | **Human request.** Free Ask tier: Cloudflare Workers AI open model with tool calls, per-visitor rate limit, no key needed; Claude key stays as the upgrade | claude | in progress | T016, T018 |
-| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
+| T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | review | T021, T028 |
 | T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | review | T025 |
 
 ---
