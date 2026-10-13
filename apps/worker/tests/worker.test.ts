@@ -253,6 +253,33 @@ test("Linux programs are admitted as .elf or .so and run in the native image onl
   }
 });
 
+test("macOS programs: thin Mach-O headers only, admitted as .macho or .dylib, native image when enabled (T035)", async t => {
+  const ctx = await context(t);
+  // Headers only: preflight checks the signature and size before REA starts. The real jq macOS fixture is REA output.
+  const header = (hex: string) => Buffer.concat([Buffer.from(hex, "hex"), Buffer.alloc(60)]);
+  for (const [name, hex] of [["thin64.macho", "cffaedfe07000001"], ["thin32.macho", "cefaedfe07000000"], ["ppc.macho", "feedface00000012"]] as const) {
+    const file = join(ctx.temp, name);
+    await writeFile(file, header(hex));
+    assert.equal((await preflightTarget(file, "macho", DEFAULT_LIMITS)).files, 1, name);
+  }
+  const universal = join(ctx.temp, "universal.macho");
+  await writeFile(universal, header("cafebabe00000002"));
+  await assert.rejects(preflightTarget(universal, "macho", DEFAULT_LIMITS), { message: /single-architecture macOS program/u });
+  const elf = join(repo, "fixtures/sample-apps/tiny-linux/tiny-notes");
+  await assert.rejects(preflightTarget(elf, "macho", DEFAULT_LIMITS), { code: "invalid_input" });
+  await assert.rejects(preflightTarget(join(ctx.temp, "thin64.macho"), "elf", DEFAULT_LIMITS), { message: /no ELF header/u });
+  for (const name of ["jq.macho", "libtiny.dylib"]) {
+    const copy = join(ctx.temp, name);
+    await writeFile(copy, header("cffaedfe07000001"));
+    for (const [native, image] of [[false, WORKER_IMAGE], [true, NATIVE_WORKER_IMAGE]] as const) {
+      await runWithDocker({ targetPath: copy, outputRoot: join(ctx.temp, `results-${name}-${native}`), native }, ctx.docker);
+      const args = JSON.parse(await readFile(ctx.config.createArgs, "utf8")) as string[];
+      assert.ok(args.includes(image) && args.includes("macho"), `${name} ${image}`);
+      assert.match(args[args.indexOf("--mount") + 1]!, /target=\/input\/target\.macho,bind-recursive=disabled,readonly$/u);
+    }
+  }
+});
+
 test("the native image is an explicit operator setting", () => {
   assert.equal(nativeWorkerFromEnv({}), false);
   assert.equal(nativeWorkerFromEnv({ REA_NATIVE_WORKER: "0" }), false);

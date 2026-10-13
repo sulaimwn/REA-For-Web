@@ -25,7 +25,8 @@ describe('Linux ELF program (REA + Ghidra) adapter', () => {
   });
 
   it('rejects missing, unsupported and inherited-property formats instead of inventing PE evidence', () => {
-    for (const format of [undefined, null, 'unknown', 'constructor', '__proto__', 'macho', 'mach-o', {}, []]) {
+    // REA's 'mach-o' is supported since T035 (real fixture: jq 1.8.2 for macOS); the schema's own 'macho' is not REA's.
+    for (const format of [undefined, null, 'unknown', 'constructor', '__proto__', 'macho', 'MACH-O', {}, []]) {
       const changed = structuredClone(raw);
       const overview = changed['binary_overview'] as { subject: { format?: unknown } };
       overview.subject.format = format;

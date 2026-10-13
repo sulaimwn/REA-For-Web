@@ -66,7 +66,7 @@ describe('rea-studio analyze', () => {
     writeFileSync(notAsar, 'x');
     const wrong = run('analyze', notAsar);
     assert.equal(wrong.status, 1);
-    assert.match(wrong.stderr, /a directory, an \.asar file, an \.exe\/\.dll program, a Linux \(ELF\) program or an \.apk/);
+    assert.match(wrong.stderr, /a directory, an \.asar file, an \.exe\/\.dll program, a Linux \(ELF\) or macOS \(Mach-O\) program or an \.apk/);
   });
 
   it('recognizes a Linux program by its ELF header, and explains where it can be analyzed (T028)', () => {
@@ -77,6 +77,22 @@ describe('rea-studio analyze', () => {
     assert.match(r.stderr, process.platform === 'win32' ? /Linux or macOS machine/ : /GHIDRA_INSTALL_DIR/);
     assert.doesNotMatch(r.stderr, /    at /, 'no stack trace');
     assert.throws(() => readFileSync(out));
+  });
+
+  it('recognizes a macOS program by its Mach-O header, and asks for one architecture of a universal one (T035)', () => {
+    // Headers only: the CLI decides from the first bytes and stops before any analysis.
+    const thin = join(work, 'tool');
+    writeFileSync(thin, Buffer.concat([Buffer.from('cffaedfe07000001', 'hex'), Buffer.alloc(56)]));
+    const r = runWith({ GHIDRA_INSTALL_DIR: undefined }, 'analyze', thin, '--out', join(work, 'tool.studio.json'));
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, process.platform === 'win32' ? /macOS \(Mach-O\) programs need REA’s Ghidra on a Linux or macOS machine/ : /macOS \(Mach-O\) programs need REA’s Ghidra provider/);
+    const fat = join(work, 'universal');
+    writeFileSync(fat, Buffer.concat([Buffer.from('cafebabe00000002', 'hex'), Buffer.alloc(56)]));
+    assert.match(run('analyze', fat).stderr, /universal \(multi-architecture\) macOS program/);
+    // A Java class file shares 0xCAFEBABE; its version field (major 52) keeps it out of the Mach-O path.
+    const javaClass = join(work, 'Notes.class');
+    writeFileSync(javaClass, Buffer.concat([Buffer.from('cafebabe00000034', 'hex'), Buffer.alloc(56)]));
+    assert.match(run('analyze', javaClass).stderr, /The app must be a directory/);
   });
 
   it('analyzes the tiny .NET sample (T021)', () => {

@@ -6,14 +6,15 @@
 //   REA_SCRIPT=<rea-agents/scripts/rea.mjs> \
 //   CAPRINE_ASAR=<app.asar from caprine_2.61.0_amd64.deb> \
 //   JQ_EXE=<jq-windows-amd64.exe 1.8.2>  GHIDRA_INSTALL_DIR=… JAVA_HOME=… \
+//   JQ_MACOS=<jq-macos-amd64 1.8.2>  (collected inside the native worker image; REA's Windows Ghidra is PE-only) \
 //   BINARYEYE_APK=<de.markusfisch.android.binaryeye_180.apk>  REA_JADX_MCP_JAR=… \
 //   node fixtures/tools/sample-fixtures.mjs
 // Needs `npm run build:packages` first (the native and Android collectors live in the adapter).
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REA_VERSION = '6.4.0';
@@ -23,6 +24,7 @@ const fixtures = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = {
   caprine: null, // app.asar is extracted from the .deb, whose SHA-256 is recorded in real-world.md
   jq: 'a6fc67fedaf9128a3309a1e2ebb8b986aeccf70122ee46d2cb4849e423f0c627',
+  'jq-macos': 'e94b266e3c26690550006abe63152b782280f4e14374accdf04cbde844f00bc0',
   binaryeye: '568cec6598dbf42fbde9071af8747071ffea798473016a3d77b6ddb3bff944f1',
 };
 
@@ -90,6 +92,28 @@ if (process.env.JQ_EXE) {
   const { collectNativeBundle } = await import(new URL('../../packages/rea-adapter/dist/native-session.js', import.meta.url).href);
   const bundle = await timed('jq collection', () => collectNativeBundle({ reaScript, program: exe, onProgress: (m) => console.log(`  ${m}`) }));
   write('jq-1.8.2-windows', exe, bundle);
+}
+
+// macOS Mach-O: like Linux ELF, REA's Ghidra provider only accepts it on a Linux/macOS host, so collect inside
+// the native worker image (no network, the sample mounted read-only). Needs apps/worker/Dockerfile.native built.
+if (process.env.JQ_MACOS) {
+  const program = resolve(process.env.JQ_MACOS);
+  verify('jq-macos', program);
+  const out = mkdtempSync(join(tmpdir(), 'rea-fixture-'));
+  try {
+    const r = await timed('jq (macOS) collection', () => spawnSync('docker', [
+      'run', '--rm', '--network=none', '--cpus=1', '--memory=2g', '--workdir=/tmp', '--env=HOME=/tmp',
+      '--mount', `type=bind,source=${dirname(program)},target=/input,readonly`,
+      '--mount', `type=bind,source=${join(fixtures, 'tools')},target=/tools,readonly`,
+      '--mount', `type=bind,source=${out},target=/out`,
+      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.4.0', '/tools/collect-native-in-image.mjs', basename(program),
+    ], { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } }));
+    if (r.status !== 0) throw new Error(`native image collection failed: ${r.stderr}`);
+    // Paths inside the container: scrub the same way as host paths.
+    write('jq-1.8.2-macos', `/input/${basename(program)}`, JSON.parse(readFileSync(join(out, 'bundle.json'), 'utf8')));
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
 }
 
 if (process.env.BINARYEYE_APK) {

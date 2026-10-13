@@ -36,6 +36,28 @@ describe('jq 1.8.2 (native Windows .exe)', () => {
   });
 });
 
+describe('jq 1.8.2 (macOS Mach-O, collected in the native image) (T035)', () => {
+  const p = load('jq-1.8.2-macos.rea-6.4.0.json', 'jq');
+  it('maps REA’s "mach-o" format, its functions and the libSystem imports', () => {
+    assert.deepEqual([p.target.name, p.target.format, p.target.appKind], ['jq', 'macho', 'native']);
+    assert.equal(p.target.sha256, 'e94b266e3c26690550006abe63152b782280f4e14374accdf04cbde844f00bc0');
+    // REA lists 1,667 functions; 130 are Ghidra thunks (Mach-O import stubs), which stand for their imports.
+    assert.equal(of(p, 'native-function').length, 1_537);
+    const imports = of(p, 'native-import');
+    assert.equal(imports.length, 130);
+    // Unlike ELF, Mach-O imports name their providing library.
+    assert.ok(imports.every((i) => i.library === '/usr/lib/libSystem.B.dylib'));
+    assert.deepEqual(notes(p, 'native-imports'), ['Libraries: /usr/lib/libSystem.B.dylib']);
+    assert.ok(of(p, 'native-function').some((f) => f.name === 'entry' && f.entryPoint));
+    assert.ok(!p.analysis.limitations.some((l) => /ELF/u.test(l)));
+  });
+  it('still refuses a native bundle whose format REA did not record', () => {
+    const raw = JSON.parse(readFileSync(new URL('jq-1.8.2-macos.rea-6.4.0.json', samples), 'utf8'));
+    raw.binary_overview.subject.format = 'macho';
+    assert.throws(() => toStudioProject(raw, { reaVersion: '6.4.0' }), /no supported, recorded binary format/u);
+  });
+});
+
 describe('Binary Eye 1.75.5 (Android, minified)', () => {
   const p = load('binaryeye-1.75.5.rea-6.4.0.json');
   it('reads the manifest: components, permissions and the launcher', () => {
