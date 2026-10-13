@@ -46,8 +46,17 @@ Details for a task go under its heading below the table.
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | review | T030, T031, T033 |
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
+| T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | in progress | T026, T029 |
 
 ---
+
+### T036 — Object-storage deadlines
+Reproduce the installed SDK's warning-only request timeout against a stalled
+local HTTP storage service. Enforce a real deadline across retries for R2 reads,
+metadata, publication, deletion and expiry requests. Verify failure leaves no
+published job result and removes local staging; failed raw deletion remains
+visible and recoverable through the existing lifecycle/expiry backstop. No API,
+schema, admission or sandbox changes; avoid Claude's active native target files.
 
 ### T034 — Operator pre-analysis
 Implement T027's proposed popular-file cache seeding as a trusted operator tool.
