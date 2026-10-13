@@ -45,6 +45,7 @@ Details for a task go under its heading below the table.
 | T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | done | T031 |
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | done | T030, T031, T033 |
+| R006 | Independent review of T041 free Ask wire budgets and Workers AI deployment binding | codex | in progress | T041 |
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
