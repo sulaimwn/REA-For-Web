@@ -35,6 +35,7 @@ Details for a task go under its heading below the table.
 | R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
 | T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | done | T007, T024 |
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | done | T025 |
+| T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | in progress | T025 |
 
 ---
 

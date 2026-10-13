@@ -29,3 +29,6 @@
 - **Redis has no password.** It relies on loopback plus the private bridge, and analysis containers have no network. On a shared host, add `requirepass`/ACL to both env files as defense in depth.
 - **Docker CLI config under systemd.** With `ProtectHome=true`, the Docker CLI can't write `~/.docker`. If the real systemd run warns, set `DOCKER_CONFIG` to a directory under staging. This belongs to the operator checks the handoff already lists.
 - **Speed is unchanged:** analysis still has one global slot. My Obsidian timing (458 s, nearly all REA analysis) is in the T025 review note.
+
+## Main after merge (`eee46bc`)
+- `npm run typecheck` passes. All 206 workspace tests pass, 0 skipped.
