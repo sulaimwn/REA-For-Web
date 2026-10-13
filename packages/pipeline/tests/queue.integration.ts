@@ -2,12 +2,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { UploadControl, type PipelineConfig } from '../src/server.js';
-import { LocalStore, uploadKey } from '../src/storage.js';
+import { LocalStore, resultKey, uploadKey } from '../src/storage.js';
 import { startAnalysisWorker } from '../src/processor.js';
 
 test(
@@ -32,9 +32,17 @@ test(
     const c = new UploadControl(config);
     let calls = 0;
     let simulateTimeout = false;
+    let stallProgress = false;
+    let notifyProgressStall: ((time: number) => void) | undefined;
     const worker = startAnalysisWorker(config, async ({ onProgress, targetName }) => {
       calls++;
       assert.equal(targetName, 'target.asar');
+      if (stallProgress) {
+        // This suite requires a dedicated Redis instance. Pause actual writes,
+        // including BullMQ progress persistence, without touching other stacks.
+        await c.redis.call('CLIENT', 'PAUSE', '12000', 'WRITE');
+        notifyProgressStall?.(Date.now());
+      }
       onProgress({ phase: 'test', message: 'Fixture normalization' });
       await delay(150);
       if (simulateTimeout)
@@ -131,6 +139,58 @@ test(
       assert.equal(failed.progress?.message, 'Fixture normalization');
       assert.equal(await store.head(uploadKey(slow.id)), null);
       await assert.rejects(c.project(slow.id, timeoutTicket.jobToken), /not ready/u);
+    });
+    await t.test('a Redis write stall cleans raw/staging before reconnecting and the queue recovers', async () => {
+      simulateTimeout = false;
+      stallProgress = true;
+      const stalledBytes = Buffer.from('unique inert archive for a progress write stall');
+      const stalledTicket = await c.create({
+        name: 'stalled.asar', bytes: stalledBytes.length,
+        sha256: createHash('sha256').update(stalledBytes).digest('hex'),
+      });
+      const stalled = await c.authorize(stalledTicket.jobId, stalledTicket.jobToken);
+      const signed = new URL(stalledTicket.uploadUrl);
+      await store.receive(stalled.id, stalled, Number(signed.searchParams.get('expires')),
+        signed.searchParams.get('signature')!, Readable.from(stalledBytes));
+      const paused = new Promise<number>((resolvePause) => { notifyProgressStall = resolvePause; });
+      const completing = c.complete(stalled.id, stalledTicket.jobToken);
+      void completing.catch(() => {});
+      const pausedAt = await paused;
+      while (await store.head(uploadKey(stalled.id))) {
+        if (Date.now() - pausedAt > 8000) break;
+        await delay(50);
+      }
+      assert.equal(await store.head(uploadKey(stalled.id)), null, 'raw data is removed while Redis writes are still stalled');
+      assert.deepEqual(await readdir(config.workRoot), []);
+      assert.equal(await store.head(resultKey(stalled.sha256)), null);
+      assert.ok(Date.now() - pausedAt < 12000, 'cleanup does not wait for Redis writes to resume');
+      await completing;
+      let failed = await c.status(stalled.id, stalledTicket.jobToken);
+      for (let attempt = 0; attempt < 100 && failed.status !== 'failed'; attempt++) {
+        await delay(100);
+        failed = await c.status(stalled.id, stalledTicket.jobToken);
+      }
+      assert.equal(failed.status, 'failed');
+      assert.match(failed.error!, /queue connection/u);
+      assert.match(failed.error!, /upload it again/u);
+      await assert.rejects(c.project(stalled.id, stalledTicket.jobToken), /not ready/u);
+      stallProgress = false;
+
+      const nextBytes = Buffer.from('unique inert archive after Redis recovery');
+      const nextTicket = await c.create({ name: 'next.asar', bytes: nextBytes.length,
+        sha256: createHash('sha256').update(nextBytes).digest('hex') });
+      const next = await c.authorize(nextTicket.jobId, nextTicket.jobToken);
+      const nextSigned = new URL(nextTicket.uploadUrl);
+      await store.receive(next.id, next, Number(nextSigned.searchParams.get('expires')),
+        nextSigned.searchParams.get('signature')!, Readable.from(nextBytes));
+      await c.complete(next.id, nextTicket.jobToken);
+      let recovered = await c.status(next.id, nextTicket.jobToken);
+      for (let attempt = 0; attempt < 100 && recovered.status !== 'succeeded'; attempt++) {
+        await delay(100);
+        recovered = await c.status(next.id, nextTicket.jobToken);
+      }
+      assert.equal(recovered.status, 'succeeded');
+      assert.equal(await store.head(uploadKey(next.id)), null);
     });
   },
 );
