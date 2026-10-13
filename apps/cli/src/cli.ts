@@ -5,24 +5,27 @@
 // uploaded, and REA only reads the app's files; the app is never run.
 import { spawn } from 'node:child_process';
 import { createWriteStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { mkdtemp, open, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
-import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, isManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
+import { recoverDroppedRelationships, type IsolatedRun } from '@rea-studio/rea-adapter';
+import { adaptManagedFiles, adaptReaFile, checkManagedArtifactFile, extractedArtifactRoot, isManagedArtifactFile, managedProjectionInput, reaErrorMessage } from '@rea-studio/rea-adapter/file';
 import { collectNativeBundle, ghidraConfigured } from '@rea-studio/rea-adapter/native-session';
-import type { StudioProject } from '@rea-studio/schema';
+import type { StudioNode, StudioProject } from '@rea-studio/schema';
 import { findChrome, openPage } from './browser.js';
 import { pipeBoundedOutput } from './output.js';
 
-const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>]
+const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>] [--no-recover]
 
   <app>            An extracted Electron/JS app directory, an .asar file,
                    a .NET program (.exe or .dll), or a website (https://…,
                    opened in a headless Chrome with a throwaway profile).
   --out <file>     Where to write the project (default: <app name>.studio.json).
   --max-heap-mb    Heap for REA's JavaScript analyzer workers (REA default: 1024).
+  --no-recover     Skip re-analyzing files whose relationships REA's whole-app
+                   result budget dropped (faster, less complete for big apps).
 
 Then open the file at /open on the REA for Web site. It stays on your machine.`;
 
@@ -40,7 +43,12 @@ interface Options {
   kind: TargetKind;
   out: string;
   maxHeapMb: string | null;
+  /** Re-analyze files whose relationships the whole-app run dropped (T008). */
+  recover: boolean;
 }
+
+/** Isolated REA runs at once during recovery. Each can use about 1 GB of memory on big files. */
+const RECOVERY_CONCURRENCY = 2;
 
 function parseArgs(argv: string[]): Options {
   const [command, ...rest] = argv;
@@ -50,9 +58,11 @@ function parseArgs(argv: string[]): Options {
   let target: string | null = null;
   let out: string | null = null;
   let maxHeapMb: string | null = null;
+  let recover = true;
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i] as string;
-    if (arg === '--out' || arg === '--max-heap-mb') {
+    if (arg === '--no-recover') recover = false;
+    else if (arg === '--out' || arg === '--max-heap-mb') {
       const value = rest[++i];
       if (!value || value.startsWith('--')) throw new CliError(`${arg} needs a value`);
       if (arg === '--out') out = value;
@@ -70,7 +80,7 @@ function parseArgs(argv: string[]): Options {
     let url: URL;
     try { url = new URL(target); } catch { throw new CliError(`Not a valid URL: ${target}`); }
     const name = url.host.replace(/[^a-z0-9.-]+/giu, '-') || 'site';
-    return { target: url.href, kind: 'web', out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb };
+    return { target: url.href, kind: 'web', out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb, recover };
   }
   const abs = resolve(cwd, target);
   if (!existsSync(abs)) throw new CliError(`Not found: ${abs}`);
@@ -81,7 +91,7 @@ function parseArgs(argv: string[]): Options {
   }
   const name = basename(abs, isDir ? '' : extname(abs)) || 'app';
   const kind: TargetKind = MANAGED_EXTENSIONS.has(ext) ? 'managed' : 'javascript';
-  return { target: abs, kind, out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb };
+  return { target: abs, kind, out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb, recover };
 }
 
 function reaInstall(): { script: string; version: string } {
@@ -91,8 +101,8 @@ function reaInstall(): { script: string; version: string } {
   return { script: join(dirname(pkgPath), 'scripts', 'rea.mjs'), version: pkg.version };
 }
 
-/** Runs one REA command, streaming stdout to a file and showing its stderr progress events. */
-async function runRea(script: string, command: string[], outFile: string): Promise<void> {
+/** Runs one REA command, streaming stdout to a file and (unless quiet) showing its stderr progress events. */
+async function runRea(script: string, command: string[], outFile: string, quiet = false): Promise<void> {
   const args = [script, ...command, '--format', 'json'];
     const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     const exited = new Promise<number | null>((resolvePromise, reject) => {
@@ -105,7 +115,7 @@ async function runRea(script: string, command: string[], outFile: string): Promi
         throw error;
       });
     const otherStderr: string[] = [];
-    const tty = process.stderr.isTTY;
+    const tty = process.stderr.isTTY && !quiet;
     createInterface({ input: child.stderr }).on('line', (line) => {
       let message: string | null = null;
       try {
@@ -117,6 +127,8 @@ async function runRea(script: string, command: string[], outFile: string): Promi
       if (message === null) {
         otherStderr.push(line);
         if (otherStderr.length > 40) otherStderr.shift();
+      } else if (quiet) {
+        // Parallel recovery runs report their own progress.
       } else if (tty) {
         process.stderr.write(`\r\x1b[2K  ${message.slice(0, (process.stderr.columns ?? 100) - 4)}`);
       } else {
@@ -137,7 +149,65 @@ async function runRea(script: string, command: string[], outFile: string): Promi
     }
 }
 
-function summarize(project: StudioProject, outFile: string, seconds: number): string {
+/**
+ * T008: REA's shared whole-app result budget drops the relationships of many files in big apps.
+ * Re-analyze each such file on its own (with its .map and the root package.json at the same
+ * relative paths) and merge what it finds. An .asar is unpacked once with REA's own extractor.
+ */
+async function recoverDropped(script: string, opts: Options, project: StudioProject, work: string): Promise<{ project: StudioProject; recovered: number; failed: number }> {
+  const files = project.nodes
+    .filter((n): n is Extract<StudioNode, { kind: 'file' }> => n.kind === 'file' && n.analysisIssue !== null && n.path !== '')
+    // Paths come from REA's output; never let one escape the scratch folder.
+    .filter((n) => !isAbsolute(n.path) && !n.path.split(/[\\/]/).includes('..'))
+    .sort((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0));
+  if (files.length === 0) return { project, recovered: 0, failed: 0 };
+  process.stderr.write(`REA's whole-app result budget dropped the relationships of ${files.length} files; re-analyzing each on its own (--no-recover skips this)\n`);
+
+  let appDir = opts.target;
+  let extracted: string | null = null;
+  try {
+    if (!statSync(opts.target).isDirectory()) {
+      const result = join(work, 'extract.json');
+      await runRea(script, ['extract-artifact', opts.target], result, true);
+      extracted = await extractedArtifactRoot(result, MAX_REA_OUTPUT_BYTES);
+      appDir = extracted;
+    }
+    const runs: IsolatedRun[] = [];
+    let failed = 0;
+    let done = 0;
+    const queue = [...files];
+    await Promise.all(Array.from({ length: RECOVERY_CONCURRENCY }, async (_, worker) => {
+      for (let file = queue.shift(); file; file = queue.shift()) {
+        const dir = await mkdtemp(join(work, `isolated-${worker}-`));
+        try {
+          for (const rel of ['package.json', file.path, `${file.path}.map`]) {
+            const from = join(appDir, rel);
+            if (!existsSync(from)) continue;
+            await mkdir(dirname(join(dir, rel)), { recursive: true });
+            await copyFile(from, join(dir, rel));
+          }
+          const out = join(work, `isolated-${worker}.json`);
+          await runRea(script, ['analyze-javascript-application', dir, ...(opts.maxHeapMb ? ['--max-heap-mb', opts.maxHeapMb] : [])], out, true);
+          const { project: isolated } = await adaptReaFile(out, { reaVersion: project.analysis.engine.version, maxBytes: MAX_REA_OUTPUT_BYTES });
+          runs.push({ path: file.path, project: isolated });
+        } catch {
+          failed++; // that file keeps its whole-app facts only
+        } finally {
+          await rm(dir, { recursive: true, force: true });
+        }
+        done++;
+        process.stderr.write(process.stderr.isTTY ? `\r\x1b[2K  re-analyzed ${done}/${files.length}` : `  re-analyzed ${done}/${files.length}: ${file.path}\n`);
+      }
+    }));
+    if (process.stderr.isTTY) process.stderr.write('\r\x1b[2K');
+    const merged = recoverDroppedRelationships(project, runs);
+    return { project: merged.project, recovered: merged.report.recoveredFiles.length, failed: failed + merged.report.skipped.length };
+  } finally {
+    if (extracted) await rm(extracted, { recursive: true, force: true });
+  }
+}
+
+function summarize(project: StudioProject, outFile: string, seconds: number, recovery: { recovered: number; failed: number } | null = null): string {
   const t = project.target;
   const a = project.analysis;
   const lines = [
@@ -149,6 +219,9 @@ function summarize(project: StudioProject, outFile: string, seconds: number): st
     const count = f.status === 'found' ? String(f.count) : 'not found';
     const extra = f.unresolvedCount > 0 ? ` (${f.unresolvedCount} unresolved)` : '';
     lines.push(`  ${f.category.padEnd(15)} ${count}${extra}`);
+  }
+  if (recovery) {
+    lines.push('', `  Re-analyzed ${recovery.recovered} files on their own to recover relationships REA's whole-app budget dropped${recovery.failed > 0 ? ` (${recovery.failed} couldn't be)` : ''}.`);
   }
   if (a.filesWithAnalysisIssues > 0) lines.push('', `  ${a.filesWithAnalysisIssues} files lost relationship details to REA resource limits.`);
   lines.push('', `Wrote ${outFile}`, 'Open it at /open on the REA for Web site (or `npm run dev` → http://localhost:3000/open).');
@@ -174,6 +247,7 @@ async function main() {
     const started = Date.now();
     const adapterOptions = { reaVersion: rea.version, targetName: opts.kind === 'web' ? new URL(opts.target).host : basename(opts.target), maxBytes: MAX_REA_OUTPUT_BYTES };
     let project: StudioProject;
+    let recovery: { recovered: number; failed: number } | null = null;
     if (opts.kind === 'web') {
       // Websites: the page loads in Chrome like a normal visit; REA captures and statically analyzes its scripts.
       const chrome = findChrome();
@@ -221,10 +295,15 @@ async function main() {
       if (opts.maxHeapMb) command.push('--max-heap-mb', opts.maxHeapMb);
       await runRea(rea.script, command, raw);
       ({ project } = await adaptReaFile(raw, adapterOptions));
+      if (opts.recover) {
+        const r = await recoverDropped(rea.script, opts, project, work);
+        project = r.project;
+        if (r.recovered + r.failed > 0) recovery = r;
+      }
     }
     await destination.writeFile(JSON.stringify(project));
     complete = true;
-    process.stdout.write(`${summarize(project, opts.out, (Date.now() - started) / 1000)}\n`);
+    process.stdout.write(`${summarize(project, opts.out, (Date.now() - started) / 1000, recovery)}\n`);
   } finally {
     await destination.close();
     if (!complete) await rm(opts.out, { force: true });

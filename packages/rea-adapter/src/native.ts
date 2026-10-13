@@ -1,7 +1,7 @@
 // REA 6.4.0 native-program analysis (Ghidra provider) → StudioProject (T021).
 //
 // Input is a bundle keyed by REA MCP tool name, collected in one Ghidra session
-// (see apps/cli/src/native.ts and fixtures/samples/tiny-native.rea-6.4.0.json):
+// (see native-session.ts and fixtures/samples/tiny-native.rea-6.4.0.json):
 //   binary_overview, list_procedures, list_strings              one envelope each
 //   procedure_callees  { <procedure address>: envelope }          direct callees per function
 //   xrefs              { <string address>: envelope }             references to selected strings
@@ -22,6 +22,7 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { ReaOutputError } from './errors.js';
+import { assessEndpoints } from './heuristics.js';
 import type { AdapterOptions, AdapterReport } from './index.js';
 import type { ReaProps } from './rea-types.js';
 
@@ -136,6 +137,7 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   const report: AdapterReport = {
     reaNodes: procedures.length, reaEdges: 0, droppedExportShapeNodes: 0, mergedExternalModuleNodes: 0, droppedEdgesToDroppedNodes: 0,
     droppedEdgesUnknownRelation: {}, droppedEdgesDanglingEndpoint: 0, foldedAsarEntries: 0, droppedSelfEdges: 0, unrecognizedNodeKinds: {}, heuristicEdges: {},
+    endpointVerdicts: { plausible: 0, unlikely: 0 },
   };
 
   // Direct calls from each function (Ghidra's resolved callees; indirect calls may be missing).
@@ -187,6 +189,7 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
     if (users.size === 0) edges.push({ id: `${root.id}->${node.id}`, source: root.id, target: node.id, relation: 'contains', evidence, origin: { source: 'rea' }, details: {} });
   }
 
+  report.endpointVerdicts = assessEndpoints(nodes);
   const of = <K extends StudioNode['kind']>(kind: K) => nodes.filter((n): n is Extract<StudioNode, { kind: K }> => n.kind === kind);
   const libraries = [...new Set(of('native-import').map((i) => i.library))];
   const named = of('native-function').filter((f) => !/^FUN_/u.test(f.name)).length;

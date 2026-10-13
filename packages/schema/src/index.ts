@@ -282,6 +282,20 @@ export interface EndpointNode extends NodeBase<'endpoint'> {
   value: string;
   /** How it was found, e.g. `call:fetch`, `call:request`, `call:XA.CODES.get`. */
   mechanism: string;
+  /**
+   * Studio's verdict on whether this REA candidate is a real network endpoint (T012).
+   * A Studio inference on top of REA's fact: the node, its value and evidence stay as REA
+   * reported them. Absent = not assessed; unassessed candidates must stay visible.
+   */
+  assessment?: EndpointAssessment;
+}
+
+export interface EndpointAssessment {
+  verdict: 'plausible' | 'unlikely';
+  /** Heuristic name, e.g. `endpoint-shape`. */
+  heuristic: string;
+  /** Human-readable reason, e.g. "An https:// URL passed to fetch". */
+  basis: string;
 }
 
 /** A persisted key (REA `storage`). */
@@ -326,7 +340,7 @@ export interface ManagedTypeNode extends NodeBase<'managed-type'> {
   fullName: string;
   namespace: string;
   name: string;
-  /** Compiler-made types such as `<Module>` or async state machines (`<PushAsync>d__0`). */
+  /** Studio name-pattern heuristic: angle-bracket names such as `<Module>` or `<PushAsync>d__0`. */
   compilerGenerated: boolean;
   /** Field names, from REA `managed-field` nodes (not drawn as nodes of their own). */
   fields: string[];
@@ -502,7 +516,7 @@ export interface TargetInfo {
   /** Package name when known, else the artifact's file/directory name. */
   name: string;
   version: string | null;
-  /** REA `subject.digest.sha256`. Also the cache/dedupe key. */
+  /** REA file digest for shipped artifacts; capture evidence identity for `url` targets, which have no single file digest. */
   sha256: string;
   /**
    * Extracted app directory or shipped ASAR archive, matching REA's artifact format; `pe` for a

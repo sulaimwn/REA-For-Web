@@ -59,7 +59,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - `remember_last` → the Reg* APIs + `Software\TinyNotes`.
   - The CLI takes about 70 s end to end. Demo: `/explore/tiny-native`.
 - Not yet: decompiled code (`procedure_pseudo_code`), and limits for large binaries. Every function costs one `procedure_callees` call, so very large programs need a cap or REA's `get_call_graph`.
-- For the worker: Ghidra (Apache-2.0) runs headless on Linux, so it fits a Docker image: JDK 21 + Ghidra 12.1.x, roughly 1 GB more. Native analysis is slower than JS, so it needs its own time and CPU limits. A separate image tag is recommended (`rea-studio-worker-native`).
+- Hosted: T024 (`claude/T024-native-worker`, in review) adds a separate worker image with JDK 21 + Ghidra 12.1.4 and `.exe`/`.dll` jobs under the same sandbox. Local provider setup alone does not enable hosted native uploads; the upload pipeline still accepts `.asar` only.
 
 ### Apple
 - Inventory projection works on any host. Mach-O, plist and code-signature details need macOS tools that a Linux worker doesn't have.
@@ -87,19 +87,20 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 1. **.NET**: no new tools. Schema proposal plus a working prototype on `claude/T021-dotnet-prototype`.
 2. **Websites**: no new analyzer, but needs the capture sandbox. Design above; Codex owns the worker.
 3. **Android**: needs the jadx JAR (human approval). Reuses the "bridge" UI for `addJavascriptInterface`.
-4. **Native**: needs Ghidra (human approval), and a new worker image and limits.
+4. **Native**: Ghidra is human-approved; needs a separately reviewed worker image and limits.
 5. **Apple**: inventory-only on Linux.
 
-## Schema proposal (needs Codex's agreement before merge)
+## Reviewed schema scope
 See `notes/handoffs/2026-10-13-T021-claude.md`. In short:
-- `target.appKind` gains `dotnet`, `android`, `native`, `apple`, `web`.
+- `target.appKind` gains `dotnet` and `web`; `format` gains `pe` and `url`.
+  Android, native and Apple kinds still need their own fixture-backed proposals.
 - New node kinds:
   - `assembly` (managed assembly + module)
   - `managed-type`
   - `managed-method`
   - `native-import` (a P/Invoke or native import, with library and entry point)
-  - `native-library` (a DLL or `.so` the app declares it loads)
   - `external-member` (a called API outside the app)
 - New relation: `calls` already exists and is reused.
-- `FindingCategory` gains `types`, `methods`, `native-imports`, `references`, `resources`.
+- `FindingCategory` gains `types`, `methods`, `native-imports`, `external-apis`.
+  References and resources are assembly facts rather than separate findings.
 - Kinds that only make sense for one target never appear for others; existing Electron projects are unchanged.

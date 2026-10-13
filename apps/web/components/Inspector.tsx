@@ -3,7 +3,7 @@
 import type { Evidence, StudioEdge, StudioNode } from '@rea-studio/schema';
 import { useMemo, useState } from 'react';
 import type { Focus } from '../lib/graph-view';
-import { displayName, KIND_META, KIND_ORDER, type ProjectIndex } from '../lib/project';
+import { displayName, isUnlikelyEndpoint, KIND_META, KIND_ORDER, type ProjectIndex } from '../lib/project';
 import { KindGlyph } from './KindGlyph';
 
 interface Props {
@@ -35,7 +35,14 @@ function facts(n: StudioNode): Fact[] {
     case 'native-addon':
       return [['Path', n.path], ['Size', n.bytes === null ? null : `${(n.bytes / 1024).toFixed(0)} KB`]];
     case 'endpoint':
-      return [['Value', n.value], ['Kind', n.endpointKind], ['Found via', n.mechanism], ['Note', 'REA candidate, unfiltered; may not be a real endpoint']];
+      return [
+        ['Value', n.value],
+        ['Kind', n.endpointKind],
+        ['Found via', n.mechanism],
+        n.assessment
+          ? [`Studio verdict (${n.assessment.heuristic})`, `${n.assessment.verdict === 'plausible' ? 'Plausible endpoint' : 'Unlikely to be an endpoint'}. ${n.assessment.basis}`]
+          : ['Note', 'REA candidate, not assessed; may not be a real endpoint'],
+      ];
     case 'storage':
       return [['Key', n.name], ['Kind', n.storageKind], ['Found via', n.mechanism]];
     case 'worker':
@@ -79,7 +86,7 @@ function facts(n: StudioNode): Fact[] {
       return [
         ['Full name', n.fullName],
         ['Namespace', n.namespace || '(global)'],
-        ['Compiler-generated', n.compilerGenerated],
+        ['Compiler-style name (Studio heuristic)', n.compilerGenerated],
         ['Fields', n.fields.join(', ') || 'none'],
       ];
     case 'managed-method':
@@ -164,7 +171,11 @@ function EvidenceList({ records }: { records: Evidence[] }) {
 function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; title: string; edges: StudioEdge[]; other: (e: StudioEdge) => string; onSelect: (id: string) => void }) {
   const [all, setAll] = useState(false);
   const sorted = useMemo(() => {
-    const rank = (e: StudioEdge) => KIND_ORDER.indexOf(ix.byId.get(other(e))?.kind ?? 'analysis-gap');
+    // Unlikely endpoint candidates (T012) go last, after everything REA found.
+    const rank = (e: StudioEdge) => {
+      const n = ix.byId.get(other(e));
+      return (n && isUnlikelyEndpoint(n) ? 1000 : 0) + KIND_ORDER.indexOf(n?.kind ?? 'analysis-gap');
+    };
     return [...edges].sort((a, b) => rank(a) - rank(b));
   }, [edges, ix, other]);
   if (edges.length === 0) return null;
@@ -190,6 +201,7 @@ function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; ti
                 <KindGlyph kind={n.kind} />
                 <span className="relations__name">{displayName(n)}</span>
               </button>
+              {isUnlikelyEndpoint(n) && <span className="rel-heur" title={n.kind === 'endpoint' ? n.assessment?.basis : undefined}>unlikely</span>}
             </li>
           );
         })}

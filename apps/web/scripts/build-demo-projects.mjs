@@ -72,6 +72,7 @@ const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
     blurb,
     name: project.target.name,
     version: project.target.version,
+    appKind: project.target.appKind,
     nodes: project.nodes.length,
     edges: project.edges.length,
     coverage: project.analysis.coverage.status,

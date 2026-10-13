@@ -7,6 +7,8 @@ export interface DemoEntry {
   blurb: string;
   name: string;
   version: string | null;
+  /** `StudioProject.target.appKind`; lets the MCP endpoint list demos without loading them. */
+  appKind: string;
   nodes: number;
   edges: number;
   coverage: string;
@@ -164,6 +166,11 @@ function shortType(fullName: string): string {
 export function basename(path: string): string {
   const i = path.lastIndexOf('/');
   return i === -1 ? path : path.slice(i + 1);
+}
+
+/** An REA endpoint candidate Studio's `endpoint-shape` heuristic judged unlikely (T012). Hidden by default, never removed. */
+export function isUnlikelyEndpoint(n: StudioNode): boolean {
+  return n.kind === 'endpoint' && n.assessment?.verdict === 'unlikely';
 }
 
 /** Text a search query matches against. */
