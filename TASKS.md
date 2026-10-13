@@ -48,9 +48,19 @@ Details for a task go under its heading below the table.
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
-| T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | in progress | T026, R005, T037 |
+| T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
+| T039 | Hosted uploads after a budget x86 8 GB server becomes available; human chose to wait for CX33 | codex | blocked | T026, T038 |
 
 ---
+
+### T039 — Deferred analysis hosting
+The human chose to wait for the US$10.59/month-before-tax CX33 rather than the
+available US$42.59 CPX32. Keep public demos and local-project opening live.
+Hetzner verification is complete, private R2/CORS/one-day raw-file cleanup are
+configured, and no server has been purchased. Actual CX33 stock was unavailable
+in all three European locations. Recheck on a later development wake; do not
+select the more expensive host, lower sandbox limits or purchase automatically.
+See `notes/handoffs/2026-10-13-T038-codex.md` for launch evidence and next steps.
 
 ### T036 — Object-storage deadlines
 Reproduce the installed SDK's warning-only request timeout against a stalled
