@@ -22,6 +22,9 @@
     "typecheck": "npm run build:packages && npm run typecheck --workspaces",
     "start": "npm run start --workspace=@rea-studio/web"
   },
+  "overrides": {
+    "next": "16.3.8"
+  },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "~5.9.3"
