@@ -37,8 +37,16 @@ Details for a task go under its heading below the table.
 | T026 | Hosted uploads: Linux web deployment, private queue and worker service | codex | done | T025 |
 | T027 | Analysis speed: measure a per-file analysis cap for big bundled libraries; pre-analyze popular apps for instant results | claude | in progress | T025 |
 | T028 | Linux programs (ELF) through REA's Ghidra provider: fixture with answer key, adapter, CLI, worker admission proposal | claude | in progress | T021, T024 |
+| T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | in progress | T025 |
 
 ---
+
+### T029 — Queue progress recovery
+Reproduce the processor waiting indefinitely on a Redis progress write, then
+bound those writes without publishing a result whose progress persistence failed.
+Verify failed analysis still removes its raw upload and staging, terminal errors
+remain sanitized, and ordinary progress/result publication remains intact. No
+upload API or schema changes; do not overlap Claude's speed/ELF work.
 
 ### T026 — Hosted upload deployment preparation
 Prepare a provider-independent Linux deployment for the existing upload API:
