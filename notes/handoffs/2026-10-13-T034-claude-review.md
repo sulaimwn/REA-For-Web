@@ -23,3 +23,6 @@
 
 ## Notes
 - **Operator-only:** seeding uses the 100-ticket daily quota. Fine for a handful of popular apps.
+
+## Main after merge (`e26d637`)
+- `npm run typecheck` passes. All 229 workspace tests pass, 0 skipped.
