@@ -14,7 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { gunzipSync } from 'node:zlib';
 import { LocalStore, uploadKey, resultKey, R2Store } from '../src/storage.js';
-import { validateUpload, MAX_UPLOAD_BYTES, UPLOAD_KINDS, uploadKind } from '../src/contracts.js';
+import { validateUpload, MAX_UPLOAD_BYTES, UPLOAD_KINDS, UPLOAD_EXTENSIONS, UPLOAD_ACCEPT, uploadKind } from '../src/contracts.js';
 import { processUpload, expireStaging } from '../src/processor.js';
 import { UploadControl, type PipelineConfig, type UploadRecord } from '../src/server.js';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -123,12 +123,20 @@ test('upload admission rejects hostile paths, wrong format, oversized files and 
   for (const patch of [
     { name: '../tiny.asar' },
     { name: 'tiny.zip' },
+    { name: 'tiny-notes' },
+    { name: 'libnotes.so.1' },
     { bytes: MAX_UPLOAD_BYTES + 1 },
     { bytes: 1.5 },
     { sha256: 'a' },
     { name: 'tiny\0.asar' },
   ])
     assert.throws(() => validateUpload({ ...request, ...patch }));
+});
+test('ELF and shared-library filename aliases use the same analysis kind and file picker', () => {
+  for (const name of ['tiny.elf', 'libnotes.so', 'libnotes.SO']) {
+    assert.equal(uploadKind(validateUpload({ ...request, name }).name), 'elf');
+  }
+  assert.equal(UPLOAD_ACCEPT, '.asar,.exe,.dll,.apk,.elf,.so');
 });
 test('signed local uploads validate expiry, signature, size and SHA before publication', async (t) => {
   const { store } = await setup(t),
@@ -231,7 +239,36 @@ test('program kinds reach the runner with their extension, partition caches, and
       assert.deepEqual(await readdir(config.workRoot), []);
     }
   }
-  assert.equal(calls, 4, 'the same bytes under a different kind must be analyzed again');
+  assert.equal(calls, UPLOAD_KINDS.length, 'the same bytes under a different kind must be analyzed again');
+});
+
+test('ELF aliases deduplicate only after verified bytes, retain canonical staging, and clean raw uploads', async (t) => {
+  const { config, store, root } = await setup(t);
+  let calls = 0;
+  const analyze = async ({ targetPath, targetName }: { targetPath: string; targetName: string }) => {
+    assert.equal(targetName, 'target.elf');
+    assert.ok(targetPath.endsWith('target.elf'));
+    assert.deepEqual(await readFile(targetPath), bytes);
+    calls++;
+    const projectPath = join(root, 'elf-result.json');
+    await writeFile(projectPath, JSON.stringify({ id: projectId }));
+    return { projectPath, projectId };
+  };
+  for (const [name, cached] of [['notes.elf', false], ['libnotes.SO', true]] as const) {
+    const r = { ...record(), name };
+    await receive(store, r);
+    const result = await processUpload(config, { data: r, updateProgress: async () => {} }, analyze);
+    assert.equal(result.cacheHit, cached);
+    assert.equal(result.resultKey, resultKey(r.sha256, 'elf'));
+    assert.equal(await store.head(uploadKey(r.id, 'elf')), null);
+  }
+  const tampered = { ...record(), name: 'tampered.so' };
+  await receive(store, tampered);
+  await writeFile(join(root, 'objects', uploadKey(tampered.id, 'elf')), Buffer.alloc(bytes.length));
+  await assert.rejects(processUpload(config, { data: tampered, updateProgress: async () => {} }, analyze));
+  assert.equal(calls, 1, 'cache reuse must not bypass possession verification for either alias');
+  assert.equal(await store.head(uploadKey(tampered.id, 'elf')), null);
+  assert.deepEqual(await readdir(config.workRoot), []);
 });
 
 test('renaming a cached artifact cannot bypass the new kind’s parser or publish a result', async (t) => {
@@ -243,16 +280,18 @@ test('renaming a cached artifact cannot bypass the new kind’s parser or publis
     await writeFile(projectPath, '{}');
     return { projectPath, projectId };
   });
-  const renamed = { ...record(), name: 'renamed.exe' };
-  await receive(store, renamed);
-  let analyzed = false;
-  await assert.rejects(processUpload(config, { data: renamed, updateProgress: async () => {} }, async () => {
-    analyzed = true;
-    throw Object.assign(new Error('invalid executable'), { code: 'invalid_input' });
-  }), /invalid_input/);
-  assert.equal(analyzed, true);
-  assert.equal(await store.head(resultKey(renamed.sha256, 'exe')), null);
-  assert.equal(await store.head(uploadKey(renamed.id, 'exe')), null);
+  for (const name of ['renamed.exe', 'renamed.elf', 'renamed.so']) {
+    const renamed = { ...record(), name }, kind = uploadKind(name)!;
+    await receive(store, renamed);
+    let analyzed = false;
+    await assert.rejects(processUpload(config, { data: renamed, updateProgress: async () => {} }, async () => {
+      analyzed = true;
+      throw Object.assign(new Error('invalid binary'), { code: 'invalid_input' });
+    }), /invalid_input/);
+    assert.equal(analyzed, true);
+    assert.equal(await store.head(resultKey(renamed.sha256, kind)), null);
+    assert.equal(await store.head(uploadKey(renamed.id, kind)), null);
+  }
   assert.deepEqual(await readdir(config.workRoot), []);
 });
 
@@ -353,8 +392,9 @@ test('R2 upload signature binds object key, type, length, and a ten-minute expir
     credentials: { accessKeyId: 'test', secretAccessKey: 'not-a-real-key' },
   });
   const store = new R2Store(client, 'private-bucket'), id = randomUUID();
-  for (const kind of UPLOAD_KINDS) {
-    const ticket = await store.signUpload(id, { ...request, name: `app.${kind}` }, 'https://studio.example');
+  for (const extension of UPLOAD_EXTENSIONS) {
+    const kind = uploadKind(`app.${extension}`)!;
+    const ticket = await store.signUpload(id, { ...request, name: `app.${extension}` }, 'https://studio.example');
     const url = new URL(ticket.url);
     assert.ok(url.pathname.endsWith(uploadKey(id, kind)));
     assert.equal(url.searchParams.get('X-Amz-Expires'), '600');

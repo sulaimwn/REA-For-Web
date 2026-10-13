@@ -12,6 +12,13 @@ it('uses each job filename for missing package metadata without changing the cac
   assert.equal(projectForUpload(cached), cached);
 });
 
+it('uses each ELF alias filename without reusing another uploader’s cache label', () => {
+  const cached = { target: { name: 'target.elf' }, nodes: [] };
+  assert.equal(projectForUpload(cached, 'my-program.elf').target.name, 'my-program.elf');
+  assert.equal(projectForUpload(cached, 'libnotes.so').target.name, 'libnotes.so');
+  assert.equal(cached.target.name, 'target.elf');
+});
+
 it('preserves the package name from real REA facts when available', () => {
   const raw = JSON.parse(readFileSync(new URL('../../../fixtures/samples/tiny-electron.rea-6.4.0.json', import.meta.url), 'utf8'));
   const project = toStudioProject(raw, { reaVersion: '6.4.0' });

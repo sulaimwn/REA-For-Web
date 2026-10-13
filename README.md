@@ -9,7 +9,7 @@ from source maps. Click anything to see exactly where REA found it
 (`file:line:column`), whether it was observed or inferred, and what REA
 couldn't determine.
 
-Supported targets include Electron apps, .NET assemblies, native Windows
+Supported targets include Electron apps, .NET assemblies, native Windows/Linux
 programs, Android APKs and website captures. Each target has its own findings:
 .NET types and calls, native functions and imports, Android components and
 permissions, or website scripts and frameworks.
@@ -107,8 +107,9 @@ including measurements and known limitations.
 This is an early preview. The demo shows **pre-analyzed open-source apps**, and
 local mode lets you analyze and view an app entirely on your own machine.
 Uploading your own app is available locally with `npm run dev:uploads`.
-Choose an `.asar`, `.exe`, `.dll` or `.apk` file. The full upload → queue → Docker
-analysis → explorer flow is tested with public fixtures for all four file kinds,
+Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf` or `.so` file. Linux programs
+without an extension should be renamed to `.elf` before uploading.
+The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all five analysis kinds,
 including Ghidra and JADX analysis. The helper builds both worker images by
 default. Cloudflare R2 and the hosted analysis backend are not connected yet.
 See [upload setup and API](docs/uploads.md).

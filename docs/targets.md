@@ -68,6 +68,8 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
     - The fixture is collected inside the native worker image.
     - The CLI recognizes ELF by its header and explains the host requirement on Windows.
     - The worker accepts `.elf`/`.so` jobs in the native image.
+    - The upload form admits explicit `.elf`/`.so` filenames, both using the `elf`
+      parser/cache namespace. Rename extensionless programs to `.elf` first.
   - **Imports:** this collected ELF evidence does not attribute a providing library (Ghidra reports `<EXTERNAL>::name`), so imports are shown by symbol only.
   - **Entry point:** `_start` is marked as the entry.
   - Demo: `/explore/tiny-linux`.
@@ -86,7 +88,10 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - `remember_last` → the Reg* APIs + `Software\TinyNotes`.
   - The CLI takes about 70 s end to end. Demo: `/explore/tiny-native`.
 - Not yet: decompiled code (`procedure_pseudo_code`), and limits for large binaries. Every function costs one `procedure_callees` call, so very large programs need a cap or REA's `get_call_graph`.
-- Hosted: T024 (`claude/T024-native-worker`, in review) adds a separate worker image with JDK 21 + Ghidra 12.1.4 and `.exe`/`.dll` jobs under the same sandbox. Local provider setup alone does not enable hosted native uploads; the upload pipeline still accepts `.asar` only.
+- Uploads: the reviewed native image ships JDK 21 + Ghidra 12.1.4 and JADX under
+  the same sandbox. The local pipeline accepts `.asar`, `.exe`, `.dll`, `.apk`,
+  `.elf` and `.so`. Hosted uploads still need an analysis host and private storage;
+  local provider installation alone does not create that service.
 
 ### Apple
 - Inventory projection works on any host. Mach-O, plist and code-signature details need macOS tools that a Linux worker doesn't have.
