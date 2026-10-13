@@ -153,7 +153,8 @@ than disabling that test guard.
 - Preserve Redis/R2 data and the queue prefix across releases. Never use
   `docker compose down --volumes` during an update; that destroys queue state.
 - Let the current job finish before stopping/updating the queue. The systemd
-  stop timeout covers the maximum configured job deadline plus cleanup. Build
+  37-minute stop grace includes the 30-minute maximum analysis setting, five
+  one-minute storage/transfer steps and two minutes of shutdown headroom. Build
   images and compiled host code before replacing a reviewed release.
 - Tag the web image with its reviewed commit, keep the previous image and host
   checkout, then recreate only the web service and restart the queue. Keep the
