@@ -22,16 +22,30 @@ export default function HomePage() {
           <div>
             <h1>See how an app is put together.</h1>
             <p>
-              REA for Web reads an app’s shipped files and maps how it’s built: an Electron app’s processes, windows, preload
-              bridges and IPC channels, or a .NET program’s types, call graph and calls into native code. Each part comes with
-              REA’s evidence. Program files are never executed; website capture loads the requested page in a fresh browser.
+              Give REA for Web an app and it maps how it’s built: an Electron app’s processes, preload bridges and IPC
+              channels; a Windows or Linux program’s functions and the system calls they make; an Android app’s components,
+              permissions and code. Each part comes with REA’s evidence. Uploaded apps are read, never run.
             </p>
+            <div className="intro__try">
+              {uploadHref ? (
+                <Link className="btn btn--primary" href={uploadHref}>Upload your own app</Link>
+              ) : (
+                <Link className="btn btn--primary" href="/open">Map your own app</Link>
+              )}
+              <span className="muted">
+                {uploadHref
+                  ? 'Or analyze it on your own machine and open the result here.'
+                  : 'Analyze it on your own machine with the free CLI, then open the result here. Nothing is uploaded.'}
+              </span>
+            </div>
           </div>
           <dl className="spec">
             <div>
               <dt>Reads</dt>
               <dd>
-                Electron apps (a folder or <code>.asar</code>) and .NET programs (<code>.exe</code>, <code>.dll</code>)
+                Electron apps (<code>.asar</code> or a folder), Windows programs (<code>.exe</code>, <code>.dll</code>: .NET
+                or native), Linux programs (<code>.elf</code>, <code>.so</code>), Android apps (<code>.apk</code>) and, on your
+                own machine, websites by URL
               </dd>
             </div>
             <div>
@@ -53,8 +67,6 @@ export default function HomePage() {
             </div>
           </dl>
         </section>
-
-        {uploadHref && <p><Link className="btn btn--primary" href={uploadHref}>Upload your own app</Link></p>}
 
         {demos.length > 0 ? (
           <LandingDemo demos={demos} />

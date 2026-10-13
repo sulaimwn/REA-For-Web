@@ -147,6 +147,7 @@ button { font: inherit; color: inherit; }
 .intro { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 48px; align-items: end; padding: 44px 0 28px; }
 .intro h1 { font-size: clamp(32px, 4.4vw, 52px); font-weight: 800; margin: 0 0 16px; max-width: 14em; }
 .intro p { margin: 0; max-width: 38em; color: var(--ink-2); }
+.intro__try { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 20px; font-size: 14px; }
 .spec { margin: 0; font-size: 14px; border-top: 1.5px solid var(--ink); }
 .spec > div { display: grid; grid-template-columns: 88px 1fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
 .spec dt { color: var(--ink-3); }
@@ -157,6 +158,9 @@ button { font: inherit; color: inherit; }
 .specimen__bar .tabs { border-bottom: 0; }
 .specimen__bar .tab { padding: 10px 0 9px; }
 .specimen__open { margin-left: auto; font-size: 13px; }
+.specimen__groups { display: flex; flex-wrap: wrap; column-gap: 28px; min-width: 0; max-width: 100%; }
+.specimen__group { display: flex; align-items: baseline; gap: 12px; min-width: 0; max-width: 100%; }
+.specimen__group-label { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .specimen__frame { height: min(78vh, 760px); min-height: 520px; display: flex; }
 .specimen__frame > * { flex: 1; min-width: 0; }
 .specimen__frame .center { height: auto; }
@@ -412,4 +416,5 @@ button { font: inherit; color: inherit; }
   .site-head__end { margin-left: 0; }
   .specimen__bar .tabs { overflow-x: auto; max-width: 100%; }
   .specimen__bar .tab { white-space: nowrap; }
+  .specimen__group { flex-direction: column; gap: 0; max-width: 100%; }
 }

@@ -42,7 +42,7 @@ Details for a task go under its heading below the table.
 | T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | done | T025 |
 | R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
 | T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | done | T028, R004, T025 |
-| T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | in progress | T031 |
+| T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | review | T031 |
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | review | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | in progress | T030, T031, T033 |
 
