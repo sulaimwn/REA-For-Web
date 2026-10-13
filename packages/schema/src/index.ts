@@ -379,7 +379,7 @@ export interface NativeFunctionNode extends NodeBase<'native-function'> {
   address: string;
   /** Symbol name, or Ghidra's `FUN_<address>` when the binary has no symbol. */
   name: string;
-  /** The program's entry point (`entry`, or a C runtime start symbol). */
+  /** Studio symbol-name heuristic (`entry`, or a C runtime start symbol); not a verified header entry address. */
   entryPoint: boolean;
 }
 

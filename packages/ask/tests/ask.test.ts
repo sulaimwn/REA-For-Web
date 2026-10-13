@@ -36,6 +36,19 @@ describe('ask tools', () => {
     assert.deepEqual(n.evidence.items.map((e: { at: string }) => e.at).sort(), ['src/main/main.js:17:0', 'src/preload.js:4:18']);
   });
 
+  it('explains native and Android entry flags as Studio heuristics', () => {
+    for (const [fixture, kind] of [
+      ['tiny-native.rea-6.4.0.json', 'native-function'],
+      ['tiny-android.rea-6.4.0.json', 'managed-method'],
+    ] as const) {
+      const graph = indexGraph(project(fixture));
+      const entry = graph.project.nodes.find((n) => n.kind === kind && n.entryPoint);
+      assert.ok(entry);
+      const node = call(graph, 'get_node', { id: entry.id });
+      assert.match(node.facts.classificationNote, /Studio.*heuristic/);
+    }
+  });
+
   it('get_neighbors follows IPC links with their evidence', () => {
     const preloadFile = tiny.project.nodes.find((n) => n.kind === 'file' && n.path === 'src/preload.js');
     assert.ok(preloadFile);

@@ -52,6 +52,8 @@ interface MethodInfo { name?: unknown; overload_index?: unknown }
 interface ClassResult { class_name?: unknown; methods?: MethodInfo[]; fields?: { name?: unknown }[]; inner_classes?: unknown[] }
 interface MethodResult { body_status?: unknown; source?: { text?: unknown; status?: unknown } }
 interface Reference { kind?: unknown; reported_full_name?: unknown; containing_class?: unknown; top_class?: unknown }
+const limitationsOf = (env: Envelope | undefined): string[] => Array.isArray(env?.limitations)
+  ? env.limitations.filter((l): l is string => typeof l === 'string') : [];
 
 /** True for a bundle of REA Android (JADX) tool results. */
 export function isAndroidBundle(raw: unknown): boolean {
@@ -117,7 +119,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
     authority: env?.authority ?? 'shipped-artifact',
     extractor,
     location: { kind: 'artifact-path', file: env?.locations?.find((l) => typeof l.path === 'string')?.path ?? fallbackFile },
-    limitations: [],
+    limitations: limitationsOf(env),
   });
   const rea: Origin = { source: 'rea' };
   const manifestEvidence = evidenceFrom(pkgEnv, 'inspect_android_package', 'AndroidManifest.xml');
@@ -149,7 +151,8 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
 
   // The APK, its package and what the manifest declares.
   const root = id('apk');
-  addNode({ id: root, kind: 'file', label: fileName, evidence: [manifestEvidence], origin: rea, path: '', fileKind: 'other', bytes: null, parseStatus: 'complete', analysisIssue: null });
+  addNode({ id: root, kind: 'file', label: fileName, evidence: [manifestEvidence], origin: rea, path: '', fileKind: 'other', bytes: null,
+    parseStatus: manifestText && pkg.manifest?.status === 'complete' ? 'complete' : 'partial', analysisIssue: null });
   const components = manifestComponents(manifestText, packageName ?? '');
   const launcher = components.find((c) => c.launcher)?.className ?? null;
   const packageId = id('package');
@@ -218,8 +221,8 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       const key = `${className}#${m.name}#${overload}`;
       const decompiled = (methodEnvs[key]?.normalized_result ?? null) as MethodResult | null;
       const body = typeof decompiled?.source?.text === 'string' ? decompiled.source.text : '';
-      // Constructors and static initializers with nothing in them, and compiler-made methods, add noise only.
-      const emptyInit = (m.name === '<init>' || m.name === '<clinit>') && (decompiled?.body_status !== 'available' || /\)\s*\{\s*\}\s*$/u.test(body.trim()));
+      // A missing body is unknown, not proof of an empty initializer.
+      const emptyInit = (m.name === '<init>' || m.name === '<clinit>') && decompiled?.body_status === 'available' && /\)\s*\{\s*\}\s*$/u.test(body.trim());
       if (emptyInit || SYNTHETIC_METHOD.test(m.name)) {
         skippedSynthetic++;
         continue;
@@ -237,9 +240,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
 
   // REA: which classes' code refers to each top-level class.
   const classIdFor = (raw: string) => {
-    if (classNodeId.has(raw)) return classNodeId.get(raw);
-    const stripped = raw.replace(/\$\$.*$|\$\d+$/u, '');
-    return classNodeId.get(stripped);
+    return classNodeId.get(raw);
   };
   for (const [target, env] of Object.entries(referenceEnvs)) {
     const targetId = classNodeId.get(target);
@@ -270,7 +271,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   };
   const heuristic = (rule: string, basis: string, env: Envelope | undefined, limitation: string) => ({
     origin: { source: 'studio-heuristic', heuristic: rule, basis } as Origin,
-    evidence: { state: 'inferred', confidence: 'medium', authority: 'studio-heuristic', extractor: rule, location: evidenceFrom(env, rule, 'classes.dex').location, limitations: [limitation] } as Evidence,
+    evidence: { state: 'inferred', confidence: 'medium', authority: 'studio-heuristic', extractor: rule, location: evidenceFrom(env, rule, 'classes.dex').location, limitations: [...limitationsOf(env), limitation] } as Evidence,
   });
   const addHeuristicEdge = (rule: string, source: string, target: string, relation: StudioEdge['relation'], h: ReturnType<typeof heuristic>, mechanism: string) => {
     if (addEdge({ id: `heuristic:${rule}:${source}->${target}`, source, target, relation, evidence: h.evidence, origin: h.origin, details: { mechanism } })) {
@@ -329,7 +330,8 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       for (const m of code.matchAll(INTENT_TARGET)) {
         const target = resolveClass(m[1] as string, className);
         if (!target) continue;
-        const h = heuristic(ANDROID_RULES.intent, `${start}(new Intent(…, ${m[1]}.class))`, env, FROM_CODE);
+        const h = heuristic(ANDROID_RULES.intent, `${start} and new Intent(…, ${m[1]}.class) appear in the same method`, env,
+          `${FROM_CODE} The Intent's connection to the start call's arguments is not resolved.`);
         addHeuristicEdge(ANDROID_RULES.intent, methodId, classNodeId.get(target) as string, 'invokes', h, start);
       }
     }
@@ -350,7 +352,13 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   const skippedClasses = typeof collection.skipped_classes === 'number' ? collection.skipped_classes : 0;
   const skippedMethods = typeof collection.skipped_methods === 'number' ? collection.skipped_methods : 0;
   const undecompiled = [...methodNodeId.keys()].filter((k) => (methodEnvs[k]?.normalized_result as MethodResult | null)?.body_status !== 'available').length;
-  const coverage = skippedClasses > 0 || skippedMethods > 0 ? 'partial' : 'complete';
+  const searchEnv = b['search_android_classes'] as Envelope | undefined;
+  const queryCoverage = [searchEnv, ...Object.values(referenceEnvs)].map((e) => (e?.normalized_result as { coverage?: unknown } | null)?.coverage);
+  const missingClasses = Object.values(classEnvs).filter((e) => !e?.normalized_result).length;
+  const missingManifest = !manifestText || pkg.manifest?.status !== 'complete';
+  const incompleteQueries = queryCoverage.some((c) => c !== 'complete') || !searchEnv || missingClasses > 0 || report.droppedEdgesDanglingEndpoint > 0;
+  const capped = skippedClasses > 0 || skippedMethods > 0;
+  const coverage = capped || undecompiled > 0 || missingManifest || incompleteQueries ? 'partial' : 'complete';
   const of = <K extends StudioNode['kind']>(kind: K) => nodes.filter((n): n is Extract<StudioNode, { kind: K }> => n.kind === kind);
   const finding = (category: FindingCoverage['category'], count: number, notes: string[], unresolvedCount = 0): FindingCoverage => ({
     category, status: count > 0 ? 'found' : 'not-found', count, unresolvedCount, coverage,
@@ -358,14 +366,17 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   });
   const heuristicNote = 'Read from REA’s decompiled Java by Studio patterns (labeled as heuristic)';
   const exported = of('android-component').filter((c) => c.exported);
-  const limitations = [...new Set([pkgEnv, ...Object.values(classEnvs).slice(0, 1), ...Object.values(methodEnvs).slice(0, 1), ...Object.values(referenceEnvs).slice(0, 1)]
-    .flatMap((e) => (Array.isArray(e?.limitations) ? (e.limitations as unknown[]) : []))
-    .filter((l): l is string => typeof l === 'string'))];
+  const limitations = [...new Set([pkgEnv, searchEnv, ...Object.values(classEnvs), ...Object.values(methodEnvs), ...Object.values(referenceEnvs)].flatMap(limitationsOf))];
   limitations.push(
     'Bridges, loaded pages, URLs, storage names, Intent targets and network APIs are read from REA’s decompiled Java with Studio patterns.',
     'Values held in constants (static final fields) aren’t visible in method-level decompilation, so URLs and names stored that way are missed.',
   );
   if (skippedClasses || skippedMethods) limitations.push(`Not analyzed to stay within limits: ${skippedClasses} classes and ${skippedMethods} methods.`);
+  if (undecompiled) limitations.push(`${undecompiled} listed methods have no available decompiled body; their behavior is unknown, including any constructors or static initializers.`);
+  if (missingManifest) limitations.push('The decoded manifest is missing or incomplete; component declarations may be missing.');
+  if (incompleteQueries) limitations.push('Some class or reference queries are missing, incomplete or unresolved.');
+  if (manifestText.includes('<activity-alias')) limitations.push('Activity aliases are grouped with their target for launcher/actions; the exported flag describes the target activity only. Alias access rules may differ.');
+  limitations.push('Entry-point and compiler-style name flags are Studio heuristics over the manifest and symbol names.');
 
   const project: StudioProject = {
     schemaVersion: STUDIO_SCHEMA_VERSION,
@@ -374,20 +385,20 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
     analysis: {
       engine: { package: 'rea-agents', version: options.reaVersion, operation: 'inspect_android_package' },
       reaEvidenceId: pkgEnv.evidence_id ?? '',
-      coverage: { status: coverage, truncated: coverage === 'partial', limits: [] },
+      coverage: { status: coverage, truncated: capped, limits: [] },
       limitations,
       statistics: { relevantFiles: classNames.length, parsedJavascriptFiles: 0, parseFailures: undecompiled, findings: nodes.length },
       filesWithAnalysisIssues: 0,
       omitted: [],
     },
     findings: [
-      finding('components', of('android-component').length, [`${exported.length} exported (other apps can start them)`, ...(launcher ? [`Launcher: ${launcher.split('.').pop()}`] : [])]),
+      finding('components', of('android-component').length, [`${exported.length} declared exported (access can also depend on permissions)`, ...(launcher ? [`Launcher: ${launcher.split('.').pop()}`] : [])]),
       finding('permissions', of('android-permission').length, typeof pkg.target_sdk === 'string' ? [`minSdk ${String(pkg.min_sdk)}, targetSdk ${pkg.target_sdk}`] : []),
       finding('bridge-apis', of('bridge-api').length, [heuristicNote]),
       finding('endpoints', of('endpoint').length, [heuristicNote]),
       finding('storage', of('storage').length, [heuristicNote]),
       finding('types', of('managed-type').length, [`${classNames.length} app classes inspected (components are listed as components); bundled libraries left out`]),
-      finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body (native or abstract)`] : []), ...(skippedSynthetic ? [`${skippedSynthetic} empty constructors and compiler-made methods left out`] : [])]),
+      finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body; reason unknown`] : []), ...(skippedSynthetic ? [`${skippedSynthetic} proven empty initializers or compiler-style method names left out (Studio heuristic)`] : [])]),
     ],
     ipcSummary: {
       operations: 0, literalChannels: 0, dynamicChannelOperations: 0, rendererTransmissions: 0, rendererListeners: 0,

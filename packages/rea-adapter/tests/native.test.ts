@@ -62,6 +62,34 @@ describe('native program (REA + Ghidra) adapter', () => {
   it('rejects a bundle without a digest', () => {
     assert.throws(() => toStudioProject({ binary_overview: {}, list_procedures: { normalized_result: [] } }, { reaVersion: '6.4.0' }), ReaOutputError);
   });
+
+  it('keeps observed strings but labels classification and behavioral links as Studio inference', () => {
+    const stringNodes = project.nodes.filter((n) => n.kind === 'endpoint' || n.kind === 'storage');
+    assert.equal(stringNodes.length, 3);
+    for (const n of stringNodes) {
+      assert.equal(n.origin.source, 'studio-heuristic');
+      assert.ok(n.evidence.some((e) => e.state === 'observed' && e.extractor === 'list_strings'));
+      assert.ok(n.evidence.some((e) => e.state === 'inferred' && e.authority === 'studio-heuristic'));
+      for (const edge of project.edges.filter((e) => e.target === n.id && e.relation !== 'contains')) {
+        assert.equal(edge.origin.source, 'studio-heuristic');
+        assert.equal(edge.evidence.state, 'inferred');
+        assert.ok(edge.evidence.limitations.some((l) => /how it uses it is not analyzed/.test(l)));
+      }
+    }
+    assert.ok(project.edges.some((e) => e.relation === 'calls' && e.origin.source === 'rea' && e.evidence.state === 'observed'));
+    assert.ok(project.analysis.limitations.some((l) => /Only Ghidra-defined string Data/.test(l)));
+  });
+
+  it('marks missing query results as partial and preserves warnings from every query', () => {
+    const changed = structuredClone(raw);
+    const calls = changed['procedure_callees'] as Record<string, { limitations: string[] }>;
+    delete calls[Object.keys(calls)[0]!];
+    Object.values(calls).at(-1)!.limitations.push('Later call warning');
+    const p = adaptReaResult(changed, { reaVersion: '6.4.0' }).project;
+    assert.equal(p.analysis.coverage.status, 'partial');
+    assert.ok(p.analysis.limitations.includes('Later call warning'));
+    assert.ok(p.analysis.limitations.some((l) => /1 callee queries/.test(l)));
+  });
 });
 
 describe('native session (MCP client for `rea --mcp`)', () => {

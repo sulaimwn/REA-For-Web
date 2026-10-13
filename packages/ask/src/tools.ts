@@ -76,13 +76,15 @@ function cap<T>(items: T[], limit = LIST_CAP) {
 const REPORTED_SEPARATELY = new Set(['id', 'label', 'evidence', 'origin']);
 
 /** Kind-specific node fields; id, label, evidence and origin are reported separately. */
-function facts(n: StudioNode): Record<string, unknown> {
+function facts(n: StudioNode, appKind: string): Record<string, unknown> {
   const result = Object.fromEntries(
     Object.entries(n)
       .filter(([k]) => !REPORTED_SEPARATELY.has(k))
       .map(([k, v]) => [k, Array.isArray(v) && v.length > LIST_CAP ? [...v.slice(0, LIST_CAP), `… ${v.length - LIST_CAP} more`] : v]),
   );
   if (n.kind === 'managed-type') result['classificationNote'] = 'compilerGenerated is a Studio name-pattern heuristic; false does not prove a type was not compiler-generated.';
+  if (n.kind === 'native-function') result['classificationNote'] = 'entryPoint is a Studio symbol-name heuristic, not a verified executable entry address.';
+  if (n.kind === 'managed-method' && appKind === 'android') result['classificationNote'] = 'entryPoint is a Studio heuristic for onCreate on the manifest launcher activity; it does not prove runtime execution.';
   return result;
 }
 
@@ -147,7 +149,7 @@ function getNode(g: ProjectGraph, id: string) {
   return {
     ...nodeRef(n),
     origin: n.origin.source === 'rea' ? 'rea' : `studio-heuristic:${n.origin.heuristic}`,
-    facts: facts(n),
+    facts: facts(n, g.project.target.appKind),
     evidence: cap(n.evidence.map(evidenceRef), 10),
     links: { out: g.outgoing.get(id)?.length ?? 0, in: g.incoming.get(id)?.length ?? 0 },
   };

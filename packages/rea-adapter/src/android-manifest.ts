@@ -38,7 +38,8 @@ export function manifestComponents(manifestText: string, packageName: string): M
     const component: ManifestComponent = {
       componentType: tag === 'activity-alias' ? 'activity' : (tag as AndroidComponentType),
       className,
-      exported: exported === null ? null : exported === 'true',
+      // An alias has separate access rules; it cannot change its target's exported flag.
+      exported: tag === 'activity-alias' || exported === null ? null : exported === 'true',
       intentActions,
       authorities: attr(attrs, 'authorities'),
       launcher: intentActions.includes('android.intent.action.MAIN') && categories.includes('android.intent.category.LAUNCHER'),

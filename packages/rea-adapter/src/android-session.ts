@@ -26,6 +26,9 @@ interface ClassResult {
 
 export async function collectAndroidBundle(options: AndroidSessionOptions): Promise<Record<string, unknown>> {
   const { onProgress = () => {}, maxMethods = 1500, maxClasses = 500 } = options;
+  for (const [name, limit] of [['maxMethods', maxMethods], ['maxClasses', maxClasses]] as const) {
+    if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error(`${name} must be a positive safe integer.`);
+  }
   const path = options.apk;
   const session = await openReaSession(options);
   try {

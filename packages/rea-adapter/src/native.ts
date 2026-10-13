@@ -10,7 +10,6 @@
 // edges (import thunks folded into their import), and URL / registry / file strings become endpoint
 // and storage nodes linked from the functions that reference them.
 import {
-  COVERAGE_STATUSES,
   STUDIO_SCHEMA_VERSION,
   type CoverageStatus,
   type Evidence,
@@ -65,7 +64,8 @@ export function nativeProcedureAddresses(listProcedures: unknown): string[] {
     .map((p) => p.address);
 }
 
-const toCoverage = (v: unknown): CoverageStatus => ((COVERAGE_STATUSES as readonly unknown[]).includes(v) ? (v as CoverageStatus) : 'unknown');
+const limitationsOf = (env: Envelope | undefined): string[] => Array.isArray(env?.limitations)
+  ? env.limitations.filter((l): l is string => typeof l === 'string') : [];
 
 export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { project: StudioProject; report: AdapterReport } {
   const b = raw as Record<string, unknown>;
@@ -88,7 +88,7 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
     authority: env?.authority ?? 'shipped-artifact',
     extractor,
     location: { kind: 'artifact-path', file: program },
-    limitations: [],
+    limitations: limitationsOf(env),
   });
   const procEvidence = evidenceFrom(b['list_procedures'] as Envelope, 'list_procedures');
 
@@ -166,12 +166,17 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   for (const [address, env] of Object.entries(xrefs)) {
     const value = stringByAddress.get(address);
     if (!value) continue;
+    const literalEvidence = evidenceFrom(b['list_strings'] as Envelope, 'list_strings');
     const evidence = evidenceFrom(env, 'xrefs');
     const isUrl = URL_STRING.test(value);
     const isRegistry = REGISTRY_STRING.test(value);
+    const rule = 'native-string-classification';
+    const origin = { source: 'studio-heuristic' as const, heuristic: rule, basis: `Classify the observed string ${JSON.stringify(value)} by its spelling.` };
+    const classification: Evidence = { ...literalEvidence, state: 'inferred', authority: 'studio-heuristic', extractor: rule,
+      limitations: [...literalEvidence.limitations, 'A URL, registry path or file-name string does not prove network or storage use.'] };
     const node: StudioNode = isUrl
-      ? { id: `native:${sha256}:string:${address}`, kind: 'endpoint', label: value, evidence: [evidence], origin: { source: 'rea' }, endpointKind: 'network', value, mechanism: 'string-literal' }
-      : { id: `native:${sha256}:string:${address}`, kind: 'storage', label: value, evidence: [evidence], origin: { source: 'rea' }, storageKind: isRegistry ? 'registry' : 'file', name: value, mechanism: 'string-literal' };
+      ? { id: `native:${sha256}:string:${address}`, kind: 'endpoint', label: value, evidence: [literalEvidence, classification], origin, endpointKind: 'network', value, mechanism: 'string-literal' }
+      : { id: `native:${sha256}:string:${address}`, kind: 'storage', label: value, evidence: [literalEvidence, classification], origin, storageKind: isRegistry ? 'registry' : 'file', name: value, mechanism: 'string-literal' };
     nodes.push(node);
     const users = new Set<string>();
     const refs = env?.normalized_result;
@@ -184,7 +189,10 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
       }
     }
     for (const fn of users) {
-      edges.push({ id: `${fn}->${node.id}`, source: fn, target: node.id, relation: isUrl ? 'calls' : 'persists_to', evidence: { ...evidence, state: 'inferred', limitations: ['The function references this string; how it uses it is not analyzed.'] }, origin: { source: 'rea' }, details: { mechanism: 'string reference' } });
+      edges.push({ id: `${fn}->${node.id}`, source: fn, target: node.id, relation: isUrl ? 'calls' : 'persists_to',
+        evidence: { ...evidence, state: 'inferred', authority: 'studio-heuristic', extractor: 'native-string-reference', limitations: [...evidence.limitations, 'The function references this string; how it uses it is not analyzed.'] },
+        origin: { source: 'studio-heuristic', heuristic: 'native-string-reference', basis: 'REA resolves a string reference to this function; Studio infers a possible use from the string spelling.' }, details: { mechanism: 'string reference' } });
+      report.heuristicEdges['native-string-reference'] = (report.heuristicEdges['native-string-reference'] ?? 0) + 1;
     }
     if (users.size === 0) edges.push({ id: `${root.id}->${node.id}`, source: root.id, target: node.id, relation: 'contains', evidence, origin: { source: 'rea' }, details: {} });
   }
@@ -193,14 +201,24 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   const of = <K extends StudioNode['kind']>(kind: K) => nodes.filter((n): n is Extract<StudioNode, { kind: K }> => n.kind === kind);
   const libraries = [...new Set(of('native-import').map((i) => i.library))];
   const named = of('native-function').filter((f) => !/^FUN_/u.test(f.name)).length;
-  const coverage = toCoverage('complete');
+  const missingCalls = nativeProcedureAddresses(b['list_procedures']).filter((a) => !Array.isArray(callees[a]?.normalized_result)).length;
+  const selectedStrings = interestingNativeStrings(b['list_strings']);
+  const missingRefs = selectedStrings.filter((a) => !Array.isArray(xrefs[a]?.normalized_result)).length;
+  const missingContaining = Object.values(xrefs).flatMap((e) => Array.isArray(e?.normalized_result) ? e.normalized_result : [])
+    .filter((ref) => !containing[String(ref)]?.normalized_result).length;
+  const incomplete = !Array.isArray(strings) || missingCalls > 0 || missingRefs > 0 || missingContaining > 0 || report.droppedEdgesDanglingEndpoint > 0;
+  const coverage: CoverageStatus = incomplete ? 'partial' : 'complete';
   const finding = (category: FindingCoverage['category'], count: number, notes: string[]): FindingCoverage => ({
     category, status: count > 0 ? 'found' : 'not-found', count, unresolvedCount: 0, coverage,
     notes: count > 0 ? notes : ['None found. REA static analysis never proves absence, so there may still be some.', ...notes],
   });
-  const limitations = [...new Set([b['binary_overview'], b['list_procedures']].flatMap((e) => (Array.isArray((e as Envelope)?.limitations) ? ((e as Envelope).limitations as unknown[]) : []))
-    .filter((l): l is string => typeof l === 'string'))];
+  const limitations = [...new Set([overview, b['list_procedures'] as Envelope, b['list_strings'] as Envelope,
+    ...Object.values(callees), ...Object.values(xrefs), ...Object.values(containing)].flatMap(limitationsOf))];
   limitations.push('Calls are Ghidra’s resolved direct callees; indirect calls (through pointers or tables) may be missing.');
+  limitations.push('Coverage describes the collected function and defined-string inventory, not every possible behavior in the program.');
+  limitations.push('Entry-point flags use a Studio symbol-name pattern; they do not prove the executable header’s entry address.');
+  limitations.push('Endpoint/storage classification and possible uses of string references are Studio heuristics, not REA-reported network or storage operations.');
+  if (incomplete) limitations.push(`Incomplete collection: ${missingCalls} callee queries, ${missingRefs} string-reference queries and ${missingContaining} reference-resolution queries missing; ${report.droppedEdgesDanglingEndpoint} calls unresolved.${Array.isArray(strings) ? '' : ' String inventory missing.'}`);
 
   const project: StudioProject = {
     schemaVersion: STUDIO_SCHEMA_VERSION,

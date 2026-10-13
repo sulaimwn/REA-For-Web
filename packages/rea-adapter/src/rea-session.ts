@@ -32,32 +32,50 @@ interface RpcMessage {
 
 export async function openReaSession(options: ReaSessionOptions): Promise<ReaSession> {
   const maxMessageBytes = options.maxMessageBytes ?? 256 * 1024 * 1024;
+  if (!Number.isSafeInteger(maxMessageBytes) || maxMessageBytes <= 0) {
+    throw new Error('maxMessageBytes must be a positive safe integer.');
+  }
+  options.signal?.throwIfAborted();
   const child = spawn(process.execPath, [...(options.nodeArgs ?? []), options.reaScript, '--mcp'], {
     shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: options.env ?? process.env,
     ...(options.signal ? { signal: options.signal, killSignal: 'SIGKILL' as const } : {}),
   });
   const pending = new Map<number, { resolve: (m: RpcMessage) => void; reject: (e: Error) => void }>();
   let failure: Error | undefined;
+  let closed = false;
+  let finish: () => void;
+  const finished = new Promise<void>((resolve) => { finish = resolve; });
   const fail = (error: Error) => {
     failure ??= error;
     for (const p of pending.values()) p.reject(failure);
     pending.clear();
-    child.kill('SIGKILL');
+    if (!closed) child.kill('SIGKILL');
   };
-  child.once('error', fail);
-  const onClose = (code: number | null) => fail(new Error(`REA's MCP server exited (${code ?? 'signal'}).`));
-  child.once('close', onClose);
-  child.stdin.on('error', () => {}); // EPIPE after REA exits; reported through 'close'
-  const send = (message: object) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
+  child.once('error', (error) => { fail(error); finish(); });
+  child.once('close', (code) => {
+    closed = true;
+    fail(new Error(`REA's MCP server exited (${code ?? 'signal'}).`));
+    finish();
+  });
+  child.stdin.on('error', fail);
+  const send = (message: object) => {
+    if (!failure) child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
+  };
 
   const receive = (line: string) => {
     let message: RpcMessage;
     try {
-      message = JSON.parse(line) as RpcMessage;
+      const parsed: unknown = JSON.parse(line);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+        || !('jsonrpc' in parsed) || parsed.jsonrpc !== '2.0') {
+        return fail(new Error('REA wrote an invalid JSON-RPC message.'));
+      }
+      message = parsed as RpcMessage;
     } catch {
       return fail(new Error('REA wrote a non-JSON line to its MCP channel.'));
     }
     if (message.method !== undefined) {
+      if (typeof message.method !== 'string') return fail(new Error('REA wrote an invalid JSON-RPC method.'));
       // A request from the server: answer pings; refuse anything else. Notifications need no reply.
       if (message.id !== undefined) {
         send(message.method === 'ping' ? { id: message.id, result: {} } : { id: message.id, error: { code: -32601, message: 'Method not found' } });
@@ -68,23 +86,30 @@ export async function openReaSession(options: ReaSessionOptions): Promise<ReaSes
     if (!waiter) return;
     pending.delete(message.id as number);
     if (message.error) waiter.reject(new Error(`REA MCP error ${message.error.code}: ${message.error.message}`));
-    else waiter.resolve(message);
+    else if ('result' in message) waiter.resolve(message);
+    else waiter.reject(new Error('REA wrote a JSON-RPC response without a result or error.'));
   };
   let chunks: Buffer[] = [];
   let buffered = 0;
+  const decoder = new TextDecoder('utf-8', { fatal: true });
   child.stdout.on('data', (chunk: Buffer) => {
+    if (failure) return;
     for (;;) {
       const newline = chunk.indexOf(10);
       if (newline === -1) break;
-      const line = Buffer.concat([...chunks, chunk.subarray(0, newline)]).toString('utf8');
+      if (buffered + newline > maxMessageBytes) return fail(new Error('A REA MCP message exceeded its size limit.'));
+      let line: string;
+      try { line = decoder.decode(Buffer.concat([...chunks, chunk.subarray(0, newline)], buffered + newline)); }
+      catch { return fail(new Error('REA wrote invalid UTF-8 to its MCP channel.')); }
       chunks = [];
       buffered = 0;
       chunk = chunk.subarray(newline + 1);
       if (line.trim()) receive(line);
+      if (failure) return;
     }
-    chunks.push(chunk);
+    if (buffered + chunk.length > maxMessageBytes) return fail(new Error('A REA MCP message exceeded its size limit.'));
+    if (chunk.length) chunks.push(chunk);
     buffered += chunk.length;
-    if (buffered > maxMessageBytes) fail(new Error('A REA MCP message exceeded its size limit.'));
   });
 
   let nextId = 1;
@@ -94,17 +119,19 @@ export async function openReaSession(options: ReaSessionOptions): Promise<ReaSes
     pending.set(id, { resolve, reject });
     send({ id, method, params });
   });
-  const close = async () => {
-    child.removeListener('close', onClose);
+  let closing: Promise<void> | undefined;
+  const close = () => closing ??= (async () => {
+    failure ??= new Error('REA session is closed.');
+    for (const p of pending.values()) p.reject(failure);
+    pending.clear();
     child.stdin.end();
     // REA shuts its providers down when its stdin closes; don't wait on a stuck JVM forever.
-    if (child.exitCode === null && child.signalCode === null) {
-      const exited = new Promise((resolve) => child.once('exit', resolve));
-      const timer = setTimeout(() => child.kill('SIGKILL'), 10_000);
-      await exited;
+    if (!closed) {
+      const timer = setTimeout(() => { child.kill('SIGKILL'); finish(); }, 10_000);
+      await finished;
       clearTimeout(timer);
     }
-  };
+  })();
 
   try {
     await request('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'rea-for-web', version: '0.1.0' } });
@@ -116,6 +143,9 @@ export async function openReaSession(options: ReaSessionOptions): Promise<ReaSes
   return {
     async call(name, args = {}) {
       const { result } = await request('tools/call', { name, arguments: args });
+      if (!result || !Array.isArray(result.content) || result.content.some((c) => !c || typeof c.type !== 'string')) {
+        throw new Error(`REA ${name} returned an invalid MCP tool result.`);
+      }
       const text = result?.content?.find((c) => c.type === 'text')?.text ?? 'null';
       let value: unknown;
       try {

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { ANDROID_FINDING_CATEGORIES, NODE_KINDS, RELATIONS, type StudioNode } from '@rea-studio/schema';
 import { ANDROID_RULES, adaptReaResult, androidAppClassFilter, isAndroidBundle, manifestComponents } from '../src/index.js';
+import { collectAndroidBundle } from '../src/android-session.js';
 
 const samples = new URL('../../../../fixtures/samples/', import.meta.url);
 const raw = JSON.parse(readFileSync(new URL('tiny-android.rea-6.4.0.json', samples), 'utf8')) as Record<string, unknown>;
@@ -21,7 +22,8 @@ describe('Android app (REA + JADX) adapter', () => {
     assert.equal(isAndroidBundle(raw), true);
     assert.deepEqual(project.target, { name: 'com.reaforweb.tinynotes', version: '1.2.3', sha256: project.id, format: 'apk', appKind: 'android' });
     assert.deepEqual(project.findings.map((f) => f.category), [...ANDROID_FINDING_CATEGORIES]);
-    assert.equal(project.analysis.coverage.status, 'complete');
+    assert.equal(project.analysis.coverage.status, 'partial');
+    assert.equal(project.analysis.coverage.truncated, false);
     const pkg = of('package')[0];
     assert.equal(pkg?.main, 'com.reaforweb.tinynotes.MainActivity');
     assert.deepEqual(of('android-permission').map((p) => p.name).sort(), ['android.permission.INTERNET', 'android.permission.RECEIVE_BOOT_COMPLETED']);
@@ -79,6 +81,39 @@ describe('Android app (REA + JADX) adapter', () => {
       [ANDROID_RULES.intent]: 2, [ANDROID_RULES.bridge]: 3, [ANDROID_RULES.page]: 1, [ANDROID_RULES.storage]: 1, [ANDROID_RULES.network]: 1,
     });
   });
+
+  it('retains constructors whose bodies are unavailable and reports the gap', () => {
+    const constructors = of('managed-method').filter((m) => m.name === '<init>' || m.name === '<clinit>');
+    assert.equal(constructors.length, 5);
+    assert.equal(project.analysis.statistics.parseFailures, 5);
+    assert.ok(project.analysis.limitations.some((l) => /5 listed methods have no available/.test(l)));
+    const capped = structuredClone(raw);
+    delete (capped['inspect_android_method'] as Record<string, unknown>)['com.reaforweb.tinynotes.MainActivity#onCreate#0'];
+    const result = adaptReaResult(capped, { reaVersion: '6.4.0' }).project;
+    assert.equal(result.analysis.coverage.status, 'partial');
+    assert.equal(result.analysis.statistics.parseFailures, 6);
+    assert.equal(result.nodes.filter((n) => n.kind === 'managed-method').length, of('managed-method').length);
+  });
+
+  it('keeps limitations from later query results, including on evidence', () => {
+    const changed = structuredClone(raw);
+    const method = Object.values(changed['inspect_android_method'] as Record<string, { limitations: string[] }>).at(-1)!;
+    method.limitations.push('Later method warning');
+    const classEnv = Object.values(changed['inspect_android_class'] as Record<string, { limitations: string[] }>).at(-1)!;
+    classEnv.limitations.push('Later class warning');
+    const p = adaptReaResult(changed, { reaVersion: '6.4.0' }).project;
+    assert.ok(p.analysis.limitations.includes('Later method warning'));
+    assert.ok(p.analysis.limitations.includes('Later class warning'));
+    assert.ok(p.nodes.some((n) => n.evidence.some((e) => e.limitations.includes('Later class warning'))));
+  });
+
+  it('rejects invalid collection caps before starting a provider', async () => {
+    for (const invalid of [0, -1, NaN, Infinity, 1.5]) {
+      for (const cap of ['maxClasses', 'maxMethods']) {
+        await assert.rejects(collectAndroidBundle({ reaScript: 'missing.mjs', apk: 'missing.apk', [cap]: invalid }), /positive safe integer/);
+      }
+    }
+  });
 });
 
 describe('Android manifest reader', () => {
@@ -106,5 +141,11 @@ describe('Android manifest reader', () => {
     assert.equal(isApp('com.example.app.Main'), true);
     assert.equal(isApp('com.other.lib.Push'), true);
     assert.equal(isApp('androidx.core.app.ActivityCompat'), false);
+  });
+
+  it('does not give an alias’s exported flag to its target activity', () => {
+    const xml = '<activity android:name=".Main" android:exported="false"/><activity-alias android:name=".Alias" android:targetActivity=".Main" android:exported="true"/>';
+    assert.equal(manifestComponents(xml, 'com.example')[0]?.exported, false);
+    assert.equal(manifestComponents(xml.slice(xml.indexOf('<activity-alias')) + xml.slice(0, xml.indexOf('<activity-alias')), 'com.example')[0]?.exported, false);
   });
 });

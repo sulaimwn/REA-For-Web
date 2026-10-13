@@ -124,13 +124,18 @@ See `notes/handoffs/2026-10-13-T021-claude.md`. In short:
   References and resources are assembly facts rather than separate findings.
 - Kinds that only make sense for one target never appear for others; existing Electron projects are unchanged.
 
-## Proposed for review: native and Android (T021 continuation)
+## Reviewed native and Android schema (R002)
 Fixture-backed, additive, schema version unchanged:
 - `appKind` gains `native` and `android`; `format` gains `apk` (native programs use `pe`).
-- Native: `native-function` (address, name, entry point). Imports reuse `native-import` with `managedName: null`.
+  - Native: `native-function` (address, name, entry-style symbol flag: a Studio heuristic). Imports reuse `native-import` with `managedName: null`.
 - Android:
   - `android-component` (componentType, className, exported, intentActions, authorities, launcher);
   - `android-permission` (name).
   - Classes and methods reuse `managed-type` / `managed-method`. The WebView bridge reuses `bridge-api` (world `android-webview`).
 - New relation `references` (REA `trace_android_references`: one class's code refers to another).
 - `FindingCategory` gains `functions`, `components` and `permissions`, with per-kind lists `NATIVE_FINDING_CATEGORIES` and `ANDROID_FINDING_CATEGORIES`.
+
+R002 accepts these additive shapes at schema 0.1.0. Native string classifications and possible
+network/storage uses are labeled Studio heuristics; the original observed string evidence remains.
+Android constructors with unavailable bodies stay visible and make coverage partial. Coverage is
+scoped to the queried inventories; complete collection does not prove every possible behavior.
