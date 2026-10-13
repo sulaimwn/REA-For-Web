@@ -65,7 +65,7 @@ exact limits.
   model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) when the Workers AI binding is enabled, on your account's free Workers AI
   allowance: 10,000 neurons a day. The number of questions varies with their length and tool lookups.
   - **Ships disabled until the plan is confirmed.** A purchased domain does not establish the
-    Workers plan. In **Workers & Pages → Plans**, confirm **Workers Free**, then uncomment
+    Workers plan. In Cloudflare's dashboard, confirm the Workers plan is **Workers Free**, then uncomment
     the `ai` binding in `apps/web/wrangler.jsonc`. Until then, Ask offers the visitor's own key.
     Do not enable it on Workers Paid without a reviewed hard account budget.
   - On the Workers Free plan, requests past the allowance fail instead of being billed. Visitors

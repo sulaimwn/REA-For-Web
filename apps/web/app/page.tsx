@@ -55,7 +55,7 @@ export default function HomePage() {
             <div>
               <dt>Ask</dt>
               <dd>
-                Questions in plain English: free here (an open model, limited per day), with your own Claude key for better
+                Questions in plain English: a free tier where available (an open model, limited per day), your own Claude key for better
                 answers, or from Claude by adding <code>/api/mcp</code> as an MCP connector (
                 <a href={`${REPO_URL}/blob/main/docs/mcp.md`}>how</a>)
               </dd>
