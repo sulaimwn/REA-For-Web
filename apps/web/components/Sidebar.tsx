@@ -16,6 +16,10 @@ const CATEGORY_KIND: Record<FindingCategory, StudioNodeKind> = {
   endpoints: 'endpoint',
   imports: 'external-module',
   'source-files': 'source-file',
+  types: 'managed-type',
+  methods: 'managed-method',
+  'native-imports': 'native-import',
+  'external-apis': 'external-member',
 };
 
 const CATEGORY_LABEL: Record<FindingCategory, string> = {
@@ -29,6 +33,10 @@ const CATEGORY_LABEL: Record<FindingCategory, string> = {
   endpoints: 'Endpoint candidates',
   imports: 'Imports',
   'source-files': 'Recovered source files',
+  types: 'Types',
+  methods: 'Methods',
+  'native-imports': 'Native calls (P/Invoke)',
+  'external-apis': 'External APIs called',
 };
 
 type Tab = 'findings' | 'source' | 'files';

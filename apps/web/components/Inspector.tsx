@@ -62,6 +62,50 @@ function facts(n: StudioNode): Fact[] {
       return [['Name', n.name], ['Version', n.version], ['Main', n.main], ['Path', n.path]];
     case 'analysis-gap':
       return [['Path', n.path], ['Operation', n.operation], ['Failure', n.failure ? `${n.failure.code}: ${n.failure.message}` : null]];
+    case 'assembly':
+      return [
+        ['Name', n.name],
+        ['Version', n.version],
+        ['Module', n.moduleName],
+        ['Entry point', n.entryPoint],
+        ['Architecture', n.architecture],
+        ['Runtime', n.runtimeVersion],
+        ['IL only', n.ilOnly],
+        ['References', n.references.map((r) => `${r.name}${r.version ? ` ${r.version}` : ''}`).join(', ') || null],
+        ['Resources', n.resources.map((r) => `${r.name}${r.bytes === null ? '' : ` (${r.bytes} B)`}`).join(', ') || null],
+        ['MVID', n.mvid],
+      ];
+    case 'managed-type':
+      return [
+        ['Full name', n.fullName],
+        ['Namespace', n.namespace || '(global)'],
+        ['Compiler-generated', n.compilerGenerated],
+        ['Fields', n.fields.join(', ') || 'none'],
+      ];
+    case 'managed-method':
+      return [
+        ['Type', n.declaringType],
+        ['Method', n.name],
+        ['IL size', n.ilSize === null ? null : `${n.ilSize} bytes`],
+        ['Native (P/Invoke)', n.pinvoke],
+        ['Entry point', n.entryPoint || null],
+      ];
+    case 'native-import':
+      return [
+        ['Library', n.library],
+        ['Export', n.entryPoint],
+        ['Declared as', n.managedName],
+        ['Calling convention', n.callingConvention],
+        ['Character set', n.charSet],
+        ['Note', 'REA proves the declaration only, not that the library or export exists'],
+      ];
+    case 'external-member':
+      return [
+        ['Member', n.name],
+        ['Parameters', n.parameterTypes.join(', ') || 'none'],
+        ['Returns', n.returnType],
+        ['Note', 'Outside this assembly; REA 6.4.0 doesn’t name its declaring type'],
+      ];
   }
 }
 

@@ -14,8 +14,10 @@ import {
   type StudioProject,
   type TargetInfo,
 } from '@rea-studio/schema';
+import { ReaOutputError } from './errors.js';
 import { toEvidence } from './evidence.js';
 import { buildFindings } from './findings.js';
+import { adaptManagedBundle, isManagedBundle } from './managed.js';
 import { linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
@@ -23,9 +25,8 @@ import { num, str } from './read.js';
 
 export const SUPPORTED_OPERATION = 'analyze_javascript_application';
 
-export class ReaOutputError extends Error {
-  override name = 'ReaOutputError';
-}
+export { ReaOutputError };
+export { MANAGED_OPERATION, isManagedBundle } from './managed.js';
 
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
@@ -62,6 +63,8 @@ export interface AdapterReport {
   unrecognizedNodeKinds: Record<string, number>;
   /** Edges added by Studio heuristics, by heuristic name (origin `studio-heuristic`). */
   heuristicEdges: Record<string, number>;
+  /** .NET only: REA call edges left out, by reason (e.g. `method-spec` targets REA doesn't name). */
+  skippedManagedCalls?: Record<string, number>;
 }
 
 function assertReaResult(raw: unknown): asserts raw is ReaResult {
@@ -159,6 +162,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     }
     raw = partial;
   }
+  // .NET programs: a bundle of REA's managed inspections plus their projection (T021).
+  if (isManagedBundle(raw)) return adaptManagedBundle(raw, options);
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {

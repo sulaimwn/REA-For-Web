@@ -58,6 +58,16 @@ export function nodeName(n: StudioNode): string {
     case 'native-addon':
     case 'bundle-chunk':
       return n.path;
+    case 'assembly':
+      return `${n.name}${n.version ? ` ${n.version}` : ''} (.NET assembly)`;
+    case 'managed-type':
+      return n.fullName;
+    case 'managed-method':
+      return `${n.declaringType}.${n.name}`;
+    case 'native-import':
+      return `${n.library}!${n.entryPoint}`;
+    case 'external-member':
+      return `${n.name}(${n.parameterTypes.join(', ')})`;
   }
 }
 
@@ -68,6 +78,8 @@ export function searchableText(n: StudioNode): string {
   if (n.kind === 'module') parts.push(...n.exportNames);
   if (n.kind === 'bridge-api') parts.push(...n.members);
   if (n.kind === 'endpoint' || n.kind === 'storage') parts.push(n.mechanism);
+  if (n.kind === 'managed-type') parts.push(...n.fields);
+  if (n.kind === 'native-import') parts.push(n.managedName);
   return parts.join(' ').toLowerCase();
 }
 

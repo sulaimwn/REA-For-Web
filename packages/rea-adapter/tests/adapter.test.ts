@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import {
   CONFIDENCE_LEVELS,
   EVIDENCE_STATES,
-  FINDING_CATEGORIES,
+  JAVASCRIPT_FINDING_CATEGORIES,
   NODE_KINDS,
   RELATIONS,
   STUDIO_SCHEMA_VERSION,
@@ -93,7 +93,7 @@ function assertInvariants(p: StudioProject) {
     assert.ok(n.evidence.length > 0, `node ${n.id} has evidence`);
     assert.deepEqual(n.origin, { source: 'rea' });
   }
-  assert.deepEqual(p.findings.map((f) => f.category), [...FINDING_CATEGORIES]);
+  assert.deepEqual(p.findings.map((f) => f.category), [...JAVASCRIPT_FINDING_CATEGORIES]);
   for (const f of p.findings) {
     assert.notEqual(f.status, 'confirmed-absent', 'REA static analysis never proves absence');
     assert.equal(f.status === 'found', f.count > 0);
