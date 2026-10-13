@@ -1,8 +1,11 @@
-# REA Studio
+# REA for Web
 
 **See how an application is put together, with the evidence behind every fact.**
 
-REA Studio turns [REA](https://github.com/morluto/rea) static analysis into an
+**Try it at [reaforweb.com](https://reaforweb.com).** Explore maps of real apps
+(GitHub Desktop, Caprine, jq, Binary Eye) or analyze your own with the free CLI.
+
+REA for Web turns [REA](https://github.com/morluto/rea) static analysis into an
 interactive map of an application: its processes, IPC channels, preload
 bridges, native add-ons, storage keys, and the original source tree recovered
 from source maps. Click anything to see exactly where REA found it
@@ -104,9 +107,10 @@ including measurements and known limitations.
 
 ## Status
 
-This is an early preview. The demo shows **pre-analyzed open-source apps**, and
-local mode lets you analyze and view an app entirely on your own machine.
-Uploading your own app is available locally with `npm run dev:uploads`.
+This is an early preview. [reaforweb.com](https://reaforweb.com) shows
+**pre-analyzed open-source apps**, and local mode lets you analyze and view an app
+entirely on your own machine. Uploading to the hosted site isn't open yet; uploads
+run locally with `npm run dev:uploads`.
 Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf` or `.so` file. Linux programs
 without an extension should be renamed to `.elf` before uploading.
 The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all five analysis kinds,
@@ -118,7 +122,7 @@ Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/R
 - Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
   so windows and handlers in bundled apps are often "not found."
 - IPC channels passed as variables can't be named statically.
-- REA's endpoint detection is noisy; Studio filters unlikely candidates by default
+- REA's endpoint detection is noisy; REA for Web filters unlikely candidates by default
   and labels that decision as a heuristic. All candidates remain available.
 - In whole-app runs, REA's shared result budget can drop relationship detail.
   Per-file recovery restores affected relationships within the job's time budget.
@@ -172,7 +176,10 @@ backend. Ask uses each visitor's own Anthropic API key.
 
 - [REA](https://github.com/morluto/rea) (MIT) does the analysis.
 - Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5, a core subset of the
-  VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), and a hand-written sample app.
+  VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), the
+  [Caprine](https://github.com/sindresorhus/caprine) 2.61.0, [jq](https://github.com/jqlang/jq) 1.8.2 and
+  [Binary Eye](https://github.com/markusfisch/BinaryEye) 1.75.5 releases (all MIT; see
+  [real-world samples](fixtures/sample-apps/real-world.md)), and hand-written sample apps.
 
 ## License
 
