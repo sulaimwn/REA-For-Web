@@ -4,16 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "demo-data": "node scripts/build-demo-projects.mjs",
     "predev": "npm run demo-data",
     "dev": "next dev",
     "prebuild": "npm run demo-data",
     "build": "next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "tours": "node scripts/generate-tours.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@dagrejs/dagre": "3.1.1",
+    "@rea-studio/ask": "0.0.0",
     "@rea-studio/rea-adapter": "0.0.0",
     "@rea-studio/schema": "0.0.0",
     "@xyflow/react": "12.12.0",

@@ -10,12 +10,14 @@
   "workspaces": [
     "apps/web",
     "apps/worker",
+    "apps/cli",
     "packages/schema",
-    "packages/rea-adapter"
+    "packages/rea-adapter",
+    "packages/ask"
   ],
   "scripts": {
     "dev": "npm run build:packages && npm run dev --workspace=@rea-studio/web",
-    "build:packages": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter",
+    "build:packages": "npm run build --workspace=@rea-studio/schema && npm run build --workspace=@rea-studio/rea-adapter && npm run build --workspace=@rea-studio/ask",
     "build": "npm run build:packages && npm run build --workspace=@rea-studio/worker && npm run build --workspace=@rea-studio/web",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces",
     "start": "npm run start --workspace=@rea-studio/web"

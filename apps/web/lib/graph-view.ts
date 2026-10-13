@@ -5,7 +5,11 @@ import type { Relation, StudioEdge, StudioNode } from '@rea-studio/schema';
 import type { Edge, Node } from '@xyflow/react';
 import { KIND_META, KIND_ORDER, type ProjectIndex } from './project';
 
-export type Focus = { mode: 'overview' } | { mode: 'node'; id: string };
+export type Focus =
+  | { mode: 'overview' }
+  | { mode: 'node'; id: string }
+  /** A chosen set of nodes, e.g. the ones an Ask answer cites. */
+  | { mode: 'set'; ids: string[]; label: string };
 
 export interface KindNodeData extends Record<string, unknown> {
   node: StudioNode;
@@ -199,21 +203,26 @@ function layoutHub(ix: ProjectIndex, focusId: string, ids: Set<string>, edges: S
 }
 
 export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
-  const { ids, hidden } = focus.mode === 'overview' ? { ids: overviewIds(ix), hidden: 0 } : neighborhoodIds(ix, focus.id);
+  const { ids, hidden } =
+    focus.mode === 'overview'
+      ? { ids: overviewIds(ix), hidden: 0 }
+      : focus.mode === 'set'
+        ? { ids: new Set(focus.ids.filter((id) => ix.byId.has(id))), hidden: 0 }
+        : neighborhoodIds(ix, focus.id);
 
   // Collapse parallel REA edges (same endpoints + relation) into one drawn edge.
   const groups = new Map<string, StudioEdge[]>();
   for (const e of ix.project.edges) {
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     if (isRootContainment(ix, e) && !(focus.mode === 'node' && focus.id === ix.rootId)) continue;
-    const key = `${e.source}|${e.target}|${e.relation}`;
+    const key = `${e.source}|${e.target}|${e.relation}|${e.origin.source}`;
     const g = groups.get(key);
     if (g) g.push(e);
     else groups.set(key, [e]);
   }
 
   const pairs = [...groups.values()].map((list) => list[0] as StudioEdge);
-  const positions = focus.mode === 'overview' ? layoutPacked(ix, [...ids], pairs) : layoutHub(ix, focus.id, ids, pairs);
+  const positions = focus.mode === 'node' ? layoutHub(ix, focus.id, ids, pairs) : layoutPacked(ix, [...ids], pairs);
 
   const focusedId = focus.mode === 'node' ? focus.id : null;
   const nodes: Node<KindNodeData>[] = [];
@@ -227,13 +236,14 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
   const edges: Edge[] = [...groups.values()].map((list) => {
     const first = list[0] as StudioEdge;
     const observed = list.some((e) => e.evidence.state === 'observed');
+    const heuristic = list.every((e) => e.origin.source === 'studio-heuristic');
     const ipc = IPC_RELATIONS.has(first.relation);
     return {
-      id: `${first.source}|${first.target}|${first.relation}`,
+      id: `${first.source}|${first.target}|${first.relation}|${first.origin.source}`,
       source: first.source,
       target: first.target,
-      label: list.length > 1 ? `${first.relation} ×${list.length}` : first.relation,
-      className: `rel ${ipc ? 'rel-ipc' : ''} ${observed ? 'rel-observed' : 'rel-inferred'}`,
+      label: `${list.length > 1 ? `${first.relation} ×${list.length}` : first.relation}${heuristic ? ' (heuristic)' : ''}`,
+      className: `rel ${ipc ? 'rel-ipc' : ''} ${heuristic ? 'rel-heuristic' : ''} ${observed ? 'rel-observed' : 'rel-inferred'}`,
       animated: ipc,
     };
   });
