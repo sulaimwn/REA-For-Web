@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>TinyNotes</title></head>
+  <body>
+    <textarea id="body"></textarea>
+    <button id="save">Save</button>
+    <script>
+      document.getElementById('save').addEventListener('click', function () {
+        window.notesBridge.save('note', document.getElementById('body').value);
+      });
+      document.title = 'TinyNotes ' + window.notesBridge.version();
+    </script>
+  </body>
+</html>
