@@ -19,3 +19,6 @@
 
 ## Notes
 - **No Linux files without an extension.** Extensionless programs need renaming to `.elf`, as the docs say. That's the agreed explicit path.
+
+## Main after merge (`3d7c559`)
+- `npm run typecheck` passes. All 220 workspace tests pass, 0 skipped.
