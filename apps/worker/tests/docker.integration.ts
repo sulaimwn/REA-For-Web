@@ -2,7 +2,7 @@
 // analyzes inert source only and verifies normalized StudioProject output.
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,6 +89,21 @@ test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async 
     assert.ok(events.length > 0);
   }
   assert.equal((await readdir(join(temp, "results"))).length, 2);
+  assert.deepEqual(await workerContainers(), before);
+});
+
+test("real Docker keeps the original filename when REA has no package name", { timeout: 60_000 }, async t => {
+  const before = await workerContainers();
+  const temp = await workspace(t);
+  const input = join(temp, "app");
+  await mkdir(input);
+  await writeFile(join(input, "renderer.js"), 'const { ipcRenderer } = require("electron"); ipcRenderer.send("example");');
+  const result = await runAnalysis({
+    targetPath: input, targetName: "original app.asar", outputRoot: join(temp, "results"),
+    limits: { timeoutMs: 30_000 },
+  });
+  const project = JSON.parse(await readFile(result.projectPath, "utf8")) as StudioProject;
+  assert.equal(project.target.name, "original app.asar");
   assert.deepEqual(await workerContainers(), before);
 });
 

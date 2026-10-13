@@ -32,8 +32,9 @@ test(
     const c = new UploadControl(config);
     let calls = 0;
     let simulateTimeout = false;
-    const worker = startAnalysisWorker(config, async ({ onProgress }) => {
+    const worker = startAnalysisWorker(config, async ({ onProgress, targetName }) => {
       calls++;
+      assert.equal(targetName, simulateTimeout ? 'slow.asar' : 'tiny.asar');
       onProgress({ phase: 'test', message: 'Fixture normalization' });
       await delay(150);
       if (simulateTimeout)

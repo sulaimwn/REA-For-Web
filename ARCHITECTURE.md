@@ -103,6 +103,7 @@ interface StudioProject {
 |---|---|---|
 | `package` | `package` | |
 | `javascript-asset`, `artifact` | `file` | `artifact root` becomes the tree root; `projection failure` → `analysisIssue` |
+| `asar-entry` (`.asar` inputs only) | folded into the `file` it `maps_to` | root `contains` is re-pointed to that file and the entry's evidence is appended to it; an entry that maps to nothing becomes a `file` with `fileKind: 'other'` |
 | `source-module` | `source-file` | path from `source_map_reference.resolution.path` |
 | `source-map` | `source-map` | `available: false` when referenced but not shipped |
 | `javascript-module`, `semantic_role: source-module` | `module` | `exportNames` from its `export_names` property |
@@ -137,12 +138,14 @@ REA node kinds the adapter doesn't recognize become `analysis-gap` nodes
 ### Adapter API (`@rea-studio/rea-adapter`)
 
 ```ts
-toStudioProject(rawReaJson: unknown, { reaVersion: '6.4.0' }): StudioProject
+toStudioProject(rawReaJson: unknown, { reaVersion: '6.4.0', targetName?: string }): StudioProject
 adaptReaResult(rawReaJson, { reaVersion }): { project: StudioProject; report: AdapterReport }
 ```
 
 - Input is the parsed stdout of `rea analyze-javascript-application --format json`.
   REA's JSON doesn't contain its own package version, so the caller passes it.
+  `targetName` (e.g. the uploaded file's original name) is used when REA reports no root
+  `package.json`; otherwise the name falls back to REA's input path (`target.asar` in the sandbox).
 - Throws `ReaOutputError` if the input isn't an `analyze_javascript_application` result.
 - `AdapterReport` (not part of the schema) counts dropped and merged nodes and edges, for logs.
 - Measured on GitHub Desktop: 50 MB REA JSON → 4.5 MB StudioProject; 0.4 s to parse, 19 ms to adapt.

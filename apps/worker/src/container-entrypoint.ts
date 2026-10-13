@@ -16,8 +16,11 @@ async function main() {
   if (process.platform !== "linux" || process.getuid?.() === 0) {
     throw new WorkerError("invalid_input", "Container entry point requires non-root Linux.");
   }
-  const [kind, files, inputBytes, outputBytes, heap, timeout, sourceTimeout] = process.argv.slice(2);
+  const [kind, files, inputBytes, outputBytes, heap, timeout, sourceTimeout, targetName] = process.argv.slice(2);
   if (kind !== "asar" && kind !== "directory") throw new WorkerError("invalid_input", "Invalid target kind.");
+  if (!targetName || targetName.length > 200 || /[\x00-\x1f/\\]/u.test(targetName)) {
+    throw new WorkerError("invalid_input", "Target name must be a filename up to 200 characters.");
+  }
   const limits = resolveLimits({
     maxFiles: Number(files), maxInputBytes: Number(inputBytes), maxOutputBytes: Number(outputBytes),
     heapMb: Number(heap), timeoutMs: Number(timeout), sourceTimeoutMs: Number(sourceTimeout),
@@ -63,6 +66,7 @@ async function main() {
     // Only the adapter reads raw JSON; stdout now contains StudioProject only.
     const result = await adaptReaFile(rawPath, {
       reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes,
+      targetName,
       // A nonzero exit must carry valid, explicitly partial timeout Evidence.
       // Other errors and cleanup failures can never publish an artifact.
       retainedTimeoutEvidence: code === 0 ? 'allow' : 'require',

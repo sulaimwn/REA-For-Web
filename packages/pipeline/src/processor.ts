@@ -10,6 +10,7 @@ import { UPLOAD_TTL_SECONDS } from './contracts.js';
 
 export type AnalysisRunner = (options: {
   targetPath: string;
+  targetName: string;
   outputRoot: string;
   onProgress: (value: { phase: string; message: string }) => void;
 }) => Promise<{ projectPath: string; projectId: string }>;
@@ -70,6 +71,7 @@ export async function processUpload(
       };
     const artifact = await analyze({
       targetPath: target,
+      targetName: r.name,
       outputRoot: join(temp, 'results'),
       onProgress: (progress) => {
         // Serialize bounded progress updates; persist failures before publication.

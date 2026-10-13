@@ -52,7 +52,7 @@ The server admits at most 100 upload tickets per UTC day for the private beta.
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys
-include schema 0.1.0, REA 6.4.0 and adapter/cache revision 3. Increment the cache revision
+include schema 0.1.0, REA 6.4.0 and adapter/cache revision 4. Increment the cache revision
 when adapter semantics or analysis settings change. Cache reuse happens only
 after the worker has downloaded and verified a fresh upload with the same hash.
 This proves possession before exposing a cached result.

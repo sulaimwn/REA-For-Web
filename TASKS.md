@@ -18,6 +18,7 @@ Details for a task go under its heading below the table.
 | T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
+| T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | review | T004       |
 
 ---
 

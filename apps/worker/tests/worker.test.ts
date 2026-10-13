@@ -69,12 +69,19 @@ test("queue deadlines allow larger apps while rejecting unbounded operator setti
   assert.equal(configured.timeoutMs, 1_800_000);
   assert.equal(configured.memoryMb, defaults.memoryMb);
   assert.equal(configured.cpus, defaults.cpus);
-  assert.deepEqual(containerArgs("job", sample, "directory", configured).slice(-2), ["1800000", "180000"]);
+  assert.deepEqual(containerArgs("job", sample, "directory", configured).slice(-3, -1), ["1800000", "180000"]);
   assert.equal(queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "1000" }).sourceTimeoutMs, 1000);
   assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "900001" }), { code: "invalid_input" });
   assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "0" }), { code: "invalid_input" });
   for (const value of ["", "0", "Infinity", "NaN", "900000.5", "1800001"]) {
     assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_TIMEOUT_MS: value }), { code: "invalid_input" });
+  }
+});
+
+test("original target names are passed as bounded arguments without paths", () => {
+  assert.equal(containerArgs("job", sample, "directory", DEFAULT_LIMITS, "my app.asar").at(-1), "my app.asar");
+  for (const targetName of ["", "a".repeat(201), "C:\\private\\app.asar", "../app.asar", "app\nasar"]) {
+    assert.throws(() => containerArgs("job", sample, "directory", DEFAULT_LIMITS, targetName), { code: "invalid_input" });
   }
 });
 

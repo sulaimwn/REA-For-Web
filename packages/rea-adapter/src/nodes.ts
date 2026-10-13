@@ -89,6 +89,22 @@ export function convertNode(n: ReaNode): ConvertedNode {
       };
     }
 
+    // A file inside an .asar archive. Entries that `maps_to` a file node are folded into
+    // that file by the caller; this only runs for entries with no mapped file (e.g. images).
+    case 'asar-entry':
+      return {
+        type: 'node',
+        node: {
+          ...base(null),
+          kind: 'file',
+          path: firstLabel ?? '',
+          fileKind: 'other',
+          bytes: num(p, 'bytes'),
+          parseStatus: null,
+          analysisIssue: null,
+        },
+      };
+
     case 'source-module': {
       const ref = obs.find((o) => o.source_map_reference)?.source_map_reference ?? null;
       const originalName = ref?.source_name ?? firstLabel ?? '';
