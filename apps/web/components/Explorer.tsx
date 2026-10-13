@@ -12,7 +12,7 @@ import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
 
 /** Loads a pre-built demo project by slug, then shows it. */
-export function Explorer({ demo }: { demo: DemoEntry }) {
+export function Explorer({ demo, embedded = false, actions }: { demo: DemoEntry; embedded?: boolean; actions?: ReactNode }) {
   const [project, setProject] = useState<StudioProject | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tours, setTours] = useState<Tour[]>([]);
@@ -37,9 +37,10 @@ export function Explorer({ demo }: { demo: DemoEntry }) {
     };
   }, [demo.slug, demo.tours]);
 
-  if (error) return <main className="center">Couldn’t load this project ({error}).</main>;
-  if (!project) return <main className="center">Loading {demo.title}…</main>;
-  return <ProjectExplorer project={project} title={demo.title} note={demo.sample} tours={tours} />;
+  const Wrap = embedded ? 'div' : 'main';
+  if (error) return <Wrap className="center">Couldn’t load this project ({error}).</Wrap>;
+  if (!project) return <Wrap className="center">Loading {demo.title}…</Wrap>;
+  return <ProjectExplorer project={project} title={demo.title} note={demo.sample} tours={tours} embedded={embedded} actions={actions} />;
 }
 
 interface ProjectExplorerProps {
@@ -51,10 +52,12 @@ interface ProjectExplorerProps {
   actions?: ReactNode;
   /** Pre-generated Ask answers to show in the Ask tab. */
   tours?: Tour[];
+  /** Shown inside another page (the landing): no site name, no URL syncing, fills its container. */
+  embedded?: boolean;
 }
 
 /** The three-pane explorer for an already-loaded StudioProject. */
-export function ProjectExplorer({ project, title, note = null, actions, tours = [] }: ProjectExplorerProps) {
+export function ProjectExplorer({ project, title, note = null, actions, tours = [], embedded = false }: ProjectExplorerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>({ mode: 'overview' });
   const [sideTab, setSideTab] = useState<'inspector' | 'ask'>('inspector');
@@ -64,14 +67,14 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
   // Shareable links: ?node=<selected id>&focus=<neighborhood id> restore the view.
   const [restored, setRestored] = useState(false);
   useEffect(() => {
-    if (restored) return;
+    if (restored || embedded) return;
     const params = new URLSearchParams(window.location.search);
     const node = params.get('node');
     const focusId = params.get('focus');
     if (node && ix.byId.has(node)) setSelectedId(node);
     if (focusId && ix.byId.has(focusId)) setFocus({ mode: 'node', id: focusId });
     setRestored(true);
-  }, [ix, restored]);
+  }, [ix, restored, embedded]);
   useEffect(() => {
     if (!restored) return;
     const params = new URLSearchParams();
@@ -88,21 +91,24 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
 
   const a = project.analysis;
   const gaps = ix.byKind.get('analysis-gap')?.length ?? 0;
+  const complete = a.coverage.status === 'complete';
   return (
-    <div className="explorer">
+    <div className={`explorer ${embedded ? 'explorer--embedded' : ''}`}>
       <header className="topbar">
-        <Link href="/" className="topbar__brand">
-          REA Studio
-        </Link>
+        {!embedded && (
+          <Link href="/" className="wordmark">
+            REA Studio
+          </Link>
+        )}
         <div className="topbar__app">
           <strong>{title}</strong>
-          {project.target.version && <span className="muted"> v{project.target.version}</span>}
-          <span className="badge badge--conf">{project.target.appKind}</span>
-          <span className={`badge ${a.coverage.status === 'complete' ? 'badge--ok' : 'badge--warn'}`}>{a.coverage.status} coverage</span>
+          {project.target.version && <span className="topbar__version">{project.target.version}</span>}
+          <span className="muted">{project.target.appKind === 'electron' ? 'Electron app' : project.target.appKind}</span>
+          <span className={`status ${complete ? 'status--complete' : 'status--partial'}`}>{complete ? 'Complete analysis' : 'Partial analysis'}</span>
         </div>
         {actions}
-        <div className="topbar__meta muted">
-          analyzed with {a.engine.package}@{a.engine.version} · {project.nodes.length.toLocaleString()} nodes · {project.edges.length.toLocaleString()} links
+        <div className="topbar__meta num">
+          {a.engine.package} {a.engine.version} · {project.nodes.length.toLocaleString()} nodes · {project.edges.length.toLocaleString()} links
         </div>
       </header>
 
@@ -110,7 +116,7 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
         <div className="banner" role="note">
           {a.coverage.status !== 'complete' && (
             <span>
-              <strong>Partial analysis.</strong> REA couldn’t fully analyze this app
+              REA couldn’t fully analyze this app
               {a.filesWithAnalysisIssues > 0 && <> ({a.filesWithAnalysisIssues} files lost relationship details{gaps > 0 && `, ${gaps} gaps`})</>}. Anything
               marked “not found” may still exist.
             </span>
@@ -123,7 +129,7 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
         <Sidebar ix={ix} selectedId={selectedId} onSelect={selectAndFocus} />
         <GraphPane ix={ix} focus={focus} selectedId={selectedId} onSelect={select} onFocus={setFocus} />
         <div className="side">
-          <div className="tabs side__tabs" role="tablist">
+          <div className="tabs side__tabs" role="tablist" aria-label="Details">
             {(['inspector', 'ask'] as const).map((t) => (
               <button key={t} type="button" role="tab" aria-selected={sideTab === t} className={`tab ${sideTab === t ? 'tab--on' : ''}`} onClick={() => setSideTab(t)}>
                 {t === 'inspector' ? 'Inspector' : 'Ask'}

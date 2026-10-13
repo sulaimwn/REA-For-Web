@@ -11,10 +11,10 @@ export class ProjectBoundary extends Component<{ children: ReactNode; onReset: (
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <main className="home">
+      <main className="doc">
         <h1>Couldn’t open this project</h1>
         <p role="alert">Some project details are invalid. Export it again with REA Studio.</p>
-        <button type="button" className="chip" onClick={this.props.onReset}>Open another file</button>
+        <button type="button" className="btn" onClick={this.props.onReset}>Open another file</button>
       </main>
     );
   }

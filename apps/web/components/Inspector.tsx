@@ -4,6 +4,7 @@ import type { Evidence, StudioEdge, StudioNode } from '@rea-studio/schema';
 import { useMemo, useState } from 'react';
 import type { Focus } from '../lib/graph-view';
 import { displayName, KIND_META, KIND_ORDER, type ProjectIndex } from '../lib/project';
+import { KindGlyph } from './KindGlyph';
 
 interface Props {
   ix: ProjectIndex;
@@ -64,16 +65,23 @@ function facts(n: StudioNode): Fact[] {
   }
 }
 
+const STATE_LABEL: Record<Evidence['state'], string> = {
+  observed: 'Observed',
+  inferred: 'Inferred',
+  unavailable: 'Unavailable',
+};
+
 function EvidenceCard({ ev }: { ev: Evidence }) {
   const loc = ev.location;
   const where = !loc ? 'no location' : loc.kind === 'source-range' ? `${loc.file}:${loc.start.line}:${loc.start.column}` : loc.file;
   return (
     <li className={`evidence evidence--${ev.state}`}>
       <div className="evidence__head">
-        <span className={`badge badge--${ev.state}`}>{ev.state}</span>
-        <span className="badge badge--conf">{ev.confidence}</span>
-        <code className="evidence__where">{where}</code>
+        <span className={`line ${ev.state === 'observed' ? '' : 'line--inferred'}`} aria-hidden="true" />
+        <span className="evidence__state">{STATE_LABEL[ev.state]}</span>
+        <span className="evidence__conf">{ev.confidence} confidence</span>
       </div>
+      <code className="evidence__where">{where}</code>
       <div className="evidence__meta">
         {ev.extractor} · {ev.authority}
       </div>
@@ -126,13 +134,13 @@ function Relations({ ix, title, edges, other, onSelect }: { ix: ProjectIndex; ti
             <li key={e.id}>
               <span className={`rel-name ${e.evidence.state === 'observed' ? '' : 'rel-name--inferred'}`}>{e.relation}</span>
               {e.origin.source === 'studio-heuristic' && (
-                <span className="badge badge--heuristic" title={e.origin.basis}>
+                <span className="rel-heur" title={e.origin.basis}>
                   heuristic
                 </span>
               )}
-              <button type="button" className="link" onClick={() => onSelect(n.id)}>
-                <span className="dot" style={{ background: KIND_META[n.kind].color }} />
-                {displayName(n)}
+              <button type="button" className="link" onClick={() => onSelect(n.id)} title={KIND_META[n.kind].label}>
+                <KindGlyph kind={n.kind} />
+                <span className="relations__name">{displayName(n)}</span>
               </button>
             </li>
           );
@@ -162,15 +170,16 @@ export function Inspector({ ix, node, onSelect, onFocus }: Props) {
   const inc = ix.incoming.get(node.id) ?? [];
   return (
     <aside className="inspector" aria-label="Inspector">
-      <header className="inspector__head" style={{ ['--accent' as string]: meta.color }}>
+      <header className="inspector__head">
         <div className="inspector__kind">
+          <KindGlyph kind={node.kind} />
           {meta.label}
-          <span className={`badge ${node.origin.source === 'rea' ? 'badge--rea' : 'badge--heuristic'}`}>
-            {node.origin.source === 'rea' ? 'REA finding' : 'Studio heuristic'}
+          <span className={`inspector__origin ${node.origin.source === 'rea' ? '' : 'inspector__origin--heuristic'}`}>
+            {node.origin.source === 'rea' ? 'Found by REA' : 'Studio heuristic'}
           </span>
         </div>
         <h3 className="inspector__title">{displayName(node)}</h3>
-        <button type="button" className="chip" onClick={() => onFocus({ mode: 'node', id: node.id })}>
+        <button type="button" className="btn" onClick={() => onFocus({ mode: 'node', id: node.id })}>
           Show neighborhood in graph
         </button>
       </header>

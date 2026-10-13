@@ -36,18 +36,25 @@ export function GraphPane({ ix, focus, selectedId, onSelect, onFocus }: Props) {
   return (
     <section className="graph-pane" aria-label="Graph">
       <div className="graph-pane__bar">
-        <button type="button" className={`chip ${focus.mode === 'overview' ? 'chip--on' : ''}`} onClick={() => onFocus({ mode: 'overview' })}>
+        <button
+          type="button"
+          className={`crumb ${focus.mode === 'overview' ? 'crumb--here' : ''}`}
+          aria-current={focus.mode === 'overview' ? 'page' : undefined}
+          onClick={() => onFocus({ mode: 'overview' })}
+        >
           Architecture overview
         </button>
         {focus.mode === 'set' && (
-          <span className="graph-pane__crumb">
-            › <strong>{focus.label}</strong>
-          </span>
+          <>
+            <span className="crumb-sep">/</span>
+            <span className="crumb crumb--here">{focus.label}</span>
+          </>
         )}
         {focusNode && (
-          <span className="graph-pane__crumb">
-            › Neighborhood of <strong>{displayName(focusNode)}</strong>
-          </span>
+          <>
+            <span className="crumb-sep">/</span>
+            <span className="crumb crumb--here">Neighborhood of <code>{displayName(focusNode)}</code></span>
+          </>
         )}
         <span className="graph-pane__meta">
           {view.nodes.length} nodes · {view.edges.length} links
@@ -68,13 +75,13 @@ export function GraphPane({ ix, focus, selectedId, onSelect, onFocus }: Props) {
             nodesDraggable
             minZoom={0.1}
             proOptions={{ hideAttribution: false }}
-            colorMode="dark"
+            colorMode="system"
             fitView
             fitViewOptions={{ padding: 0.12, maxZoom: 1.2 }}
           >
             <FitOnChange token={token} />
             <Background gap={24} />
-            <MiniMap pannable zoomable nodeColor={() => '#3b4252'} maskColor="rgba(10,12,16,0.6)" style={{ width: 150, height: 100 }} />
+            <MiniMap pannable zoomable style={{ width: 150, height: 100 }} />
             <Controls showInteractive={false} />
           </ReactFlow>
         </ReactFlowProvider>

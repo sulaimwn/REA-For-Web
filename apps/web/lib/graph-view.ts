@@ -230,7 +230,8 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
     const n = ix.byId.get(id);
     const pos = positions.get(id);
     if (!n || !pos) continue;
-    nodes.push({ id, type: 'kind', position: { x: pos.x, y: pos.y }, data: { node: n, focused: id === focusedId, dir: pos.dir } });
+    // initialWidth/Height: the minimap only draws nodes whose size it knows.
+    nodes.push({ id, type: 'kind', position: { x: pos.x, y: pos.y }, initialWidth: NODE_W, initialHeight: NODE_H, data: { node: n, focused: id === focusedId, dir: pos.dir } });
   }
 
   const edges: Edge[] = [...groups.values()].map((list) => {
@@ -243,8 +244,8 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
       source: first.source,
       target: first.target,
       label: `${list.length > 1 ? `${first.relation} ×${list.length}` : first.relation}${heuristic ? ' (heuristic)' : ''}`,
+      // IPC is drawn in the boundary color, not animated: motion only follows the user's actions.
       className: `rel ${ipc ? 'rel-ipc' : ''} ${heuristic ? 'rel-heuristic' : ''} ${observed ? 'rel-observed' : 'rel-inferred'}`,
-      animated: ipc,
     };
   });
 
