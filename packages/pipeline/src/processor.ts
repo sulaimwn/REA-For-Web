@@ -8,6 +8,26 @@ import { VerifiedBytes, uploadKey, resultKey } from './storage.js';
 import type { PipelineConfig, UploadRecord, JobResult } from './server.js';
 import { UPLOAD_TTL_SECONDS, uploadKind, validateUpload, validateJobId } from './contracts.js';
 
+// Worker Redis connections retry indefinitely; a progress command must not
+// prevent raw/staging cleanup when the queue is unavailable.
+const PROGRESS_WRITE_TIMEOUT_MS = 5000;
+async function persistProgress(write: () => Promise<void>) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      write(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(Object.assign(
+          new Error('Queue progress persistence timed out.'),
+          { code: 'progress_unavailable' },
+        )), PROGRESS_WRITE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type AnalysisRunner = (options: {
   targetPath: string;
   targetName: string;
@@ -82,10 +102,10 @@ export async function processUpload(
       onProgress: (progress) => {
         // Serialize bounded progress updates; persist failures before publication.
         progressPending = progressPending.then(() =>
-          job.updateProgress({
+          persistProgress(() => job.updateProgress({
             phase: progress.phase.slice(0, 120),
             message: progress.message.slice(0, 300),
-          }),
+          })),
         );
         void progressPending.catch(() => {});
       },

@@ -231,6 +231,26 @@ test("program preflight checks the MZ header and the byte limit", async t => {
   await assert.rejects(preflightTarget(apk, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   const args = containerArgs("job", apk, "apk", DEFAULT_LIMITS, "tiny-notes.apk", NATIVE_WORKER_IMAGE);
   assert.match(args[args.indexOf("--mount") + 1]!, /target=\/input\/target\.apk,bind-recursive=disabled,readonly$/u);
+  // A Linux ELF (T028) must carry its header; a PE or APK named .elf is refused before REA starts.
+  const elf = join(repo, "fixtures/sample-apps/tiny-linux/tiny-notes");
+  assert.equal((await preflightTarget(elf, "elf", DEFAULT_LIMITS)).files, 1);
+  await assert.rejects(preflightTarget(exe, "elf", DEFAULT_LIMITS), { message: /no ELF header/u });
+  await assert.rejects(preflightTarget(elf, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
+  const elfArgs = containerArgs("job", elf, "elf", DEFAULT_LIMITS, "tiny-notes", NATIVE_WORKER_IMAGE);
+  assert.match(elfArgs[elfArgs.indexOf("--mount") + 1]!, /target=\/input\/target\.elf,bind-recursive=disabled,readonly$/u);
+});
+
+test("Linux programs are admitted as .elf or .so and run in the native image only when enabled", async t => {
+  const ctx = await context(t);
+  for (const name of ["tiny-notes.elf", "libtiny.so"]) {
+    const copy = join(ctx.temp, name);
+    await writeFile(copy, await readFile(join(repo, "fixtures/sample-apps/tiny-linux/tiny-notes")));
+    for (const [native, image] of [[false, WORKER_IMAGE], [true, NATIVE_WORKER_IMAGE]] as const) {
+      await runWithDocker({ targetPath: copy, outputRoot: join(ctx.temp, `results-${name}-${native}`), native }, ctx.docker);
+      const args = JSON.parse(await readFile(ctx.config.createArgs, "utf8")) as string[];
+      assert.ok(args.includes(image) && args.includes("elf"), `${name} ${image}`);
+    }
+  }
 });
 
 test("the native image is an explicit operator setting", () => {

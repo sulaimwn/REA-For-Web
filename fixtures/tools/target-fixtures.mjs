@@ -5,7 +5,7 @@
 // Usage: REA_SCRIPT=<path to node_modules/rea-agents/scripts/rea.mjs> node fixtures/tools/target-fixtures.mjs
 // REA only reads the samples; nothing here runs them.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -93,4 +93,27 @@ if (process.env.GHIDRA_INSTALL_DIR) {
   const { collectNativeBundle } = await import(new URL('../../packages/rea-adapter/dist/native-session.js', import.meta.url).href);
   const bundle = await collectNativeBundle({ reaScript, program: exe });
   write('tiny-native', exe, JSON.parse(JSON.stringify(bundle).split(JSON.stringify(process.env.GHIDRA_INSTALL_DIR).slice(1, -1)).join('<GHIDRA_INSTALL_DIR>')));
+}
+
+// Linux ELF: REA's Ghidra provider accepts only PE programs on a Windows host, so collect inside the
+// native worker image (Linux), with the same adapter collector. Set NATIVE_IMAGE=1 after building
+// apps/worker/Dockerfile.native. The container has no network and only reads the sample.
+if (process.env.NATIVE_IMAGE === '1') {
+  const dir = join(fixtures, 'sample-apps', 'tiny-linux');
+  const out = mkdtempSync(join(tmpdir(), 'rea-fixture-'));
+  try {
+    const r = spawnSync('docker', [
+      'run', '--rm', '--network=none', '--cpus=1', '--memory=2g', '--workdir=/tmp', '--env=HOME=/tmp',
+      '--mount', `type=bind,source=${dir},target=/input,readonly`,
+      '--mount', `type=bind,source=${join(fixtures, 'tools')},target=/tools,readonly`,
+      '--mount', `type=bind,source=${out},target=/out`,
+      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.4.0', '/tools/collect-native-in-image.mjs', 'tiny-notes',
+    ], { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+    if (r.status !== 0) throw new Error(`native image collection failed: ${r.stderr}`);
+    const bundle = JSON.parse(readFileSync(join(out, 'bundle.json'), 'utf8'));
+    // Paths inside the container: scrub the same way as host paths.
+    write('tiny-linux', '/input/tiny-notes', bundle);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
 }
