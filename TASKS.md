@@ -45,18 +45,28 @@ Details for a task go under its heading below the table.
 | T033 | Landing page: every supported format, "try your own app" first (upload or local), demos grouped into samples and real apps | claude | done | T031 |
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | done | T030, T031, T033 |
-| R006 | Independent review of T041 free Ask wire budgets and Workers AI deployment binding | codex | in progress | T041 |
+| R006 | Independent review of T041 free Ask wire budgets and Workers AI deployment binding | codex | done | T041 |
 | T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | in progress | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
 | T039 | Hosted uploads after a budget x86 8 GB server becomes available; human chose to wait for CX33 | codex | blocked | T026, T038 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | in progress | T037 |
-| T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | in progress | T030, R005, T038 |
+| T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
 | T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | review | T026, T029 |
+| T044 | Verify real free Ask answers and node citations after the human deploys the reviewed AI-binding release | codex | blocked | T041, R006 |
 
 ---
+
+### T044 — Public free Ask verification
+T041/R006 approve the implementation and Cloudflare configuration. After the
+human pushes the reviewed release, inspect the deployment and ask an actual
+question on the public Tiny Electron demo. Verify a real answer, tool lookups
+and node citations. Until then, do not claim public free answers work. If deploy
+fails due to Workers AI token permissions, have the human update the deploy
+token through its normal account settings; never extract stored credentials or
+change the Workers plan. Hosted uploads remain explicitly deferred under T039.
 
 ### T042 — Upload API Redis stalls
 Exercise admission and completion with a dedicated real Redis instance paused

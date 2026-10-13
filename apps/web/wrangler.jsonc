@@ -11,12 +11,11 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  // Free Ask tier (T030) is disabled until the operator confirms this account is on Workers Free.
-  // Buying a domain doesn't confirm the Workers plan; Workers Paid can bill over the daily allocation.
-  // After confirming Workers Free, uncomment the AI binding. Do not enable it on Paid without a hard budget.
+  // Free Ask tier (T030). The account was confirmed on Workers Free ($0) on 2026-10-13 (T038). There, Workers AI stops
+  // at the daily allocation instead of billing. Workers Paid bills past it: remove this binding BEFORE upgrading.
   // Optional per-visitor limit across the edge (if the account offers it):
   // "ratelimits": [{ "name": "ASK_FREE_LIMITER", "namespace_id": "3001", "simple": { "limit": 12, "period": 60 } }],
-  // "ai": { "binding": "AI" },
+  "ai": { "binding": "AI" },
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",

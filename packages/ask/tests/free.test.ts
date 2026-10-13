@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { toStudioProject } from '@rea-studio/rea-adapter';
 import { ASK_TOOLS, FREE_ASK_LIMITS, askProjectFree, indexGraph, runAskTool, type FreeChat, type FreeMessage } from '../src/index.js';
-import { FREE_ASK_SYSTEM_PROMPT, freeAskTools } from '../src/free.js';
+import { FREE_ASK_SYSTEM_PROMPT, freeAskTools, wireBytes } from '../src/free.js';
 
 const samples = new URL('../../../../fixtures/samples/', import.meta.url);
 const tiny = indexGraph(toStudioProject(JSON.parse(readFileSync(new URL('tiny-electron.rea-6.4.0.json', samples), 'utf8')), { reaVersion: '6.4.0' }));
@@ -69,7 +69,7 @@ describe('free Ask tier loop', () => {
       seen.push({ messages: request.messages.map((m) => ({ ...m })), final: request.final });
       assert.ok(request.messages.length <= FREE_ASK_LIMITS.maxMessages, `${request.messages.length} messages`);
       assert.ok(request.messages.reduce((n, m) => n + m.content.length, 0) <= FREE_ASK_LIMITS.maxTotalChars);
-      assert.ok(new TextEncoder().encode(request.messages.map((m) => m.content).join('')).byteLength <= FREE_ASK_LIMITS.maxTotalBytes);
+      assert.ok(request.messages.reduce((n, m) => n + wireBytes(m.content), 0) <= FREE_ASK_LIMITS.maxTotalBytes);
       for (const m of request.messages) assert.ok(m.content.length <= FREE_ASK_LIMITS.maxMessageChars);
       return request.final ? { response: 'Done.', tool_calls: [] } : {
         response: '', tool_calls: Array.from({ length: 3 }, () => ({ name: 'search_nodes', arguments: { query: 'no-such-node' } })),
@@ -80,6 +80,15 @@ describe('free Ask tier loop', () => {
     assert.equal(seen.at(-1)!.final, true);
   });
 
+  it('fits several full-size tool results in one free answer', async () => {
+    const project = structuredClone(tiny.project);
+    project.target.name = 'n'.repeat(5_000);
+    const chat: FreeChat = async (request) => request.final ? { response: 'Done.', tool_calls: [] }
+      : { response: '', tool_calls: [{ name: 'project_overview', arguments: {} }] };
+    const r = await askProjectFree({ chat, project, question: 'Tour?' });
+    assert.equal(r.toolCalls, FREE_ASK_LIMITS.maxToolRounds);
+  });
+
   it('bounds multilingual and escaped tool results, and refuses oversized model arguments', async () => {
     for (const name of ['漢字😀'.repeat(600), '\u0000'.repeat(7_000)]) {
       const project = structuredClone(tiny.project);
@@ -87,7 +96,7 @@ describe('free Ask tier loop', () => {
       let rounds = 0;
       const chat: FreeChat = async (request) => {
         rounds++;
-        assert.ok(new TextEncoder().encode(request.messages.map((m) => m.content).join('')).byteLength <= FREE_ASK_LIMITS.maxTotalBytes);
+        assert.ok(request.messages.reduce((n, m) => n + wireBytes(m.content), 0) <= FREE_ASK_LIMITS.maxTotalBytes);
         assert.ok(new TextEncoder().encode(JSON.stringify(request)).byteLength < 64 * 1024);
         for (const m of request.messages) assert.ok(m.content.length <= FREE_ASK_LIMITS.maxMessageChars);
         return request.final ? { response: 'Done.', tool_calls: [] } : {
