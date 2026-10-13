@@ -17,7 +17,7 @@ export interface ManifestComponent {
   launcher: boolean;
 }
 
-const ELEMENT = /<(activity|activity-alias|service|receiver|provider)\b([^>]*?)(\/>|>([\s\S]*?)<\/\1\s*>)/gu;
+const ELEMENT = /<(activity-alias|activity|service|receiver|provider)(?=[\s/>])([^>]*?)(\/>|>([\s\S]*?)<\/\1\s*>)/gu;
 const attr = (attrs: string, name: string): string | null => {
   const m = new RegExp(`\\bandroid:${name}\\s*=\\s*"([^"]*)"`, 'u').exec(attrs);
   return m ? (m[1] as string).replace(/&amp;/gu, '&').replace(/&quot;/gu, '"').replace(/&lt;/gu, '<').replace(/&gt;/gu, '>') : null;
@@ -35,14 +35,21 @@ export function manifestComponents(manifestText: string, packageName: string): M
     const exported = attr(attrs, 'exported');
     const intentActions = [...body.matchAll(/<action\b[^>]*\bandroid:name\s*=\s*"([^"]+)"/gu)].map((a) => a[1] as string);
     const categories = [...body.matchAll(/<category\b[^>]*\bandroid:name\s*=\s*"([^"]+)"/gu)].map((a) => a[1] as string);
-    components.push({
+    const component: ManifestComponent = {
       componentType: tag === 'activity-alias' ? 'activity' : (tag as AndroidComponentType),
       className,
       exported: exported === null ? null : exported === 'true',
       intentActions,
       authorities: attr(attrs, 'authorities'),
       launcher: intentActions.includes('android.intent.action.MAIN') && categories.includes('android.intent.category.LAUNCHER'),
-    });
+    };
+    // An <activity-alias> is another entry into its target activity (often the launcher): merge it in.
+    const same = components.find((c) => c.className === className && c.componentType === component.componentType);
+    if (same) {
+      same.launcher ||= component.launcher;
+      same.exported = same.exported === true || component.exported === true ? true : same.exported ?? component.exported;
+      same.intentActions = [...new Set([...same.intentActions, ...component.intentActions])];
+    } else components.push(component);
   }
   return components;
 }

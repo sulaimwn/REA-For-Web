@@ -70,6 +70,10 @@ export function nodeName(n: StudioNode): string {
       return `${n.name}(${n.parameterTypes.join(', ')})`;
     case 'native-function':
       return `${n.name} @ ${n.address}`;
+    case 'android-component':
+      return `${n.componentType} ${n.className}`;
+    case 'android-permission':
+      return n.name;
   }
 }
 
@@ -82,6 +86,7 @@ export function searchableText(n: StudioNode): string {
   if (n.kind === 'endpoint' || n.kind === 'storage') parts.push(n.mechanism);
   if (n.kind === 'managed-type') parts.push(...n.fields);
   if (n.kind === 'native-import') parts.push(n.library, n.entryPoint, n.managedName ?? '');
+  if (n.kind === 'android-component') parts.push(n.className, ...n.intentActions);
   return parts.join(' ').toLowerCase();
 }
 

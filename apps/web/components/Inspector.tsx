@@ -99,6 +99,17 @@ function facts(n: StudioNode): Fact[] {
       ];
     case 'native-function':
       return [['Function', n.name], ['Address', n.address], ['Entry point', n.entryPoint || null]];
+    case 'android-component':
+      return [
+        ['Type', n.componentType],
+        ['Class', n.className],
+        ['Exported', n.exported === null ? 'not declared' : n.exported ? 'yes: other apps can start it' : 'no'],
+        ['Launcher', n.launcher || null],
+        ['Intent actions', n.intentActions.join(', ') || null],
+        ['Authorities', n.authorities],
+      ];
+    case 'android-permission':
+      return [['Permission', n.name]];
     case 'native-import':
       return [
         ['Library', n.library],

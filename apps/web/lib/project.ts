@@ -65,13 +65,16 @@ export const KIND_META: Record<StudioNodeKind, KindMeta> = {
   'external-member': { label: 'External API', plural: 'External APIs', family: 'system', overview: false },
   // Native programs (T021): functions found by Ghidra; their imports are `native-import` (boundary).
   'native-function': { label: 'Function', plural: 'Functions', family: 'code', overview: true },
+  // Android (T021): manifest components are the app's runnable parts; permissions are what it asks for.
+  'android-component': { label: 'App component', plural: 'Components', family: 'runtime', overview: true },
+  'android-permission': { label: 'Permission', plural: 'Permissions', family: 'system', overview: false },
   'analysis-gap': { label: 'Analysis gap', plural: 'Analysis gaps', family: 'gap', overview: false },
 };
 
 /** Which kinds to show first in grids and neighborhoods. Noisy, unfiltered kinds go last. */
 export const KIND_ORDER: readonly StudioNodeKind[] = [
-  'process', 'window', 'bridge-api', 'ipc-channel', 'ipc-handler', 'native-addon', 'worker', 'storage',
-  'assembly', 'native-import', 'managed-type', 'managed-method', 'native-function',
+  'process', 'android-component', 'window', 'bridge-api', 'ipc-channel', 'ipc-handler', 'native-addon', 'worker', 'storage',
+  'assembly', 'native-import', 'managed-type', 'managed-method', 'native-function', 'android-permission',
   'package', 'file', 'module', 'bundle-chunk', 'external-module', 'external-member', 'source-map', 'source-file', 'endpoint', 'analysis-gap',
 ];
 
@@ -153,6 +156,10 @@ export function displayName(n: StudioNode): string {
       return `${n.name}(${n.parameterTypes.join(', ')})`;
     case 'native-function':
       return n.name;
+    case 'android-component':
+      return n.className.split('.').pop() ?? n.className;
+    case 'android-permission':
+      return n.name.replace(/^android\.permission\./u, '');
   }
 }
 

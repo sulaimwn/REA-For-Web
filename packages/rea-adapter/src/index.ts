@@ -20,6 +20,7 @@ import { buildFindings } from './findings.js';
 import { adaptManagedBundle, isManagedBundle } from './managed.js';
 import { adaptWebBundle, isWebBundle } from './web.js';
 import { adaptNativeBundle, isNativeBundle } from './native.js';
+import { adaptAndroidBundle, isAndroidBundle } from './android.js';
 import { assessEndpoints, linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
@@ -31,6 +32,8 @@ export { ReaOutputError };
 export { MANAGED_OPERATION, isManagedBundle } from './managed.js';
 export { WEB_OPERATION, isWebBundle } from './web.js';
 export { interestingNativeStrings, isNativeBundle, nativeProcedureAddresses } from './native.js';
+export { ANDROID_RULES, isAndroidBundle } from './android.js';
+export { androidAppClassFilter, manifestComponents } from './android-manifest.js';
 
 export { recoverDroppedRelationships } from './recover.js';
 export type { IsolatedRun, RecoveryReport } from './recover.js';
@@ -177,6 +180,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   if (isWebBundle(raw)) return adaptWebBundle(raw, options);
   // Native programs: REA with the Ghidra provider (T021).
   if (isNativeBundle(raw)) return adaptNativeBundle(raw, options);
+  if (isAndroidBundle(raw)) return adaptAndroidBundle(raw, options);
   assertReaResult(raw);
   const r = raw.normalized_result;
   const report: AdapterReport = {
