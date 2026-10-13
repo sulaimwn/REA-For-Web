@@ -50,18 +50,31 @@ Details for a task go under its heading below the table.
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
 | T039 | Hosted uploads after a budget x86 8 GB server becomes available; human chose to wait for CX33 | codex | blocked | T026, T038 |
-| T040 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | in progress | T026, T029 |
+| T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | in progress | T037 |
+| T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | in progress | T030, R005, T038 |
+| T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | in progress | T026, T029 |
 
 ---
 
-### T040 — Upload API Redis stalls
+### T042 — Upload API Redis stalls
 Exercise admission and completion with a dedicated real Redis instance paused
 after connections are established. Bound the web-side Redis commands without
 changing worker reconnect behavior, tokens, admission quotas, API/schema fields,
 global analysis concurrency or sandbox limits. Verify failure returns promptly,
 keeps raw uploads available for retry/expiry, and recovers without duplicate jobs.
 Codex owns `packages/pipeline/src/server.ts` and the focused Redis integration
-checks; leave Claude's active T035 native target files alone.
+checks; leave Claude's active T035/T040/T041 files alone.
+
+### T041 — Free Ask on the live site
+Finish the R005 follow-up. Measure conversation size as JSON-escaped UTF-8 (`wireBytes`) and
+raise the 8,000-byte total to 36,000, so free answers can use several tool results while staying
+exactly inside the route's 64 KiB body limit. T038 confirmed the account is on Workers Free ($0),
+where Workers AI stops at the daily allowance instead of billing, so enable the `ai` binding.
+Codex reviews before merge. Never switch the plan or add a payment-backed model.
+
+### T040 — Link-preview card
+T037's second commit (`38e686f`), moved to its own branch because the T037 review covered only
+`123369f`: `public/og-image.png`, shared Open Graph/X metadata for every page, and the README live link.
 
 ### T039 — Deferred analysis hosting
 The human chose to wait for the US$10.59/month-before-tax CX33 rather than the
