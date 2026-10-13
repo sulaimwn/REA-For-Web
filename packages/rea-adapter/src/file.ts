@@ -1,6 +1,24 @@
 // Node-only worker boundary. Keep JSON parsing and interpretation in this package.
-import { open } from 'node:fs/promises';
+import { open, readFile, stat } from 'node:fs/promises';
+import { basename, isAbsolute } from 'node:path';
 import { adaptReaResult, ReaOutputError, type AdapterOptions } from './index.js';
+
+/**
+ * The folder `rea extract-artifact` unpacked an archive into (T008: recovery needs single
+ * files out of an .asar). REA picks the folder; the caller must delete it afterwards.
+ */
+export async function extractedArtifactRoot(path: string, maxBytes: number): Promise<string> {
+  if ((await stat(path)).size > maxBytes) throw new ReaOutputError('REA extraction result is over its byte limit');
+  let raw: { operation?: unknown; parameters?: { output_root?: unknown }; error?: unknown; message?: unknown };
+  try { raw = JSON.parse(await readFile(path, 'utf8')) as typeof raw; }
+  catch (cause) { throw new ReaOutputError('REA extraction result is not valid JSON', { cause }); }
+  if (raw.error !== undefined) throw new ReaOutputError(`REA couldn’t extract the archive: ${String(raw.message ?? raw.error)}`);
+  const root = raw.parameters?.output_root;
+  if (raw.operation !== 'extract_artifact' || typeof root !== 'string' || !isAbsolute(root) || !basename(root).startsWith('rea-extracted-')) {
+    throw new ReaOutputError('REA extraction result has no extraction folder');
+  }
+  return root;
+}
 
 /** Reads a finalized, private REA artifact with a byte cap before adapting it. */
 export async function adaptReaFile(path: string, options: AdapterOptions & { maxBytes: number }) {

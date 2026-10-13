@@ -27,6 +27,9 @@ export class ReaOutputError extends Error {
   override name = 'ReaOutputError';
 }
 
+export { recoverDroppedRelationships } from './recover.js';
+export type { IsolatedRun, RecoveryReport } from './recover.js';
+
 export interface AdapterOptions {
   /** The rea-agents version that produced the output. REA's JSON doesn't include it. */
   reaVersion: string;

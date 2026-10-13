@@ -167,3 +167,12 @@ VS Code linear extrapolation is ~30+ min; not verified.
   it and isn't needed for the map, so the stored result can drop it (~11 MB raw application graph).
 - **Compute is the cost:** about 1.5 GB RAM and 80 s for a mid-size app, and 30+ min for VS Code-scale
   apps. Workers need a per-job timeout and a file-count cap.
+
+## Per-file recovery (T008)
+
+`github-desktop-3.6.5.isolated.main.js.rea-6.4.0.json` and `…isolated.crash.js…` are real REA 6.4.0
+runs of single GitHub Desktop 3.6.5 files analyzed on their own: the file, its `.map`, and the root
+`package.json` copied to an empty folder at the same relative paths, with the folder scrubbed to
+`<INPUT_PATH>`. Made by `fixtures/tools/isolate-files.mjs`; this is the input
+`recoverDroppedRelationships` merges into the whole-app run, where both files lost their
+relationships to REA's shared result budget (limitation 2 above).
