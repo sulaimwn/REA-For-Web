@@ -1,9 +1,14 @@
 'use client';
 
-// Ask questions about the open project with the visitor's own Anthropic API key.
-// The key and the questions go straight from this browser to api.anthropic.com.
+// Ask questions about the open project. Free by default (T030): an open model the site runs on Cloudflare
+// Workers AI, limited per visitor and per day; the tool loop stays in this browser and only the conversation
+// goes to /api/ask/free. With the visitor's own Anthropic key, Claude answers instead, straight from this
+// browser to api.anthropic.com.
 import Anthropic from '@anthropic-ai/sdk';
-import { ASK_MODELS, DEFAULT_ASK_MODEL, askProject, describeAskError, type AskModel, type AskResult, type AskStep } from '@rea-studio/ask';
+import {
+  ASK_MODELS, DEFAULT_ASK_MODEL, FREE_ASK_MODEL_LABEL, FreeAskUnavailableError, askProject, askProjectFree, describeAskError,
+  type AskModel, type AskResult, type AskStep, type FreeChat,
+} from '@rea-studio/ask';
 import type { StudioProject } from '@rea-studio/schema';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Tour } from '../lib/project';
@@ -37,6 +42,22 @@ function forgetKey() {
     // ignore
   }
 }
+
+/** One free-tier model call through this site's route. */
+const freeChat: FreeChat = async (request, signal) => {
+  const response = await fetch('/api/ask/free', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request), ...(signal ? { signal } : {}),
+  });
+  const body = (await response.json().catch(() => ({}))) as { message?: string; response?: string; tool_calls?: [] };
+  if (!response.ok) {
+    const message = body.message ?? `Free questions failed (${response.status}).`;
+    if ([403, 429, 503].includes(response.status)) throw new FreeAskUnavailableError(message);
+    throw new Error(message);
+  }
+  return { response: body.response ?? '', tool_calls: body.tool_calls ?? [] };
+};
+
+type Answer = { answer: string; citedNodeIds: string[]; toolCalls: number; footnote: string; truncated: boolean };
 
 function suggestions(p: StudioProject): string[] {
   const found = (c: string) => p.findings.find((f) => f.category === c)?.status === 'found';
@@ -81,11 +102,13 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
   const [apiKey, setApiKey] = useState(readStoredKey);
   const [draftKey, setDraftKey] = useState('');
   const [remember, setRemember] = useState(false);
-  const [model, setModel] = useState<AskModel>(DEFAULT_ASK_MODEL);
+  // 'free' or a Claude model; a visitor who saved a key keeps Claude as the default.
+  const [model, setModel] = useState<AskModel | 'free'>(() => (readStoredKey() ? DEFAULT_ASK_MODEL : 'free'));
+  const [showKeyForm, setShowKeyForm] = useState(false);
   const [question, setQuestion] = useState('');
   const [asked, setAsked] = useState('');
   const [steps, setSteps] = useState<AskStep[]>([]);
-  const [result, setResult] = useState<AskResult | null>(null);
+  const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const abort = useRef<AbortController | null>(null);
@@ -136,7 +159,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
           Show the cited nodes in the graph
         </button>
       )}
-      <p className="muted ask__fine">Pre-generated answer ({tour.model}). Add an API key to ask your own questions.</p>
+      <p className="muted ask__fine">Pre-generated answer ({tour.model}). Ask your own questions below.</p>
     </div>
   );
 
@@ -160,7 +183,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
 
   async function run(q: string) {
     const text = q.trim();
-    if (!text || !apiKey || running) return;
+    if (!text || running || (model !== 'free' && !apiKey)) return;
     const controller = new AbortController();
     abort.current = controller;
     setRunning(true);
@@ -169,16 +192,34 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
     setSteps([]);
     setResult(null);
     setError(null);
+    const onStep = (s: AskStep) => {
+      if (!controller.signal.aborted && abort.current === controller) setSteps((prev) => [...prev, s]);
+    };
     try {
-      const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-      const r = await askProject({ client, project, question: text, model, signal: controller.signal, onStep: (s) => {
-        if (!controller.signal.aborted && abort.current === controller) setSteps((prev) => [...prev, s]);
-      } });
+      let answer: Answer;
+      if (model === 'free') {
+        const r = await askProjectFree({ chat: freeChat, project, question: text, signal: controller.signal, onStep });
+        answer = { ...r, footnote: `${FREE_ASK_MODEL_LABEL} · ${r.toolCalls} lookups · free tier`, truncated: false };
+      } else {
+        const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+        const r: AskResult = await askProject({ client, project, question: text, model, signal: controller.signal, onStep });
+        const cost = r.estimatedCostUsd;
+        const tokens = r.usage.inputTokens + r.usage.cacheReadTokens + r.usage.cacheWriteTokens;
+        answer = {
+          ...r,
+          truncated: r.stopReason === 'max_tokens',
+          footnote: `${r.model} · ${r.toolCalls} lookups · ${tokens.toLocaleString()} in / ${r.usage.outputTokens.toLocaleString()} out tokens · `
+            + (cost === null ? 'cost estimate unavailable' : `≈ $${cost.toFixed(cost < 0.01 ? 4 : 3)} (estimate)`),
+        };
+      }
       if (controller.signal.aborted || abort.current !== controller) return;
-      setResult(r);
-      if (r.citedNodeIds.length) onShowNodes(r.citedNodeIds);
+      setResult(answer);
+      if (answer.citedNodeIds.length) onShowNodes(answer.citedNodeIds);
     } catch (e) {
-      if (!controller.signal.aborted && abort.current === controller) setError(describeAskError(e));
+      if (!controller.signal.aborted && abort.current === controller) {
+        setError(e instanceof FreeAskUnavailableError ? e.message : describeAskError(e));
+        if (e instanceof FreeAskUnavailableError && !apiKey) setShowKeyForm(true);
+      }
     } finally {
       if (abort.current === controller) {
         setRunning(false);
@@ -187,57 +228,60 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
     }
   }
 
-  if (!apiKey) {
-    return (
-      <div className="ask">
-        {toursBlock}
-        {tourBlock}
-        <h4>Ask your own question</h4>
-        <p className="muted">
-          Ask questions in plain English and get answers grounded in REA’s evidence, with every step linked to the graph.
-          Your question and the relevant analysis details go from this browser to Anthropic, using your own API key.
-        </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const k = draftKey.trim();
-            if (!k) return;
-            storeKey(k, remember);
-            setApiKey(k);
-            setDraftKey('');
-          }}
-        >
-          <input className="search" type="password" placeholder="sk-ant-…" value={draftKey} onChange={(e) => setDraftKey(e.target.value)} aria-label="Anthropic API key" autoComplete="off" />
-          <label className="ask__remember">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember on this device
-          </label>
-          <button type="submit" className="btn btn--primary">
-            Use this key
-          </button>
-        </form>
-        <p className="muted ask__fine">
-          Get a key at console.anthropic.com. Questions are billed to your account; each one shows its token cost.
-        </p>
-      </div>
-    );
-  }
-
-  const cost = result?.estimatedCostUsd ?? null;
+  const keyForm = (
+    <form
+      className="ask__key"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const k = draftKey.trim();
+        if (!k) return;
+        storeKey(k, remember);
+        setApiKey(k);
+        setDraftKey('');
+        setShowKeyForm(false);
+        setModel(DEFAULT_ASK_MODEL);
+      }}
+    >
+      <p className="muted">
+        Claude gives better answers. Your question and the relevant analysis details go from this browser to Anthropic,
+        billed to your own key (get one at console.anthropic.com); each answer shows its token cost.
+      </p>
+      <input className="search" type="password" placeholder="sk-ant-…" value={draftKey} onChange={(e) => setDraftKey(e.target.value)} aria-label="Anthropic API key" autoComplete="off" />
+      <label className="ask__remember">
+        <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember on this device
+      </label>
+      <button type="submit" className="btn btn--primary">Use this key</button>
+    </form>
+  );
 
   return (
     <div className="ask">
       <div className="ask__bar">
-        <select className="ask__model" value={model} onChange={(e) => setModel(e.target.value as AskModel)} aria-label="Model" disabled={running}>
-          {ASK_MODELS.map((m) => (
+        <select className="ask__model" value={model} onChange={(e) => setModel(e.target.value as AskModel | 'free')} aria-label="Who answers" disabled={running}>
+          <option value="free">Free: {FREE_ASK_MODEL_LABEL}</option>
+          {apiKey && ASK_MODELS.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.label} ({m.note})
+              {m.label} ({m.note}, your key)
             </option>
           ))}
         </select>
-        <button type="button" className="link muted" onClick={() => { stop(); forgetKey(); setApiKey(''); }}>
-          Forget key
-        </button>
+        {apiKey ? (
+          <button type="button" className="link muted" onClick={() => { stop(); forgetKey(); setApiKey(''); setModel('free'); }}>
+            Forget key
+          </button>
+        ) : (
+          <button type="button" className="link muted" onClick={() => setShowKeyForm((v) => !v)} aria-expanded={showKeyForm}>
+            Use your Claude key
+          </button>
+        )}
       </div>
+      {!apiKey && showKeyForm && keyForm}
+      {model === 'free' && !asked && (
+        <p className="muted ask__fine">
+          Free questions use an open model this site runs on Cloudflare, limited per visitor and per day. Your question and
+          the analysis details it looks up are sent to this site and Cloudflare; nothing is stored.
+        </p>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -301,16 +345,13 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
       {result && (
         <>
           <AnswerMarkdown text={result.answer} onNode={onSelect} known={(id) => ids.has(id)} />
-          {result.stopReason === 'max_tokens' && <p role="note" className="muted">The answer reached its length limit and may be incomplete.</p>}
+          {result.truncated && <p role="note" className="muted">The answer reached its length limit and may be incomplete.</p>}
           {result.citedNodeIds.length > 0 && (
             <button type="button" className="btn" onClick={() => onShowNodes(result.citedNodeIds)}>
               Show the {result.citedNodeIds.length} cited nodes in the graph
             </button>
           )}
-          <p className="muted ask__fine">
-            {result.model} · {result.toolCalls} lookups · {(result.usage.inputTokens + result.usage.cacheReadTokens + result.usage.cacheWriteTokens).toLocaleString()} in /{' '}
-            {result.usage.outputTokens.toLocaleString()} out tokens · {cost === null ? 'cost estimate unavailable' : `≈ $${cost.toFixed(cost < 0.01 ? 4 : 3)} (estimate)`}
-          </p>
+          <p className="muted ask__fine">{result.footnote}</p>
         </>
       )}
     </div>
