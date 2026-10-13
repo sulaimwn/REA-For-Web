@@ -24,6 +24,8 @@
     "typecheck": "npm run build:packages && npm run typecheck --workspaces",
     "start": "npm run start --workspace=@rea-studio/web",
     "dev:uploads": "node scripts/dev-uploads.mjs",
+    "test:hosted": "node scripts/check-hosted-deployment.mjs",
+    "pretest:hosted": "npm run build:packages && npm run build --workspace=@rea-studio/worker",
     "worker:queue": "npm run queue --workspace=@rea-studio/worker"
   },
   "overrides": {

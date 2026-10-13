@@ -108,6 +108,9 @@ output files were removed.
 
 ## Connect Cloudflare R2 later
 
+The provider-independent Linux web/queue setup is in
+[hosted uploads](hosted-uploads.md). It is a deployment kit, not a live service.
+
 No bucket, account resources or credentials were created during T007. The R2
 adapter's signing is tested offline; live R2 integration remains to be checked.
 

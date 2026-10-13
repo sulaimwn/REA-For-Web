@@ -5,6 +5,10 @@ The website runs on **Cloudflare Workers** via the official
 Linux and deploys it on every push to `main` (`.github/workflows/deploy-cloudflare.yml`).
 Building locally on Windows isn't supported by OpenNext, so let CI do it.
 
+For the separate Docker analysis site and the optional `REA_UPLOAD_ORIGIN`
+navigation setting, see [hosted uploads](hosted-uploads.md). Keep R2/Redis/Docker
+credentials on that service, not the Cloudflare frontend.
+
 **What goes live:** the demos, the explorer, `/open` (local mode) and Ask (bring
 your own key). **Not yet:** uploading apps to the site. That needs the analysis
 worker hosted somewhere (Cloudflare Containers or a small server); it's a separate step.

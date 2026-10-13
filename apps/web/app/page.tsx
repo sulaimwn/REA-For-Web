@@ -3,6 +3,7 @@ import { KindGlyph } from '../components/KindGlyph';
 import { LandingDemo } from '../components/LandingDemo';
 import { REPO_URL, SiteFooter, SiteHeader } from '../components/SiteChrome';
 import { loadDemos } from '../lib/demos';
+import { uploadLocation } from '../lib/upload-location';
 
 /** The demo shown first: small enough that its overview is readable at a glance. */
 const FIRST = 'tiny-electron';
@@ -12,10 +13,10 @@ export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   const demos = loadDemos().sort((a, b) => Number(b.slug === FIRST) - Number(a.slug === FIRST));
-  const uploadsAvailable = ['local', 'r2'].includes(process.env.PIPELINE_STORAGE ?? '');
+  const uploadHref = uploadLocation();
   return (
     <>
-      <SiteHeader uploadsAvailable={uploadsAvailable} />
+      <SiteHeader uploadsAvailable={Boolean(uploadHref)} uploadHref={uploadHref ?? '/upload'} />
       <main className="frontpage">
         <section className="intro">
           <div>
@@ -53,7 +54,7 @@ export default function HomePage() {
           </dl>
         </section>
 
-        {uploadsAvailable && <p><Link className="btn btn--primary" href="/upload">Upload your own app</Link></p>}
+        {uploadHref && <p><Link className="btn btn--primary" href={uploadHref}>Upload your own app</Link></p>}
 
         {demos.length > 0 ? (
           <LandingDemo demos={demos} />

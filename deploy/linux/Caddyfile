@@ -1,0 +1,8 @@
+{$UPLOAD_HOST} {
+	encode zstd gzip
+	# Hosted files go directly to private R2. Only small API metadata reaches this proxy.
+	request_body {
+		max_size 1MB
+	}
+	reverse_proxy web:3000
+}

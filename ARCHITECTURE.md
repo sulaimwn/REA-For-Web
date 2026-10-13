@@ -80,13 +80,14 @@ notes/handoffs/   agent handoff notes
 
 ## Scope
 
-- **Local mode:** Electron/JS (`.asar` or extracted app dir), managed .NET
-  (`.exe`/`.dll`), and website URLs. Program files are analyzed statically;
+- **Local mode:** Electron/JS (`.asar` or extracted app dir), managed .NET/native
+  Windows programs (`.exe`/`.dll`), Android APKs, and website URLs. Program files are analyzed statically;
   website capture loads the requested page in a fresh Chrome profile, then
   analyzes captured scripts statically.
-- **Hosted worker:** still Electron/JS only. .NET uploads, bounded per-file
-  recovery, Android (JADX), native (Ghidra), and isolated website capture need
-  separate worker integration and acceptance checks.
+- **Analysis worker:** Electron/JS with bounded per-file recovery, .NET, native
+  Ghidra and Android JADX pass local integration checks. The provider-independent
+  host deployment is prepared in T026, but public hosting/R2/TLS are not connected.
+  Isolated website capture still needs its separate worker design.
 - **Never on the server:** runtime/process capture of uploaded targets.
 
 ## StudioProject schema (v0.1.0)
@@ -289,3 +290,10 @@ request/response fields. Staging preserves the kind; revision 7 cache keys inclu
 the kind, preventing cross-parser cache reuse when the same bytes are renamed.
 Raw object names and expiry support all four kinds. Old authorized ASAR results
 from revisions 2–6 remain readable. Native image selection stays operator-owned.
+
+T026 packages the existing API/explorer as a non-root Linux web container, with
+private Redis and a trusted host queue service. Only the host queue controls
+Docker; analysis containers remain offline and credential-free. The Cloudflare
+frontend may use the public `REA_UPLOAD_ORIGIN` runtime setting to link to that
+service's `/upload`; each service keeps its own browser session/job tokens.
+This does not add API fields or a cross-origin proxy. See `docs/hosted-uploads.md`.

@@ -30,3 +30,6 @@ apps/web/public/projects/
 .open-next/
 .wrangler/
 .dev.vars
+deploy/linux/*.env
+deploy/linux/secrets/
+.host-test-*/
