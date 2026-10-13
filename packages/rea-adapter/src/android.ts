@@ -353,6 +353,11 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   const skippedMethods = typeof collection.skipped_methods === 'number' ? collection.skipped_methods : 0;
   const undecompiled = [...methodNodeId.keys()].filter((k) => (methodEnvs[k]?.normalized_result as MethodResult | null)?.body_status !== 'available').length;
   const searchEnv = b['search_android_classes'] as Envelope | undefined;
+  // JADX shows classes a minifier moved into the unnamed package as `defpackage.<short name>`.
+  const allClasses = (searchEnv?.normalized_result as { matches?: unknown } | null)?.matches;
+  // Generated resource classes (`R`, `BuildConfig`) can land there without any minifier.
+  const minifiedClasses = Array.isArray(allClasses)
+    ? allClasses.filter((c) => typeof c === 'string' && c.startsWith('defpackage.') && !/^defpackage\.(R|BuildConfig)(\$|$)/u.test(c)).length : 0;
   const queryCoverage = [searchEnv, ...Object.values(referenceEnvs)].map((e) => (e?.normalized_result as { coverage?: unknown } | null)?.coverage);
   const missingClasses = Object.values(classEnvs).filter((e) => !e?.normalized_result).length;
   const missingManifest = !manifestText || pkg.manifest?.status !== 'complete';
@@ -397,7 +402,10 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       finding('bridge-apis', of('bridge-api').length, [heuristicNote]),
       finding('endpoints', of('endpoint').length, [heuristicNote]),
       finding('storage', of('storage').length, [heuristicNote]),
-      finding('types', of('managed-type').length, [`${classNames.length} app classes inspected (components are listed as components); bundled libraries left out`]),
+      finding('types', of('managed-type').length, [
+        `${classNames.length} app classes inspected (components are listed as components); bundled libraries left out`,
+        ...(minifiedClasses > 0 ? [`${minifiedClasses} more classes were renamed into the default package by a minifier (R8/ProGuard) and left out; their names say nothing about the app`] : []),
+      ]),
       finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body; reason unknown`] : []), ...(skippedSynthetic ? [`${skippedSynthetic} proven empty initializers or compiler-style method names left out (Studio heuristic)`] : [])]),
     ],
     ipcSummary: {

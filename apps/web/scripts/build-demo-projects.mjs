@@ -60,6 +60,27 @@ const DEMOS = [
     file: 'tiny-android.rea-6.4.0.json',
     blurb: 'A hand-written APK read with JADX: its activity, service, receiver and provider, permissions, and the WebView’s JavaScript bridge.',
   },
+  // Real-world samples (T031): small open-source apps; sources and checksums in fixtures/sample-apps/real-world.md.
+  {
+    slug: 'caprine',
+    title: 'Caprine (Electron)',
+    file: 'caprine-2.61.0.trimmed.rea-6.4.0.json',
+    blurb: 'An open-source Messenger desktop app: its main, preload and renderer processes, the window and the IPC channels between them.',
+    note: 'Trimmed sample: dependency files under node_modules are left out',
+  },
+  {
+    slug: 'jq',
+    title: 'jq (Windows .exe)',
+    file: 'jq-1.8.2-windows.rea-6.4.0.json',
+    targetName: 'jq.exe',
+    blurb: 'The popular JSON command-line tool, read with Ghidra: about 900 functions and the Windows APIs they call. Release builds are stripped, so most functions have Ghidra’s generic names.',
+  },
+  {
+    slug: 'binary-eye',
+    title: 'Binary Eye (Android)',
+    file: 'binaryeye-1.75.5.rea-6.4.0.json',
+    blurb: 'An open-source barcode scanner from F-Droid, read with JADX: its 18 components, 11 permissions and readable classes. Most classes were renamed by a minifier and are left out.',
+  },
 ];
 
 /**
@@ -72,9 +93,9 @@ function publishTours(slug, project) {
 }
 
 mkdirSync(out, { recursive: true });
-const index = DEMOS.map(({ slug, title, file, blurb, note }) => {
+const index = DEMOS.map(({ slug, title, file, blurb, note, targetName }) => {
   const raw = JSON.parse(readFileSync(new URL(file, samples), 'utf8'));
-  const project = toStudioProject(raw, { reaVersion: REA_VERSION });
+  const project = toStudioProject(raw, { reaVersion: REA_VERSION, ...(targetName ? { targetName } : {}) });
   writeFileSync(new URL(`${slug}.json`, out), JSON.stringify(project));
   const trim = raw._fixture_trim?.graph;
   const tours = publishTours(slug, project);
