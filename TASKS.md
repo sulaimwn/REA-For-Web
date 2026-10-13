@@ -41,8 +41,17 @@ Details for a task go under its heading below the table.
 | T031 | **Human request.** Real-world sample projects (small open-source APK, .exe and Electron app, downloads approved by the human) as demos; uploads stay the main path | claude | in progress | T021, T028 |
 | T029 | Bound progress persistence during queue outages so failed jobs still clean raw uploads and staging | codex | done | T025 |
 | R004 | Independent review of Linux ELF evidence, CLI and sandbox worker | codex | done | T028 |
+| T032 | Linux uploads: explicit .elf/.so admission with verified bytes and isolated ELF result cache | codex | in progress | T028, R004, T025 |
 
 ---
+
+### T032 — Linux uploads
+Implement the explicit `.elf`/`.so` admission delegated to Codex in T028 and
+proposed in the merged R004 handoff. Both extensions use the canonical `elf`
+analysis kind. Keep all API fields, SHA possession checks, private storage,
+sandbox limits and cleanup unchanged. Verify a real ELF through HTTP, alias
+deduplication, and renamed PE rejection without cross-kind cache reuse. Bare and
+versioned-library filenames remain outside this upload path.
 
 ### T029 — Queue progress recovery
 Reproduce the processor waiting indefinitely on a Redis progress write, then
