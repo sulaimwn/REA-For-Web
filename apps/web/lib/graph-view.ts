@@ -206,7 +206,7 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
   for (const e of ix.project.edges) {
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     if (isRootContainment(ix, e) && !(focus.mode === 'node' && focus.id === ix.rootId)) continue;
-    const key = `${e.source}|${e.target}|${e.relation}`;
+    const key = `${e.source}|${e.target}|${e.relation}|${e.origin.source}`;
     const g = groups.get(key);
     if (g) g.push(e);
     else groups.set(key, [e]);
@@ -227,13 +227,14 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
   const edges: Edge[] = [...groups.values()].map((list) => {
     const first = list[0] as StudioEdge;
     const observed = list.some((e) => e.evidence.state === 'observed');
+    const heuristic = list.every((e) => e.origin.source === 'studio-heuristic');
     const ipc = IPC_RELATIONS.has(first.relation);
     return {
-      id: `${first.source}|${first.target}|${first.relation}`,
+      id: `${first.source}|${first.target}|${first.relation}|${first.origin.source}`,
       source: first.source,
       target: first.target,
-      label: list.length > 1 ? `${first.relation} ×${list.length}` : first.relation,
-      className: `rel ${ipc ? 'rel-ipc' : ''} ${observed ? 'rel-observed' : 'rel-inferred'}`,
+      label: `${list.length > 1 ? `${first.relation} ×${list.length}` : first.relation}${heuristic ? ' (heuristic)' : ''}`,
+      className: `rel ${ipc ? 'rel-ipc' : ''} ${heuristic ? 'rel-heuristic' : ''} ${observed ? 'rel-observed' : 'rel-inferred'}`,
       animated: ipc,
     };
   });

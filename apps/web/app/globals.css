@@ -146,6 +146,7 @@ button { font: inherit; color: inherit; }
 .rel path.react-flow__edge-path { stroke: #4b5468; stroke-width: 1.4; }
 .rel-inferred path.react-flow__edge-path { stroke-dasharray: 5 4; }
 .rel-ipc path.react-flow__edge-path { stroke: var(--k-ipc); }
+.rel-heuristic path.react-flow__edge-path { stroke: var(--warn); stroke-dasharray: 2 5; stroke-width: 1.6; }
 
 .kind-node {
   width: 230px; height: 54px; padding: 7px 10px; border-radius: 9px;

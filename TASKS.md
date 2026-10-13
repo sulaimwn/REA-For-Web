@@ -15,9 +15,10 @@ Details for a task go under its heading below the table.
 | T006 | Worker: run REA on an `.asar` in a sandbox        | codex | done   | T002, T004 |
 | T007 | Upload pipeline: presigned upload → queue → worker | —     | todo   | T006       |
 | T008 | Per-file REA analysis of big bundles to avoid the shared result budget | —     | todo   | T006       |
-| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | —     | todo   | T004       |
+| T009 | Adapter heuristics (labeled `studio-heuristic`): bridge linking, endpoint filtering | claude | review | T004       |
 | T010 | Draft upstream REA issues: webpack-aliased Electron APIs, shared budget | claude | done | T001       |
 | T011 | Launch prep: README + screenshots, shareable links, deploy notes | claude | done | T005       |
+| T012 | Endpoint plausibility verdicts (schema proposal agreed in T015 review) | —     | todo | T009       |
 | T015 | Adapter: .asar inputs (asar-entry), fallback target name, appKind from any Electron process | claude | done | T004       |
 
 ---
@@ -86,3 +87,8 @@ shape. Never change REA facts; only add.
 Write issue drafts with minimal repros for: (1) `new r.BrowserWindow()` /
 `r.ipcMain.handle()` via webpack externals not recognized; (2) shared parent
 result budget dropping per-file relationships. The human decides whether to file.
+
+### T012 — Endpoint plausibility
+Blocked on agreeing a schema field (see `notes/handoffs/2026-10-12-T009-claude.md`).
+Rule validated on full GitHub Desktop output: 2 of 89 endpoint candidates plausible,
+exactly the two real ones. UI then hides `unlikely` endpoints by default.
