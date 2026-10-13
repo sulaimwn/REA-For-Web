@@ -33,7 +33,7 @@ Details for a task go under its heading below the table.
 | R001 | Independent integration review: T008, T012, T021 (.NET/web phase) and T022 | codex | done | T008, T012, T021, T022 |
 | R002 | Independent review: T021 native/Android collectors, evidence and schema | codex | done | T021 |
 | R003 | Independent review: T024 .NET/native/Android sandbox worker | codex | done | R002, T024 |
-| T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | in progress | T007, T024 |
+| T025 | Upload .exe/.dll/.apk files through the verified queue and sandbox | codex | review | T007, T024 |
 
 ---
 
@@ -124,10 +124,9 @@ from the product: a reverse-engineering evidence tool. Landing leads with the re
 explorer. Restyle landing, explorer, inspector, Ask and /open. No behavior changes.
 
 ### T021 — Beyond Electron (essential)
-The initial .NET and website phase is approved in R001, with the additive schema
-remaining 0.1.0. Claude's newer native/Android continuation on
-`claude/T021-beyond-electron` and its stacked T024 worker are separate reviews.
-JADX and Ghidra downloads were already approved by the human.
+The .NET and website phase passed R001; native/Android passed R002, and the T024
+worker passed R003. All are merged into main, with the additive schema remaining
+0.1.0. See the review handoffs for evidence corrections and provider limitations.
 
 The human: support for more than Electron is required for the final product. REA already has
 tools for web bundles/pages, Android (APK), managed code (.NET) and native binaries. First step:
