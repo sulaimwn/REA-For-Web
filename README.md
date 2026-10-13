@@ -1,23 +1,32 @@
-# REA Studio
+# REA for Web
 
-**See how an application is put together, with the evidence behind every fact.**
+**Explore apps, visualize their architecture, and ask AI how they work.**
 
-REA Studio turns [REA](https://github.com/morluto/rea) static analysis into an
-interactive map of an application: its processes, IPC channels, preload
-bridges, native add-ons, storage keys, and the original source tree recovered
-from source maps. Click anything to see exactly where REA found it
-(`file:line:column`), whether it was observed or inferred, and what REA
-couldn't determine.
+[Try it at reaforweb.com](https://reaforweb.com)
 
-Supported targets include Electron apps, .NET assemblies, native Windows/Linux
-programs, Android APKs and website captures. Each target has its own findings:
-.NET types and calls, native functions and imports, Android components and
-permissions, or website scripts and frameworks.
+REA for Web (REA Studio) brings [REA](https://github.com/morluto/rea) analysis
+into an interactive browser explorer. Follow connections through an app, inspect
+the evidence behind each finding, and ask questions about how its features work.
 
-Program files are never executed. Website capture loads the requested page in a
-fresh browser.
+Supports Electron apps, .NET assemblies, native Windows/Linux programs, Android
+APKs, and website captures. Findings vary by target: processes and IPC channels,
+types and calls, native functions and imports, Android components and permissions,
+or website scripts and frameworks.
 
-![The tiny sample app: package → main process → window → preload → IPC handlers and channels, with the notes:save channel's evidence in the inspector](docs/screenshots/tiny-overview.png)
+## Try it
+
+- **Explore a demo:** open the [website](https://reaforweb.com) and choose a sample or real app, including GitHub Desktop, VS Code, Caprine, jq, and Binary Eye.
+- **Explore your own app:** analyze it locally, then open the resulting `.studio.json` at [reaforweb.com/open](https://reaforweb.com/open). The project file is read in your browser.
+- **Ask a question:** open the explorer's Ask tab and supply your own Anthropic API key. Free Ask is not enabled on the current public release.
+
+The website is live. **Hosted app uploads are not available yet**; the upload
+pipeline works locally, and the separate analysis host is still pending setup.
+See [local upload setup](docs/uploads.md) and [hosted deployment](docs/hosted-uploads.md).
+
+Program files are analyzed without executing them. Website capture loads the
+requested page in a fresh browser. This is an independent project built on REA.
+
+![REA Studio explorer with an architecture graph and evidence inspector](docs/screenshots/tiny-overview.png)
 
 ## What you can explore
 
@@ -51,9 +60,8 @@ to show exactly the nodes the answer used. It says when something is unresolved
 instead of guessing.
 
 It uses **your own Anthropic API key**, sent only from your browser to
-api.anthropic.com, and each answer shows its token cost. The same tools will
-power pre-generated demo tours and an MCP connector for using Claude or ChatGPT
-subscriptions (`packages/ask`).
+api.anthropic.com, and each answer shows its token cost. The same analysis tools are available through the MCP connector; see
+[MCP setup](docs/mcp.md).
 
 ## Explore your own app (local mode)
 
@@ -104,7 +112,7 @@ including measurements and known limitations.
 
 ## Status
 
-This is an early preview. The demo shows **pre-analyzed open-source apps**, and
+The public preview is live at [reaforweb.com](https://reaforweb.com). It shows **pre-analyzed open-source apps**, and
 local mode lets you analyze and view an app entirely on your own machine.
 Uploading your own app is available locally with `npm run dev:uploads`.
 Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf` or `.so` file. Linux programs
@@ -161,11 +169,11 @@ All workspaces extend `tsconfig.base.json`. Root builds run schema, adapter,
 worker and web in dependency order. After changing a shared package while
 `npm run dev` is running, run `npm run build:packages` to refresh its output.
 
-### Deploying the static demo
+### Deployment
 
 The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
 [the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
-the free `workers.dev` address. Hosted app uploads need a separate analysis
+custom-domain configuration. Hosted app uploads need a separate analysis
 backend. Ask uses each visitor's own Anthropic API key.
 
 ## Credits
