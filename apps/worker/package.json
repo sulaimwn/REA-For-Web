@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
     "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/*.test.js",
     "test:docker": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/docker.integration.js",
+    "test:owner": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/owner.integration.js",
     "analyze": "node dist/cli.js",
     "queue": "node dist/queue.js"
   },

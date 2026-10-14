@@ -30,6 +30,7 @@ COPY packages/rea-adapter/package.json /opt/worker/node_modules/@rea-studio/rea-
 COPY --from=build /build/packages/schema/dist /opt/worker/node_modules/@rea-studio/schema/dist
 COPY packages/schema/package.json /opt/worker/node_modules/@rea-studio/schema/package.json
 RUN mkdir /input && chmod 755 /input
+LABEL rea-studio.owner-protocol="1"
 USER 1000:1000
 WORKDIR /tmp
 ENTRYPOINT ["node", "/opt/worker/container-entrypoint.js"]

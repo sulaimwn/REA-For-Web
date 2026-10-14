@@ -7,6 +7,7 @@ import { NATIVE_WORKER_IMAGE, REA_VERSION, WORKER_IMAGE, WORKER_USER, WorkerErro
 import { PROGRAM_KINDS, type TargetKind } from "./preflight.js";
 import type { StudioProject } from "@rea-studio/schema";
 import type { AdapterReport } from "@rea-studio/rea-adapter";
+import { OWNER_PROTOCOL_LABEL, OWNER_PROTOCOL_VERSION } from "./owner-heartbeat.js";
 
 export type AnalysisOptions = {
   targetPath: string;
@@ -98,6 +99,13 @@ export function assertEngine(info: Record<string, unknown>) {
 
 export const runAnalysis = (options: AnalysisOptions) => runWithDocker(options, executeDocker);
 
+export function assertOwnerImage(labels: unknown) {
+  if (!labels || typeof labels !== "object" || Array.isArray(labels) ||
+      (labels as Record<string, unknown>)[OWNER_PROTOCOL_LABEL] !== OWNER_PROTOCOL_VERSION) {
+    throw new WorkerError("docker_failed", "Worker image lacks the owner-liveness protocol. Rebuild both images from this release.");
+  }
+}
+
 // Dependency injection is kept internal to this module's test/integration seam;
 // production callers use runAnalysis, which always invokes the Docker CLI.
 export async function runWithDocker(options: AnalysisOptions, docker: DockerExecutor): Promise<AnalysisArtifact> {
@@ -144,6 +152,9 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     const info = await docker(["info", "--format", "{{json .}}"], { signal: controller.signal });
     if (info.code !== 0) throw new WorkerError("docker_unavailable", "Docker engine is unavailable.");
     assertEngine(jsonRecord(info.stdout));
+    const installed = await docker(["image", "inspect", "--format", "{{json .Config.Labels}}", image], { signal: controller.signal });
+    if (installed.code !== 0) throw new WorkerError("docker_failed", "Required worker image is unavailable.");
+    assertOwnerImage(JSON.parse(installed.stdout));
     const args = containerArgs(name, target, kind, limits, options.targetName, image);
     createAttempted = true;
     const creation = await docker(args, { signal: controller.signal });

@@ -111,7 +111,14 @@ job record before returning a result, including very fast cache hits.
 Analysis concurrency is globally one per queue. A job is acknowledged as complete
 only after result storage and raw-object/staging cleanup finish. Deterministic
 analysis failures are not retried automatically. Worker crashes are marked failed
-on stalled-job detection; the container's own deadline remains in force.
+on stalled-job detection. Each sandbox requires a private liveness signal before
+analysis, then receives one every five seconds. A disconnected owner stops the
+container and its parser descendants; an attached client that stops sending the
+signal is stopped after 20 seconds. The whole-job deadline remains in force.
+This prevents a crashed process's sandbox from overlapping its replacement job.
+Raw files and staging left by a hard crash still use the 24-hour expiry backstop;
+normal failures and cancellations perform immediate cleanup. A stopped orphan
+container may remain as Docker metadata until the operator removes it.
 Normalized results stay in the private cache. Raw uploads and abandoned staging
 older than 24 hours are swept at worker startup and hourly while it runs.
 Queued records older than 24 hours are rejected before analysis.

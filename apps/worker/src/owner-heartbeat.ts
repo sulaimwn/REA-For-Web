@@ -4,6 +4,8 @@ import type { Readable } from "node:stream";
 export const OWNER_HEARTBEAT = "rea-owner\n";
 export const OWNER_HEARTBEAT_INTERVAL_MS = 5_000;
 export const OWNER_TIMEOUT_MS = 20_000;
+export const OWNER_PROTOCOL_LABEL = "rea-studio.owner-protocol";
+export const OWNER_PROTOCOL_VERSION = "1";
 
 export function monitorOwner(input: Readable, onLost: () => void) {
   let stopped = false;

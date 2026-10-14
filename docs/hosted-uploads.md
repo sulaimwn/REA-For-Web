@@ -62,6 +62,13 @@ docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
 docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
 ```
 
+Keep the host queue and both images from the same release. The queue and hosted
+preflight require the `rea-studio.owner-protocol=1` image marker; an older image
+is refused before analysis rather than silently ignoring the liveness channel.
+When updating an existing host, drain/stop its worker, rebuild both images,
+build the host packages, run preflight and then restart it. Reusing the same
+REA version tag alone does not prove the image contains the current worker code.
+
 The Linux queue must run as **UID 1000**, matching the analysis container's fixed
 user. Uploaded files are private mode 600; an automatically assigned system-user
 UID such as 999 makes them unreadable in the sandbox. The startup check and queue

@@ -102,6 +102,13 @@ test("refuses an engine that cannot enforce resource limits", async t => {
   assert.throws(() => assertEngine({ OSType: "windows" }), { code: "unsafe_engine" });
 });
 
+test("an older worker image cannot silently ignore the owner channel or start an analysis", async t => {
+  const ctx = await context(t, "old-image");
+  await assert.rejects(runWithDocker(ctx.options, ctx.docker), { code: "docker_failed", message: /owner-liveness protocol/u });
+  await assert.rejects(readFile(ctx.config.createArgs), { code: "ENOENT" });
+  assert.deepEqual(await readdir(ctx.options.outputRoot), []);
+});
+
 for (const [mode, code] of [["failure", "analysis_failed"], ["oom", "out_of_memory"],
   ["container-timeout", "timeout"],
   ["empty", "analysis_failed"], ["no-receipt", "analysis_failed"], ["wrong-receipt", "analysis_failed"],
