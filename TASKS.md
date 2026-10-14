@@ -50,7 +50,7 @@ Details for a task go under its heading below the table.
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
-| T039 | Deploy paid Netcup upload host, verify public uploads; hard C$75/month total budget | codex | in progress | T026, T038 |
+| T039 | Live Netcup beta uploads verified; review persisted Cloudflare upload destination | codex | review | T026, T038 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
@@ -103,6 +103,15 @@ T037's second commit (`38e686f`), moved to its own branch because the T037 revie
 `123369f`: `public/og-image.png`, shared Open Graph/X metadata for every page, and the README live link.
 
 ### T039 — Deferred analysis hosting
+**Deployment update (October 14, 11:12 am Toronto):** the human paid Netcup,
+the reviewed release is deployed, and HTTPS beta uploads are live. Browser
+uploads passed for Electron, native Windows, Android and .NET; raw files,
+staging and sandbox containers were cleaned. The Cloudflare runtime now links
+to `https://uploads.reaforweb.com`. The same non-secret variable in Wrangler is
+on `codex/T039-netcup-deployment` for independent review before merge so the
+next GitHub deployment preserves that link. Anonymous upload admission remains
+a separate follow-up; the existing private beta gate is active.
+
 **Latest human instruction (October 14):** uploads are the priority, alternative
 providers are allowed, and total spending must stay below C$75/month, ideally
 much lower. This supersedes waiting exclusively for CX33. A Netcup cart is
