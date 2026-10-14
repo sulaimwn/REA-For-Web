@@ -62,9 +62,30 @@ docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
 docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
 ```
 
-Create a system account `rea-worker` with primary group `rea-worker` and access to
-the Docker group. Create `/var/lib/rea-for-web/staging`, owned by that account,
-mode 700. The unit's writable directory must match `PIPELINE_WORK_ROOT`.
+The Linux queue must run as **UID 1000**, matching the analysis container's fixed
+user. Uploaded files are private mode 600; an automatically assigned system-user
+UID such as 999 makes them unreadable in the sandbox. The startup check and queue
+entry point reject that mismatch before connecting to the queue. Do not make uploads
+world-readable or change the analysis container to root.
+
+On a fresh dedicated host where UID 1000 is unused, create `rea-worker` explicitly
+with that UID, its own primary group and Docker-group access:
+
+```sh
+getent passwd 1000
+# Continue only if no existing account owns UID 1000.
+sudo useradd --uid 1000 --user-group --no-create-home --shell /usr/sbin/nologin rea-worker
+sudo usermod --append --groups docker rea-worker
+```
+
+If UID 1000 already belongs to an account on this dedicated host, use that
+properly configured account in the unit's `User`/`Group` and staging ownership,
+or stop and resolve the account setup first. Never create a duplicate UID or
+renumber an existing account to force this recipe. Its primary group need not
+have GID 1000; the private file's owner UID is what grants read access.
+
+Create `/var/lib/rea-for-web/staging`, owned by that account, mode 700. The unit's
+writable directory must match `PIPELINE_WORK_ROOT`.
 
 Create `/etc/rea-for-web`, owned by root and mode 700. Copy the two example files
 from `deploy/linux/` there as `web.env` and `worker.env`, root-owned and mode 600.
@@ -101,8 +122,8 @@ sudo systemctl status rea-upload-worker --no-pager
 docker compose -f deploy/linux/compose.yml --profile tls up -d https
 ```
 
-The worker's startup check has a 35 s deadline. It verifies Linux Docker safety,
-both required image tags, staging permissions, Redis and a read-only HEAD request
+The worker's startup check has a 35 s deadline. It verifies the Linux queue's
+UID, Docker safety, both required image tags, staging permissions, Redis and a read-only HEAD request
 to an intentionally absent result key in storage. It never writes a test object
 or logs credential values. Failures keep the queue service from starting; the
 service retries with a bounded restart rate.
@@ -230,6 +251,14 @@ web image; the production R2 deployment has no local objects mount.
 `Dockerfile.cloudflare-check` separately builds the normal Cloudflare output
 for local Wrangler preview; `REA_NODE_DEPLOY=1` is used only in `Dockerfile.web`.
 The normal Cloudflare CI remains unchanged.
+
+`npm run test:worker-identity` separately reproduces Linux file ownership in a
+disposable Docker volume, using the worker's pinned Node base image and inert
+bytes. It checks that a mismatched queue UID is rejected, a private mode-600 file
+owned by that UID is unreadable to the fixed sandbox user, and matching UID 1000
+restores access without changing permissions. Build the standard worker image
+first so its pinned base is cached; the check never pulls an image or connects to
+R2/Redis. It removes only its own labeled test containers and volume.
 
 Primary references: [Docker Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/),
 [Compose services](https://docs.docker.com/reference/compose-file/services/),

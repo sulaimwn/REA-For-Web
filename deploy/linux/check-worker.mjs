@@ -8,7 +8,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { configFromEnv, UploadControl } from '../../packages/pipeline/dist/server.js';
 import { resultKey } from '../../packages/pipeline/dist/storage.js';
 import { assertEngine } from '../../apps/worker/dist/run-analysis.js';
-import { WORKER_IMAGE, NATIVE_WORKER_IMAGE, nativeWorkerFromEnv, queueLimitsFromEnv } from '../../apps/worker/dist/limits.js';
+import { WORKER_IMAGE, NATIVE_WORKER_IMAGE, assertQueueIdentity, nativeWorkerFromEnv, queueLimitsFromEnv } from '../../apps/worker/dist/limits.js';
 
 const run = promisify(execFile);
 const deadline = setTimeout(() => {
@@ -21,6 +21,8 @@ try {
   const config = configFromEnv();
   const limits = queueLimitsFromEnv();
   const native = nativeWorkerFromEnv();
+  stage = 'Linux queue identity (requires UID 1000)';
+  assertQueueIdentity();
   stage = 'staging permissions';
   if (!isAbsolute(config.workRoot)) throw new Error();
   const work = resolve(config.workRoot);
