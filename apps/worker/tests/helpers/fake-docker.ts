@@ -12,6 +12,8 @@ if (command === "info") {
     CpuCfsQuota: config.mode !== "unsafe-engine", PidsLimit: true,
     SecurityOptions: ["name=seccomp,profile=builtin"],
   }));
+} else if (command === "image") {
+  console.log(JSON.stringify(config.mode === "old-image" ? null : { "rea-studio.owner-protocol": "1" }));
 } else if (command === "create") {
   await writeFile(config.createArgs, JSON.stringify(args));
   if (config.mode === "create-hang") setInterval(() => {}, 100);

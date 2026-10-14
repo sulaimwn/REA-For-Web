@@ -7,7 +7,7 @@ import { constants } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { configFromEnv, UploadControl } from '../../packages/pipeline/dist/server.js';
 import { resultKey } from '../../packages/pipeline/dist/storage.js';
-import { assertEngine } from '../../apps/worker/dist/run-analysis.js';
+import { assertEngine, assertOwnerImage } from '../../apps/worker/dist/run-analysis.js';
 import { WORKER_IMAGE, NATIVE_WORKER_IMAGE, assertQueueIdentity, nativeWorkerFromEnv, queueLimitsFromEnv } from '../../apps/worker/dist/limits.js';
 
 const run = promisify(execFile);
@@ -33,8 +33,8 @@ try {
   stage = 'Docker engine restrictions';
   assertEngine(JSON.parse(await docker(['info', '--format', '{{json .}}'])));
   stage = 'required Docker images';
-  await docker(['image', 'inspect', WORKER_IMAGE]);
-  if (native) await docker(['image', 'inspect', NATIVE_WORKER_IMAGE]);
+  for (const image of native ? [WORKER_IMAGE, NATIVE_WORKER_IMAGE] : [WORKER_IMAGE])
+    assertOwnerImage(JSON.parse(await docker(['image', 'inspect', '--format', '{{json .Config.Labels}}', image])));
   control = new UploadControl(config);
   stage = 'private Redis connection';
   await control.ready();

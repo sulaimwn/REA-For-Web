@@ -63,6 +63,8 @@ jobs:
         run: docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
       - name: Real Linux queue identity and private input permissions
         run: npm run test:worker-identity
+      - name: Real Docker owner crash and missing-heartbeat checks
+        run: npm run test:owner --workspace=@rea-studio/worker
       - name: Real Docker Electron, program, Android and failure checks
         env:
           REA_REQUIRE_NATIVE_TESTS: '1'
