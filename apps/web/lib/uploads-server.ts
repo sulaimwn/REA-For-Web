@@ -5,25 +5,49 @@ import {
   PipelineError,
   networkIdentity,
   UPLOAD_BUSY_MESSAGE,
+  verifyChallenge,
 } from '@rea-studio/pipeline/server';
 export { PipelineError };
 let control: UploadControl | undefined;
 export function uploads() {
   return (control ??= new UploadControl(configFromEnv()));
 }
-export function authorizeMutation(request: Request) {
+export function publicUploadSiteKey() {
+  return process.env.PIPELINE_PUBLIC_UPLOADS === '1' ? configFromEnv().publicChallenge?.siteKey : undefined;
+}
+export function authorizeOrigin(request: Request) {
   const config = uploads().config;
   if (request.headers.get('Origin') !== config.origin)
     throw new PipelineError(403, 'Upload request origin is not allowed.');
-  if (config.store.kind === 'r2') {
+}
+function ownerKey(request: Request) {
     const actual = request.headers.get('X-REA-Access-Key') ?? '';
     const expected = process.env.PIPELINE_ACCESS_KEY ?? '';
-    if (
+    return expected.length >= 32 && !(
       Buffer.byteLength(actual) !== Buffer.byteLength(expected) ||
       !timingSafeEqual(Buffer.from(actual), Buffer.from(expected))
-    )
-      throw new PipelineError(403, 'Enter the upload access key.');
+    );
+}
+export function authorizeMutation(request: Request) {
+  authorizeOrigin(request);
+  const config = uploads().config;
+  if ((config.store.kind === 'r2' || config.hostedLocal) && !ownerKey(request))
+    throw new PipelineError(403, 'Enter the upload access key.');
+}
+export async function authorizeAdmission(request: Request) {
+  authorizeOrigin(request);
+  const config = uploads().config;
+  if (config.publicUploads) {
+    if (ownerKey(request)) return { owner: true, identity: undefined };
+    if (request.headers.get('X-REA-Access-Key'))
+      throw new PipelineError(403, 'The access key was not accepted. Clear it to upload without a key.');
+    const identity = uploadIdentity(request);
+    if (config.publicChallenge)
+      await verifyChallenge(request.headers.get('X-REA-Turnstile-Token'), config.publicChallenge);
+    return { owner: false, identity };
   }
+  authorizeMutation(request);
+  return { owner: false, identity: uploadIdentity(request) };
 }
 export function jobToken(request: Request) {
   return request.headers.get('Authorization')?.replace(/^Bearer /u, '') ?? '';

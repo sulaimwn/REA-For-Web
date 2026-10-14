@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { LocalStore } from '@rea-studio/pipeline/server';
+import { LocalStore, HostedLocalStore } from '@rea-studio/pipeline/server';
 import {
   PipelineError,
   uploadError,
@@ -22,15 +22,26 @@ export async function PUT(
       throw new PipelineError(409, 'Upload is already queued.');
     if (!request.body) throw new PipelineError(400, 'Upload body is missing.');
     const url = new URL(request.url);
-    await c.config.store.receive(
-      id,
-      r,
-      Number(url.searchParams.get('expires')),
-      url.searchParams.get('signature') ?? '',
-      Readable.fromWeb(
-        request.body as import('node:stream/web').ReadableStream,
-      ),
-    );
+    const expiry = Number(url.searchParams.get('expires'));
+    const signature = url.searchParams.get('signature') ?? '';
+    c.config.store.verifyUploadLink(id, r, expiry, signature);
+    const hosted = c.config.store instanceof HostedLocalStore;
+    if (hosted) await c.claimTransfer(id);
+    let failed = true;
+    try {
+      await c.config.store.receive(
+        id,
+        r,
+        expiry,
+        signature,
+        Readable.fromWeb(
+          request.body as import('node:stream/web').ReadableStream,
+        ),
+      );
+      failed = false;
+    } finally {
+      if (hosted) await c.finishTransfer(id, failed);
+    }
     return new Response(null, { status: 204 });
   } catch (error) {
     return uploadError(error);

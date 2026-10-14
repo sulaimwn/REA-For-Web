@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { UploadForm } from '../../components/UploadForm';
 import { SiteFooter, SiteHeader } from '../../components/SiteChrome';
 import { uploadLocation } from '../../lib/upload-location';
+import { publicUploadSiteKey } from '../../lib/uploads-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export default function UploadPage() {
         {uploadsAvailable ? (
           <>
             <p>Upload an Electron app, a Windows, Linux or macOS program, or an Android APK to see how it works.</p>
-            <UploadForm />
+            <UploadForm publicSiteKey={publicUploadSiteKey()} publicUploads={process.env.PIPELINE_PUBLIC_UPLOADS === '1'} />
           </>
         ) : uploadHref ? (
           <>

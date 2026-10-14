@@ -8,6 +8,10 @@ import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { S3Client } from '@aws-sdk/client-s3';
 import { reserveAdmission } from './admission.js';
+import { HostedLocalStore } from './hosted-storage.js';
+import type { PublicChallenge } from './turnstile.js';
+export { HostedLocalStore } from './hosted-storage.js';
+export { verifyChallenge } from './turnstile.js';
 export { networkIdentity, UPLOAD_BUSY_MESSAGE } from './admission.js';
 import { LocalStore, R2Store, uploadKey, type ObjectStore } from './storage.js';
 import {
@@ -46,6 +50,9 @@ export type PipelineConfig = {
   store: ObjectStore;
   workRoot: string;
   visitorSecret?: string;
+  hostedLocal?: boolean;
+  publicUploads?: boolean;
+  publicChallenge?: PublicChallenge;
 };
 function required(env: NodeJS.ProcessEnv, name: string) {
   const value = env[name];
@@ -57,15 +64,23 @@ export function configFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): PipelineConfig {
   const mode = required(env, 'PIPELINE_STORAGE');
+  for (const flag of ['PIPELINE_HOSTED_LOCAL', 'PIPELINE_PUBLIC_UPLOADS', 'PIPELINE_TURNSTILE'])
+    if (env[flag] !== undefined && !['0', '1'].includes(env[flag]!)) throw new Error(`Invalid ${flag}.`);
+  const hostedLocal = env.PIPELINE_HOSTED_LOCAL === '1';
+  const publicUploads = env.PIPELINE_PUBLIC_UPLOADS === '1';
+  if ((hostedLocal && mode !== 'local') || (publicUploads && !hostedLocal))
+    throw new Error('Public uploads require the bounded hosted-local store.');
   const origin = new URL(required(env, 'PIPELINE_PUBLIC_ORIGIN')).origin;
   const workRoot = required(env, 'PIPELINE_WORK_ROOT');
   let store: ObjectStore;
   if (mode === 'local') {
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname))
+    if (!hostedLocal && !['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname))
       throw new Error(
         'Local storage is only for a loopback development origin.',
       );
-    store = new LocalStore(
+    if (hostedLocal && (new URL(origin).protocol !== 'https:' || required(env, 'PIPELINE_ACCESS_KEY').length < 32))
+      throw new Error('Hosted local storage requires HTTPS and a private owner key.');
+    store = new (hostedLocal ? HostedLocalStore : LocalStore)(
       required(env, 'PIPELINE_DATA_ROOT'),
       required(env, 'PIPELINE_UPLOAD_SECRET'),
     );
@@ -106,8 +121,21 @@ export function configFromEnv(
     throw new Error('PIPELINE_VISITOR_LIMITS must be 0 or 1.');
   const visitorSecret = env.PIPELINE_VISITOR_LIMITS === '1'
     ? required(env, 'PIPELINE_VISITOR_SECRET') : undefined;
-  if (visitorSecret && (visitorSecret.length < 32 || mode !== 'r2' || env.PIPELINE_TRUST_PROXY !== '1'))
-    throw new Error('Visitor limits require R2, a trusted dedicated proxy and a 32-character private secret.');
+  if (visitorSecret && (visitorSecret.length < 32 || (mode !== 'r2' && !hostedLocal) || env.PIPELINE_TRUST_PROXY !== '1'))
+    throw new Error('Visitor limits require hosted storage, a trusted dedicated proxy and a 32-character private secret.');
+  let publicChallenge: PublicChallenge | undefined;
+  if (publicUploads) {
+    if (!visitorSecret) throw new Error('Public uploads require visitor quotas.');
+  }
+  if (env.PIPELINE_TURNSTILE === '1') {
+    if (!publicUploads) throw new Error('Upload challenges require public hosted mode.');
+    const siteKey = required(env, 'TURNSTILE_SITE_KEY');
+    const secret = required(env, 'TURNSTILE_SECRET_KEY');
+    // Never accept Cloudflare's always-pass/fail test credentials in a live mode.
+    if (/^[123]x0/u.test(siteKey) || /^[123]x0/u.test(secret) || siteKey.length > 200 || secret.length > 200)
+      throw new Error('Public uploads require production challenge keys.');
+    publicChallenge = { siteKey, secret, hostname: new URL(origin).hostname };
+  }
   return {
     redisUrl: required(env, 'REDIS_URL'),
     prefix,
@@ -115,6 +143,9 @@ export function configFromEnv(
     workRoot,
     store,
     ...(visitorSecret ? { visitorSecret } : {}),
+    ...(hostedLocal ? { hostedLocal: true } : {}),
+    ...(publicUploads ? { publicUploads: true } : {}),
+    ...(publicChallenge ? { publicChallenge } : {}),
   };
 }
 
@@ -157,6 +188,7 @@ export class UploadControl {
       this.connectionReady ??= this.redis.connect();
     await this.connectionReady;
     await this.redis.ping();
+    if (this.config.store instanceof HostedLocalStore) await this.config.store.checkCapacity();
   }
   async record(id: string): Promise<UploadRecord> {
     await this.ready();
@@ -173,14 +205,15 @@ export class UploadControl {
       throw new PipelineError(404, 'Job not found or expired.');
     return r;
   }
-  async create(value: unknown, identity?: string): Promise<UploadTicket> {
+  async create(value: unknown, identity?: string, owner = false): Promise<UploadTicket> {
     const request = validateUpload(value);
-    if (this.config.visitorSecret && !identity)
+    if (this.config.visitorSecret && !identity && !owner)
       throw new PipelineError(503, 'Upload visitor identity is unavailable.');
     await this.ready();
+    if (this.config.store instanceof HostedLocalStore) await this.config.store.checkCapacity(true);
     const id = randomUUID(),
       token = randomBytes(32).toString('hex');
-    await reserveAdmission(this.redis, this.queue, this.config.prefix, id, 'create', identity);
+    await reserveAdmission(this.redis, this.queue, this.config.prefix, id, 'create', identity, this.config.hostedLocal);
     const r: UploadRecord = {
       ...request,
       id,
@@ -227,6 +260,28 @@ export class UploadControl {
     await this.queue.add('analyze-app', r, { jobId: id });
     await this.redis.zrem(`${this.config.prefix}:admission-pending`, id);
     return this.status(id, token);
+  }
+  async claimTransfer(id: string) {
+    validateJobId(id);
+    await reserveAdmission(this.redis, this.queue, this.config.prefix, id, 'transfer', undefined, this.config.hostedLocal);
+    const script = `
+local now = redis.call('TIME')
+local ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ms)
+if redis.call('EXISTS', KEYS[2]) == 1 then return -2 end
+if redis.call('ZCARD', KEYS[1]) >= 2 then return -1 end
+redis.call('SET', KEYS[2], 'used', 'EX', 86400)
+redis.call('ZADD', KEYS[1], ms + 660000, ARGV[1])
+return 1
+`;
+    const result = await this.redis.eval(script, 2,
+      `${this.config.prefix}:transfer-active`, `${this.config.prefix}:transfer-used:${id}`, id) as number;
+    if (result === -2) throw new PipelineError(409, 'This upload link has already been used. Choose the file again to retry.');
+    if (result !== 1) throw new PipelineError(503, 'Upload transfers are busy. Try again later.');
+  }
+  async finishTransfer(id: string, failed: boolean) {
+    await this.redis.zrem(`${this.config.prefix}:transfer-active`, id);
+    if (failed) await this.redis.zrem(`${this.config.prefix}:admission-pending`, id);
   }
   async status(id: string, token: string): Promise<JobStatus> {
     const record = await this.authorize(id, token);

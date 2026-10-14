@@ -1,0 +1,7 @@
+# /etc/systemd/system/rea-upload-worker.service.d/local-storage.conf
+# Adds only this private object volume to the existing writable staging path.
+[Unit]
+RequiresMountsFor=/var/lib/rea-for-web/objects
+
+[Service]
+ReadWritePaths=/var/lib/rea-for-web/objects

@@ -37,3 +37,20 @@ test('visitor limiting is opt-in and refuses incomplete proxy/secret configurati
   const config = configFromEnv({ ...env, PIPELINE_VISITOR_LIMITS: '1', PIPELINE_VISITOR_SECRET: secret, PIPELINE_TRUST_PROXY: '1' });
   assert.equal(config.visitorSecret, secret);
 });
+
+test('public disk mode retains local-loopback protection and requires private hosted configuration', () => {
+  const local = { ...env, PIPELINE_STORAGE: 'local', PIPELINE_DATA_ROOT: 'private-objects', PIPELINE_UPLOAD_SECRET: 's'.repeat(64) };
+  assert.throws(() => configFromEnv(local), /loopback/u);
+  const hosted = { ...local, PIPELINE_HOSTED_LOCAL: '1', PIPELINE_PUBLIC_UPLOADS: '1',
+    PIPELINE_VISITOR_LIMITS: '1', PIPELINE_VISITOR_SECRET: secret, PIPELINE_TRUST_PROXY: '1' };
+  const publicConfig = configFromEnv(hosted);
+  assert.equal(publicConfig.publicUploads, true);
+  assert.equal(publicConfig.hostedLocal, true);
+  assert.equal(publicConfig.publicChallenge, undefined, 'first release does not require widget keys');
+  assert.throws(() => configFromEnv({ ...env, PIPELINE_PUBLIC_UPLOADS: '1' }), /bounded/u);
+  assert.throws(() => configFromEnv({ ...hosted, PIPELINE_VISITOR_LIMITS: '0' }), /quotas/u);
+  assert.throws(() => configFromEnv({ ...hosted, PIPELINE_PUBLIC_ORIGIN: 'http://uploads.example.com' }), /HTTPS/u);
+  assert.throws(() => configFromEnv({ ...hosted, PIPELINE_ACCESS_KEY: '' }));
+  assert.throws(() => configFromEnv({ ...hosted, PIPELINE_TURNSTILE: '1' }));
+  assert.throws(() => configFromEnv({ ...hosted, PIPELINE_TURNSTILE: '1', TURNSTILE_SITE_KEY: '1x00000000000000000000AA', TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA' }), /production/u);
+});
