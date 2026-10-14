@@ -76,5 +76,7 @@ export function queueLimitsFromEnv(env: NodeJS.ProcessEnv = process.env): Analys
   return resolveLimits({
     ...(env.REA_ANALYSIS_TIMEOUT_MS === undefined ? {} : { timeoutMs: Number(env.REA_ANALYSIS_TIMEOUT_MS) }),
     ...(env.REA_SOURCE_TIMEOUT_MS === undefined ? {} : { sourceTimeoutMs: Number(env.REA_SOURCE_TIMEOUT_MS) }),
+    // Ghidra runs on the JVM, which one CPU starves: jq 1.8.2 took 124–145 s on 1 CPU, 52–57 s on 2, 42 s on 4.
+    ...(env.REA_ANALYSIS_CPUS === undefined ? {} : { cpus: Number(env.REA_ANALYSIS_CPUS) }),
   });
 }
