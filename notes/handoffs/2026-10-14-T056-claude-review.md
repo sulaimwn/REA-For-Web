@@ -41,3 +41,6 @@ human's Option B (local disk), abuse costs nothing extra. The real constraints a
 for example **10/network/day (keep 5/hour), 300/day site-wide, 5,000/month**. The 20-slot pending cap and the
 "busy" message already protect the queue. These are constants in `admission.ts` (`hosted ? 25 : 100`,
 `hosted ? 3 : 15`, the monthly `500`); making them operator settings would be even better.
+
+## Main after merge (`bb97a21`)
+- Root typecheck passes. 275 tests, 274 pass, 0 fail (the skip is the host JADX test). The web build passes.
