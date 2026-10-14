@@ -26,3 +26,7 @@
 ## Note
 - A Linux developer whose login UID isn't 1000 now gets a clear startup error from `dev:uploads`. Before, they
   got failed jobs. That's the correct outcome; it could be mentioned in `docs/uploads.md` later.
+
+## Main after the T048 and T050 merges (`cd9c383`)
+- Root typecheck passes. `npm test --workspaces --if-present`: 259 tests, 258 pass, 0 fail. The skip is the host JADX test.
+  The web production build passes.
