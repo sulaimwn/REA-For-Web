@@ -50,6 +50,13 @@ local development, not a filesystem storage option for serverless deployment.
 Keep both directories private to the service account. The signing secret is
 generated once and never logged.
 
+On a native Linux host, run the upload helper and queue as UID 1000. The sandbox
+uses that UID to read private mode-0600 inputs. The helper rejects a different
+effective UID before writing local data, building images or starting services.
+Windows and macOS Docker Desktop users are unaffected. See the account setup in
+[hosted uploads](hosted-uploads.md); do not loosen file permissions or renumber
+an existing account to get around the check.
+
 ## API
 
 - POST /api/uploads, JSON `{name, bytes, sha256}` → `{jobId, jobToken, uploadUrl,
@@ -72,6 +79,12 @@ Job access expires after 24 hours. Tokens are kept in sessionStorage, never in
 URLs. A result URL can be reloaded in its uploading tab; opening it in a different
 browser session requires uploading the app again. There is no public hash lookup.
 The server admits at most 100 upload tickets per UTC day for the private beta.
+
+R2 downloads have one 60-second deadline covering request retries, response
+headers and the complete body. A stalled result download fails instead of
+leaving the viewer loading indefinitely; the authorized tab can reload to try
+reading its stored result again. A stalled raw-file download fails the analysis
+job before the analyzer runs, then cleans raw data and local staging as usual.
 
 ## Cache identity and retention
 

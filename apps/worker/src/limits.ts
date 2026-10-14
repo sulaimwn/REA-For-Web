@@ -1,16 +1,8 @@
 export const REA_VERSION = "6.4.0";
 export const WORKER_IMAGE = "rea-studio-worker:rea-6.4.0";
-/** Private uploaded files are mode 0600; the Linux queue must own them as this UID. */
-export const WORKER_USER = "1000:1000";
+export { WORKER_USER, assertQueueIdentity } from "./queue-identity.js";
 /** The worker image plus REA's Ghidra provider (Dockerfile.native). Needed for native programs only. */
 export const NATIVE_WORKER_IMAGE = "rea-studio-worker-native:rea-6.4.0";
-
-/** Hosted Linux queue startup only; effective UID determines private file ownership. */
-export function assertQueueIdentity(): void {
-  if (process.platform === "linux" && process.geteuid?.() !== Number(WORKER_USER.split(":")[0])) {
-    throw new Error("The Linux upload queue must run as UID 1000 so the sandbox can read its private inputs.");
-  }
-}
 
 export type WorkerErrorCode =
   | "invalid_input" | "input_limit_exceeded" | "output_limit_exceeded"

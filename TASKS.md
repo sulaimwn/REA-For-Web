@@ -66,8 +66,8 @@ Details for a task go under its heading below the table.
 | T048 | macOS uploads: verified .macho/.dylib admission with isolated Mach-O cache namespace | codex | done | T035, R009 |
 | T049 | jq (macOS) demo: the real Mach-O fixture as a public demo, whose overview starts in jq’s own main | claude | done | T035, T045 |
 | T053 | Worker crash recovery: measure orphan sandboxes and prevent restart overlap after abrupt queue death | codex | in progress | T026 |
-| T052 | Object storage: reproduce and bound stalled response bodies after GET headers, with cleanup and recovery | codex | review | T036 |
-| T051 | Linux tooling: reject mismatched queue ownership before local builds or hosted test services | codex | review | T050 |
+| T052 | Object storage: reproduce and bound stalled response bodies after GET headers, with cleanup and recovery | codex | done | T036 |
+| T051 | Linux tooling: reject mismatched queue ownership before local builds or hosted test services | codex | done | T050 |
 | T050 | Hosted worker: reproduce Linux service UID mismatch and require readable private input ownership before startup | codex | done | T026 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
