@@ -3,6 +3,7 @@
 import { Graph, layout } from '@dagrejs/dagre';
 import type { Relation, StudioEdge, StudioNode } from '@rea-studio/schema';
 import type { Edge, Node } from '@xyflow/react';
+import { entryTree } from './entry-tree';
 import { isUnlikelyEndpoint, KIND_META, KIND_ORDER, type ProjectIndex } from './project';
 
 export type Focus =
@@ -25,6 +26,8 @@ export interface ViewGraph {
   edges: Edge[];
   /** Neighbors left out to keep the view readable. */
   hidden: number;
+  /** How a partial overview chose what to draw, when it isn't simply "the architecture". */
+  basis?: string;
 }
 
 const NODE_W = 230;
@@ -43,8 +46,10 @@ function isRootContainment(ix: ProjectIndex, e: StudioEdge) {
 
 /** Most nodes the overview draws; big .NET programs have thousands of methods. */
 const OVERVIEW_LIMIT = 250;
+/** A bigger program's overview: a call tree this size from its entry points reads; 250 scattered parts don't. */
+const ENTRY_TREE_LIMIT = 40;
 
-function overviewIds(ix: ProjectIndex): { ids: Set<string>; hidden: number } {
+function overviewIds(ix: ProjectIndex): { ids: Set<string>; hidden: number; basis?: string } {
   let core = ix.project.nodes.filter((n) => KIND_META[n.kind].overview).map((n) => n.id);
   // Apps with none of the architectural kinds (e.g. a website's scripts): show the files and what they use.
   if (core.length === 0) {
@@ -60,7 +65,12 @@ function overviewIds(ix: ProjectIndex): { ids: Set<string>; hidden: number } {
     }
   }
   if (ids.size <= OVERVIEW_LIMIT) return { ids, hidden: 0 };
-  // Keep the most architectural kinds (KIND_ORDER) and say how many were left out.
+  const tree = entryTree(ix.project.nodes, ix.outgoing, ids, ENTRY_TREE_LIMIT);
+  if (tree) {
+    const basis = tree.roots.length === 1 ? 'calls from the entry point' : 'calls from the entry points';
+    return { ids: tree.ids, hidden: ids.size - tree.ids.size, basis };
+  }
+  // No entry point to start from: keep the most architectural kinds (KIND_ORDER) and say how many were left out.
   const rank = (id: string) => KIND_ORDER.indexOf(ix.byId.get(id)?.kind ?? 'analysis-gap');
   const kept = [...ids].sort((a, b) => rank(a) - rank(b)).slice(0, OVERVIEW_LIMIT);
   return { ids: new Set(kept), hidden: ids.size - OVERVIEW_LIMIT };
@@ -219,7 +229,7 @@ function layoutHub(ix: ProjectIndex, focusId: string, ids: Set<string>, edges: S
 }
 
 export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
-  const { ids, hidden } =
+  const { ids, hidden, basis }: { ids: Set<string>; hidden: number; basis?: string } =
     focus.mode === 'overview'
       ? overviewIds(ix)
       : focus.mode === 'set'
@@ -265,5 +275,5 @@ export function buildView(ix: ProjectIndex, focus: Focus): ViewGraph {
     };
   });
 
-  return { nodes, edges, hidden };
+  return { nodes, edges, hidden, ...(basis ? { basis } : {}) };
 }
