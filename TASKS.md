@@ -52,7 +52,7 @@ Details for a task go under its heading below the table.
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
 | T039 | Live Netcup beta uploads verified; review persisted Cloudflare upload destination | codex | done | T026, T038 |
 | T054 | Public upload admission: agree challenge, operation budgets and bounded transfer API before replacing invite-only gate | codex | done | T039 |
-| T055 | Upload admission guards: atomic network quotas and pending capacity, trusted proxy identity and HTTPS headers | codex | review | T039, T054 |
+| T055 | Upload admission guards: atomic network quotas and pending capacity, trusted proxy identity and HTTPS headers | codex | done | T039, T054 |
 | T056 | Public hosted disk uploads: bounded storage/transfer, Turnstile and anonymous admission, deploy migration | codex | in progress | T054, T055 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
