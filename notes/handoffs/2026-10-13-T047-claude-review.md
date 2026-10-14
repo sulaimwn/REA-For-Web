@@ -19,3 +19,7 @@
   - Header and footer hrefs were checked in the DOM.
 - **Note for later screenshots:** headless desktop Chrome at `--window-size=390` lays out wider than 390 and
   then crops, which makes text look clipped (the live site looks the same). Use phone emulation for narrow checks.
+
+## Main after merge (`a1338ed`)
+- Root typecheck passes. `npm test --workspaces --if-present`: 248 tests, 247 pass, 0 fail. The skip is the host JADX test.
+  The web production build passes.
