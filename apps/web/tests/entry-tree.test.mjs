@@ -35,6 +35,19 @@ describe('entry tree (T045)', () => {
     assert.ok([...tree.ids].some((id) => id !== tree.roots[0] && !firstLevel.has(id)));
   });
 
+  it('shows named parts before Ghidra’s FUN_ placeholders: jq for macOS starts at main and its libSystem calls (T049)', () => {
+    const mac = load('jq-1.8.2-macos.rea-6.4.0.json');
+    const macCandidates = new Set(mac.nodes.filter((n) => n.kind === 'native-function' || n.kind === 'native-import').map((n) => n.id));
+    const tree = entryTree(mac.nodes, outgoingOf(mac), macCandidates, 40);
+    assert.ok(tree);
+    assert.equal(tree.ids.size, 40);
+    const drawn = mac.nodes.filter((n) => tree.ids.has(n.id));
+    const imports = drawn.filter((n) => n.kind === 'native-import').map((n) => n.entryPoint);
+    // jq's main sets the locale, reads JQ_COLORS and checks for a terminal.
+    for (const name of ['_setlocale', '_getenv', '_isatty']) assert.ok(imports.includes(name), `${name} in ${imports.join(', ')}`);
+    assert.ok(drawn.some((n) => n.kind === 'native-function' && n.name.startsWith('FUN_')), 'unnamed functions still fill the rest');
+  });
+
   it('gives up (null) without an entry point, so the overview keeps its old fallback', () => {
     const noEntry = new Set([...candidates].filter((id) => !isEntryNode(jq.nodes.find((n) => n.id === id))));
     assert.equal(entryTree(jq.nodes, outgoing, noEntry, 100), null);

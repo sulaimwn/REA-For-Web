@@ -151,7 +151,8 @@ export function displayName(n: StudioNode): string {
     case 'managed-method':
       return `${shortType(n.declaringType)}.${n.name}`;
     case 'native-import':
-      return n.library ? `${n.library}!${n.entryPoint}` : n.entryPoint;
+      // The function first: graph cards truncate, and `/usr/lib/libSystem.B.dylib!…` would hide it.
+      return n.library ? `${n.entryPoint} (${basename(n.library)})` : n.entryPoint;
     case 'external-member':
       return `${n.name}(${n.parameterTypes.join(', ')})`;
     case 'native-function':
