@@ -7,6 +7,9 @@
   // 2025-05-05 or later avoids "FinalizationRegistry is not defined" (OpenNext troubleshooting).
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // The hosted service was verified with real private uploads (T039).
+  // Keep the dashboard runtime setting on subsequent GitHub deployments.
+  "vars": { "REA_UPLOAD_ORIGIN": "https://uploads.reaforweb.com" },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
