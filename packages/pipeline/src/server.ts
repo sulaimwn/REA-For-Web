@@ -7,6 +7,8 @@ import {
 import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { S3Client } from '@aws-sdk/client-s3';
+import { reserveAdmission } from './admission.js';
+export { networkIdentity, UPLOAD_BUSY_MESSAGE } from './admission.js';
 import { LocalStore, R2Store, uploadKey, type ObjectStore } from './storage.js';
 import {
   PipelineError,
@@ -37,19 +39,13 @@ const digest = (token: string) =>
 // Web requests must fail when a live Redis connection stops replying. Worker
 // connections keep their separate reconnect policy for long-running analysis.
 const API_REDIS_COMMAND_TIMEOUT_MS = 5000;
-const ADMISSION_QUOTA = `
-local count = redis.call('INCR', KEYS[1])
-if redis.call('TTL', KEYS[1]) < 0 then
-  redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-return count
-`;
 export type PipelineConfig = {
   redisUrl: string;
   prefix: string;
   origin: string;
   store: ObjectStore;
   workRoot: string;
+  visitorSecret?: string;
 };
 function required(env: NodeJS.ProcessEnv, name: string) {
   const value = env[name];
@@ -106,12 +102,19 @@ export function configFromEnv(
   const prefix = env.PIPELINE_QUEUE_PREFIX ?? 'rea-studio-v1';
   if (!/^[a-zA-Z0-9_-]{1,80}$/u.test(prefix))
     throw new Error('Invalid queue prefix.');
+  if (env.PIPELINE_VISITOR_LIMITS !== undefined && !['0', '1'].includes(env.PIPELINE_VISITOR_LIMITS))
+    throw new Error('PIPELINE_VISITOR_LIMITS must be 0 or 1.');
+  const visitorSecret = env.PIPELINE_VISITOR_LIMITS === '1'
+    ? required(env, 'PIPELINE_VISITOR_SECRET') : undefined;
+  if (visitorSecret && (visitorSecret.length < 32 || mode !== 'r2' || env.PIPELINE_TRUST_PROXY !== '1'))
+    throw new Error('Visitor limits require R2, a trusted dedicated proxy and a 32-character private secret.');
   return {
     redisUrl: required(env, 'REDIS_URL'),
     prefix,
     origin,
     workRoot,
     store,
+    ...(visitorSecret ? { visitorSecret } : {}),
   };
 }
 
@@ -170,20 +173,14 @@ export class UploadControl {
       throw new PipelineError(404, 'Job not found or expired.');
     return r;
   }
-  async create(value: unknown): Promise<UploadTicket> {
+  async create(value: unknown, identity?: string): Promise<UploadTicket> {
     const request = validateUpload(value);
+    if (this.config.visitorSecret && !identity)
+      throw new PipelineError(503, 'Upload visitor identity is unavailable.');
     await this.ready();
-    // Single private beta quota, shared atomically across web instances.
-    const budgetKey = `${this.config.prefix}:admission:${Math.floor(Date.now() / 86400000)}`;
-    // A timed-out write may still reach Redis. Keep its expiry in the same
-    // atomic operation so an ambiguous admission never leaves a permanent key.
-    const budget = await this.redis.eval(
-      ADMISSION_QUOTA, 1, budgetKey, UPLOAD_TTL_SECONDS,
-    ) as number;
-    if (budget > 100)
-      throw new PipelineError(429, 'The daily upload limit has been reached.');
     const id = randomUUID(),
       token = randomBytes(32).toString('hex');
+    await reserveAdmission(this.redis, this.queue, this.config.prefix, id, 'create', identity);
     const r: UploadRecord = {
       ...request,
       id,
@@ -213,15 +210,22 @@ export class UploadControl {
   }
   async complete(id: string, token: string) {
     const r = await this.authorize(id, token);
-    if (await this.queue.getJob(id)) return this.status(id, token);
+    if (await this.queue.getJob(id)) {
+      await this.redis.zrem(`${this.config.prefix}:admission-pending`, id);
+      return this.status(id, token);
+    }
     const info = await this.config.store.head(uploadKey(id, uploadKind(r.name)!));
     if (!info) throw new PipelineError(409, 'Upload has not finished.');
     if (info.bytes !== r.bytes)
       throw new PipelineError(400, 'Upload size does not match.');
+    // Expired ticket leases must reacquire capacity before queueing. Keep this
+    // reservation if a queue command times out: it can still arrive later.
+    await reserveAdmission(this.redis, this.queue, this.config.prefix, id, 'complete');
     // Job id makes repeated completion requests idempotent. One global analysis
     // slot makes cache publication/reuse deterministic across worker processes.
     await this.queue.setGlobalConcurrency(1);
     await this.queue.add('analyze-app', r, { jobId: id });
+    await this.redis.zrem(`${this.config.prefix}:admission-pending`, id);
     return this.status(id, token);
   }
   async status(id: string, token: string): Promise<JobStatus> {

@@ -26,6 +26,7 @@
     "dev:uploads": "node scripts/dev-uploads.mjs",
     "test:hosted": "node scripts/check-hosted-deployment.mjs",
     "test:worker-identity": "npm run build --workspace=@rea-studio/worker && node scripts/check-linux-worker-identity.mjs",
+    "test:upload-proxy": "node scripts/check-upload-proxy.mjs",
     "pretest:hosted": "npm run build:packages && npm run build --workspace=@rea-studio/worker",
     "worker:queue": "npm run queue --workspace=@rea-studio/worker",
     "precache:seed": "npm run build:packages",
