@@ -36,3 +36,6 @@
   - remove the entry if `queue.getJob(id)` exists in any state;
   - remove it if the upload record has expired (24 h), since no delayed queue write can arrive that late.
   - The worker could do this in its existing hourly sweep.
+
+## Main after merge (`f6b2b25`)
+- Root typecheck passes. 267 tests, 266 pass, 0 fail (the skip is the host JADX test). The web build passes.
