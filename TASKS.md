@@ -50,7 +50,7 @@ Details for a task go under its heading below the table.
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
-| T039 | Hosted uploads after a budget x86 8 GB server becomes available; human chose to wait for CX33 | codex | blocked | T026, T038 |
+| T039 | Deploy public uploads: alternative host allowed, hard C$75/month total budget; Netcup account/order pending | codex | blocked | T026, T038 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
@@ -103,6 +103,16 @@ T037's second commit (`38e686f`), moved to its own branch because the T037 revie
 `123369f`: `public/og-image.png`, shared Open Graph/X metadata for every page, and the README live link.
 
 ### T039 — Deferred analysis hosting
+**Latest human instruction (October 14):** uploads are the priority, alternative
+providers are allowed, and total spending must stay below C$75/month, ideally
+much lower. This supersedes waiting exclusively for CX33. A Netcup cart is
+prepared for an x86 4-core / 8 GB / 128 GB VPS, one-month term and billing,
+IPv4+IPv6, automatic European location, €14.01/month and €0 setup. It is not an
+order. Canadian billing details and the final checkout total still need checking;
+the human is setting up the account. Reserve budget for R2, tax and card FX.
+Do not purchase on a heartbeat. See the latest T039 handoff for exact evidence.
+
+Earlier decision, retained for context:
 The human chose to wait for the US$10.59/month-before-tax CX33 rather than the
 available US$42.59 CPX32. Keep public demos and local-project opening live.
 Hetzner verification is complete, private R2/CORS/one-day raw-file cleanup are
