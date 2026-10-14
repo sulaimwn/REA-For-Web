@@ -12,9 +12,11 @@ import { collectAndroidBundle, jadxConfigured } from "@rea-studio/rea-adapter/an
 import { ByteLimit } from "./command.js";
 import { PROGRAM_KINDS, TARGET_KINDS, preflightTarget, type TargetKind } from "./preflight.js";
 import { REA_VERSION, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
+import { monitorOwner } from "./owner-heartbeat.js";
 
 const REA_SCRIPT = "/opt/rea/node_modules/rea-agents/scripts/rea.mjs";
 let deadline: ReturnType<typeof setTimeout> | undefined;
+let owner: ReturnType<typeof monitorOwner> | undefined;
 
 const progress = (phase: string, message: string) =>
   process.stderr.write(`${JSON.stringify({ rea_progress: { phase, message } })}\n`);
@@ -153,6 +155,13 @@ async function main() {
     process.exit(124);
   }, limits.timeoutMs);
   deadline.unref();
+  // A crashed host may leave docker attach and the container alive. Require a
+  // first beat before REA, then stop the entire PID namespace if beats disappear.
+  owner = monitorOwner(process.stdin, () => {
+    process.stderr.write('{"studio_worker_error":{"code":"cancelled","message":"Analysis owner disconnected."}}\n');
+    process.exit(130);
+  });
+  await owner.ready;
   const installed: unknown = JSON.parse(await readFile("/opt/rea/node_modules/rea-agents/package.json", "utf8"));
   if ((installed as { version?: unknown }).version !== REA_VERSION) {
     throw new WorkerError("invalid_input", "Unexpected REA version in worker image.");
@@ -182,5 +191,6 @@ main().catch((error: unknown) => {
   process.stderr.write(`${JSON.stringify({ studio_worker_error: { code, message } })}\n`);
   process.exitCode = 1;
 }).finally(() => {
+  owner?.close();
   if (deadline) clearTimeout(deadline);
 });

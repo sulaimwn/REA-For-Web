@@ -65,6 +65,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
   // The native image runs under the same sandbox: Ghidra on notepad.exe peaked at 52 processes/threads and ~940 MiB.
   return [
     "create", "--pull=never", "--name", name, "--label", "rea-studio.worker=true",
+    "--interactive", "--attach=stdin",
     "--network=none", `--user=${WORKER_USER}`, "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges=true", "--init", "--pids-limit=128",
     `--memory=${limits.memoryMb}m`, `--memory-swap=${limits.memoryMb}m`, `--cpus=${limits.cpus}`,
@@ -148,10 +149,11 @@ export async function runWithDocker(options: AnalysisOptions, docker: DockerExec
     const creation = await docker(args, { signal: controller.signal });
     if (creation.code !== 0) throw new WorkerError("docker_failed", `Could not create worker container: ${creation.stderr}`);
     created = true;
-    const attached = await docker(["start", "--attach", name], {
+    const attached = await docker(["start", "--attach", "--interactive", name], {
       signal: controller.signal,
       output: { path: partialPath, maxBytes: limits.maxOutputBytes },
       onStderr: chunk => progress.write(chunk),
+      ownerHeartbeat: true,
     });
     progress.end();
     const inspection = await docker(["inspect", "--format", "{{json .State}}", name], { signal: controller.signal });
