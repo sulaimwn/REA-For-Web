@@ -63,6 +63,7 @@ Details for a task go under its heading below the table.
 | R009 | Independently review T035 macOS fixture, adapter, CLI and isolated worker | codex | done | T035 |
 | R010 | Independently review T045 connected overview for large programs | codex | done | T045 |
 | T048 | macOS uploads: verified .macho/.dylib admission with isolated Mach-O cache namespace | codex | in progress | T035, R009 |
+| T049 | jq (macOS) demo: the real Mach-O fixture as a public demo, whose overview starts in jq’s own main | claude | review | T035, T045 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
 ---
