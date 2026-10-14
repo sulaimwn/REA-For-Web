@@ -20,3 +20,7 @@
   including the 5 new body tests. **Pipeline unit 30/30.**
 - **Negative check:** with `storage.ts` from `4c16106^`, the pre-fix code, the four new stalled-body tests fail at
   their 5 s test timeouts. The six older tests still pass. Restored afterwards.
+
+## Main after the T051 and T052 merges (`52192b4`)
+- Root typecheck passes. `npm test --workspaces --if-present`: 259 tests, 258 pass, 0 fail. The skip is the host JADX test.
+  `test:storage` 10/10. The web production build passes.
