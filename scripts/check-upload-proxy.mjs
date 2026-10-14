@@ -59,7 +59,14 @@ try {
     body: Buffer.alloc(2 * 1024 * 1024), signal: AbortSignal.timeout(5000) });
   assert.equal(large.status, 413, 'Small metadata body limit remains active.');
   await large.body?.cancel();
-  console.log('Upload proxy: forged IP overwritten, security headers enforced, metadata limit retained.');
+  const artifact = url.replace('/upload', `/api/uploads/${randomUUID()}/file`);
+  const file = await fetch(artifact, { method: 'PUT', body: Buffer.alloc(2 * 1024 * 1024), signal: AbortSignal.timeout(5000) });
+  assert.equal(file.status, 200, 'Only PUT on the exact file route gets the larger allowance.');
+  await file.body?.cancel();
+  const wrongMethod = await fetch(artifact, { method: 'POST', body: Buffer.alloc(2 * 1024 * 1024), signal: AbortSignal.timeout(5000) });
+  assert.equal(wrongMethod.status, 413);
+  await wrongMethod.body?.cancel();
+  console.log('Upload proxy: forged IP overwritten, security headers enforced, large bodies limited to exact PUT file route.');
 } finally {
   for (const container of containers.reverse()) await run('rm', '-f', container);
   if (networkCreated) await run('network', 'rm', id);

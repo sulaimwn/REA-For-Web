@@ -52,13 +52,18 @@ for i = 3, 5 do pending = pending + redis.call('LLEN', KEYS[i]) end
 for i = 6, 8 do pending = pending + redis.call('ZCARD', KEYS[i]) end
 if pending >= tonumber(ARGV[3]) then return -1 end
 if ARGV[2] == 'create' then
-  if tonumber(redis.call('GET', KEYS[2]) or '0') >= 100 then return -2 end
+  if tonumber(redis.call('GET', KEYS[2]) or '0') >= tonumber(ARGV[7]) then return -2 end
+  if ARGV[9] == 'hosted' and tonumber(redis.call('GET', KEYS[11]) or '0') >= 500 then return -5 end
   if ARGV[4] == 'visitor' then
     if tonumber(redis.call('GET', KEYS[9]) or '0') >= 5 then return -3 end
-    if tonumber(redis.call('GET', KEYS[10]) or '0') >= 15 then return -4 end
+    if tonumber(redis.call('GET', KEYS[10]) or '0') >= tonumber(ARGV[8]) then return -4 end
   end
   redis.call('INCR', KEYS[2])
   redis.call('EXPIRE', KEYS[2], ARGV[5])
+  if ARGV[9] == 'hosted' then
+    redis.call('INCR', KEYS[11])
+    redis.call('EXPIRE', KEYS[11], 3024000)
+  end
   if ARGV[4] == 'visitor' then
     redis.call('INCR', KEYS[9])
     redis.call('EXPIRE', KEYS[9], 7200)
@@ -66,31 +71,37 @@ if ARGV[2] == 'create' then
     redis.call('EXPIRE', KEYS[10], 172800)
   end
   redis.call('ZADD', KEYS[1], ms + tonumber(ARGV[6]) * 1000, ARGV[1])
-else
+elseif ARGV[2] == 'complete' then
   redis.call('ZADD', KEYS[1], '+inf', ARGV[1])
+else
+  redis.call('ZADD', KEYS[1], ms + 660000, ARGV[1])
 end
 return 1
 `;
 
 export async function reserveAdmission(
   redis: Redis, queue: Queue, prefix: string, id: string,
-  mode: 'create' | 'complete', identity?: string,
+  mode: 'create' | 'complete' | 'transfer', identity?: string, hosted = false,
 ) {
   if (identity !== undefined && !/^[a-f0-9]{64}$/u.test(identity))
     throw new PipelineError(503, 'Upload visitor identity is unavailable.');
   const hour = Math.floor(Date.now() / 3600000);
   const day = Math.floor(hour / 24);
-  const result = await redis.eval(RESERVE, 10,
+  const month = new Date().toISOString().slice(0, 7);
+  const result = await redis.eval(RESERVE, 11,
     `${prefix}:admission-pending`, `${prefix}:admission:${day}`,
     ...['wait', 'paused', 'active', 'delayed', 'prioritized', 'waiting-children'].map(key => queue.toKey(key)),
     `${prefix}:visitor:${identity ?? 'owner'}:hour:${hour}`,
     `${prefix}:visitor:${identity ?? 'owner'}:day:${day}`,
+    `${prefix}:admission-month:${month}`,
     id, mode, MAX_PENDING_UPLOADS, identity === undefined ? 'owner' : 'visitor',
     UPLOAD_TTL_SECONDS, SIGNED_UPLOAD_SECONDS,
+    hosted ? 25 : 100, hosted ? 3 : 15, hosted ? 'hosted' : 'beta',
   ) as number;
   if (result === -1) throw new PipelineError(503, UPLOAD_BUSY_MESSAGE);
   if (result === -2) throw new PipelineError(429, 'The daily upload limit has been reached.');
   if (result === -3) throw new PipelineError(429, 'Your hourly upload limit has been reached. Try again later.');
   if (result === -4) throw new PipelineError(429, 'Your daily upload limit has been reached. Try again tomorrow.');
+  if (result === -5) throw new PipelineError(429, 'The monthly upload allowance has been reached.');
   if (result !== 1) throw new PipelineError(503, 'Upload admission is unavailable.');
 }

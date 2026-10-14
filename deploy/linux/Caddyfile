@@ -1,16 +1,30 @@
+(upload_backend) {
+	reverse_proxy web:3000 {
+		# Direct DNS-only host; never trust a visitor-supplied forwarding header.
+		header_up X-REA-Client-IP {remote_host}
+	}
+}
+
 {$UPLOAD_HOST} {
 	encode zstd gzip
 	header {
 		>Strict-Transport-Security "max-age=31536000"
 		>X-Content-Type-Options nosniff
 	}
-	# Hosted files go directly to private R2. Only small API metadata reaches this proxy.
-	request_body {
-		max_size 1MB
+	@artifact {
+		method PUT
+		path_regexp artifact ^/api/uploads/[a-f0-9-]{36}/file$
 	}
-	reverse_proxy web:3000 {
-		# This deployment is directly exposed. Never use a visitor-supplied IP
-		# or enable proxy trust behind another CDN without changing this boundary.
-		header_up X-REA-Client-IP {remote_host}
+	handle @artifact {
+		request_body {
+			max_size 512MiB
+		}
+		import upload_backend
+	}
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		import upload_backend
 	}
 }

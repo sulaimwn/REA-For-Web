@@ -1,0 +1,15 @@
+# Overlay only after the administrator verifies the bounded, mounted data disk.
+# Mount just the objects disk: never worker staging or Docker into the web app.
+services:
+  web:
+    volumes:
+      - type: bind
+        source: /var/lib/rea-for-web/objects
+        target: /var/lib/rea-for-web/objects
+        bind:
+          create_host_path: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

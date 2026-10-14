@@ -137,3 +137,48 @@ test('capacity includes paused, prioritized, delayed and active jobs, plus the g
   await control.redis.set(`${control.config.prefix}:admission:${Math.floor(Date.now() / 86400000)}`, 100);
   await assert.rejects(control.create(request), error => error instanceof PipelineError && error.status === 429);
 });
+
+test('hosted public ceilings cover visitor, owner, daily and monthly admissions', async t => {
+  const { control, pending } = await setup(t);
+  control.config.hostedLocal = true;
+  control.config.visitorSecret = secret;
+  const identity = networkIdentity('192.0.2.1', secret);
+  const attempts = await Promise.allSettled(Array.from({ length: 8 }, () => control.create(request, identity)));
+  assert.equal(attempts.filter(value => value.status === 'fulfilled').length, 3);
+  for (const value of attempts.filter(value => value.status === 'rejected'))
+    assert.ok(value.reason instanceof PipelineError && value.reason.status === 429 && /daily/u.test(value.reason.message));
+  await control.create(request, undefined, true);
+  await control.redis.del(pending);
+  const day = `${control.config.prefix}:admission:${Math.floor(Date.now() / 86400000)}`;
+  const month = `${control.config.prefix}:admission-month:${new Date().toISOString().slice(0, 7)}`;
+  await control.redis.set(day, 25);
+  await assert.rejects(control.create(request, undefined, true), /daily upload/u);
+  await control.redis.set(day, 0);
+  await control.redis.set(month, 500);
+  await assert.rejects(control.create(request, undefined, true), /monthly upload/u);
+  assert.equal(await control.redis.get(day), '0', 'denied monthly admission must not burn daily capacity');
+});
+
+test('hosted transfer claims cannot be replayed or exceed two simultaneous body slots', async t => {
+  const { control } = await setup(t);
+  const ticket = await control.create(request);
+  const attempts = await Promise.allSettled(Array.from({ length: 8 }, () => control.claimTransfer(ticket.jobId)));
+  assert.equal(attempts.filter(value => value.status === 'fulfilled').length, 1);
+  for (const value of attempts.filter(value => value.status === 'rejected'))
+    assert.ok(value.reason instanceof PipelineError && value.reason.status === 409);
+  const second = await control.create(request);
+  const third = await control.create(request);
+  await control.claimTransfer(second.jobId);
+  await assert.rejects(control.claimTransfer(third.jobId), error => error instanceof PipelineError && error.status === 503);
+  assert.equal(await control.redis.exists(`${control.config.prefix}:transfer-used:${third.jobId}`), 0,
+    'a busy slot must not consume the third ticket');
+  await control.finishTransfer(ticket.jobId, true);
+  await assert.rejects(control.claimTransfer(ticket.jobId), /already been used/u);
+  await control.claimTransfer(third.jobId);
+  const active = `${control.config.prefix}:transfer-active`;
+  assert.equal(await control.redis.zcard(active), 2);
+  assert.ok(await control.redis.ttl(`${control.config.prefix}:transfer-used:${ticket.jobId}`) > 0);
+  await control.finishTransfer(second.jobId, false);
+  await control.finishTransfer(third.jobId, false);
+  assert.equal(await control.redis.zcard(active), 0);
+});

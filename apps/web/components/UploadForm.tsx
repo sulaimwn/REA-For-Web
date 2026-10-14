@@ -11,13 +11,15 @@ import {
 } from '@rea-studio/pipeline/contracts';
 import { useRouter } from 'next/navigation';
 import { uploadFile } from '../lib/upload-file';
+import { requestUploadChallenge } from '../lib/upload-challenge';
 
-export function UploadForm() {
+export function UploadForm({ publicSiteKey, publicUploads = false }: { publicSiteKey?: string | undefined; publicUploads?: boolean }) {
   const [file, setFile] = useState<File | null>(null),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false),
     [accessKey, setAccessKey] = useState('');
   const controller = useRef<AbortController | null>(null);
+  const challengeContainer = useRef<HTMLDivElement | null>(null);
   const [canCancel, setCanCancel] = useState(false);
   const [progress, setProgress] = useState<{ phase: 'preparing' | 'uploading'; loaded: number; total: number } | null>(null);
   useEffect(() => () => { controller.current?.abort(); controller.current = null; }, []);
@@ -52,13 +54,22 @@ export function UploadForm() {
           `Preparing file… ${Math.min(100, Math.round(((offset + 4 * 1024 * 1024) / file.size) * 100))}%`,
         );
       }
+      const ownerKey = accessKey.trim();
+      let challengeToken: string | undefined;
+      if (publicSiteKey && !ownerKey) {
+        if (!challengeContainer.current) throw new Error('The security check is unavailable. Please try again.');
+        setProgress(null);
+        setMessage('Complete the security check to continue.');
+        challengeToken = await requestUploadChallenge(challengeContainer.current, publicSiteKey, abort.signal);
+      }
+      abort.signal.throwIfAborted();
       const common = {
         'Content-Type': 'application/json',
-        ...(accessKey ? { 'X-REA-Access-Key': accessKey } : {}),
+        ...(ownerKey ? { 'X-REA-Access-Key': ownerKey } : {}),
       };
       const response = await fetch('/api/uploads', {
         method: 'POST',
-        headers: common,
+        headers: { ...common, ...(challengeToken ? { 'X-REA-Turnstile-Token': challengeToken } : {}) },
         body: JSON.stringify({
           name: file.name,
           bytes: file.size,
@@ -129,7 +140,7 @@ export function UploadForm() {
         never run.
       </p>
       <details>
-        <summary>Private beta access key</summary>
+        <summary>{publicUploads ? 'Optional access key' : 'Private beta access key'}</summary>
         <input
           type="password"
           aria-label="Upload access key"
@@ -139,6 +150,7 @@ export function UploadForm() {
           disabled={busy}
         />
       </details>
+      {publicSiteKey ? <div ref={challengeContainer} aria-label="Upload security check" /> : null}
       <button
         type="button"
         className="btn btn--primary"

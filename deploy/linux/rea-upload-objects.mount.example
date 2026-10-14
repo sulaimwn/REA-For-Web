@@ -1,0 +1,15 @@
+# Install as the name produced by systemd-escape -p --suffix=mount for Where.
+# The image must be a newly created 64 GiB ext4 file. Never format existing data.
+[Unit]
+Description=Bounded private REA upload and result storage
+Before=rea-upload-worker.service
+
+[Mount]
+What=/var/lib/rea-for-web/objects.ext4
+Where=/var/lib/rea-for-web/objects
+Type=ext4
+Options=loop,nosuid,nodev,noexec
+TimeoutSec=15
+
+[Install]
+WantedBy=multi-user.target

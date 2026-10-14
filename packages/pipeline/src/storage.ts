@@ -119,17 +119,9 @@ export class LocalStore implements ObjectStore {
     expiry: number,
     signature: string,
     body: Readable,
+    signal?: AbortSignal,
   ) {
-    const expected = this.signature(id, request, expiry);
-    if (
-      !Number.isSafeInteger(expiry) ||
-      expiry <= Date.now() / 1000 ||
-      expiry > Date.now() / 1000 + SIGNED_UPLOAD_SECONDS + 5 ||
-      !/^[a-f0-9]{64}$/u.test(signature) ||
-      !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
-    ) {
-      throw new PipelineError(403, 'Upload link has expired or is invalid.');
-    }
+    this.verifyUploadLink(id, request, expiry, signature);
     const kind = uploadKind(request.name);
     if (!kind) throw new PipelineError(400, 'Unsupported upload format.');
     const path = this.path(uploadKey(id, kind));
@@ -140,10 +132,23 @@ export class LocalStore implements ObjectStore {
         body,
         new VerifiedBytes(request),
         createWriteStream(partial, { flags: 'wx', mode: 0o600 }),
+        { signal },
       );
       await rename(partial, path);
     } finally {
       await rm(partial, { force: true });
+    }
+  }
+  verifyUploadLink(id: string, request: UploadRequest, expiry: number, signature: string) {
+    const expected = this.signature(id, request, expiry);
+    if (
+      !Number.isSafeInteger(expiry) ||
+      expiry <= Date.now() / 1000 ||
+      expiry > Date.now() / 1000 + SIGNED_UPLOAD_SECONDS + 5 ||
+      !/^[a-f0-9]{64}$/u.test(signature) ||
+      !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+    ) {
+      throw new PipelineError(403, 'Upload link has expired or is invalid.');
     }
   }
   async head(key: string) {
