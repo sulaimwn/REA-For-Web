@@ -60,6 +60,7 @@ Details for a task go under its heading below the table.
 | T046 | Faster program/APK analysis: job CPUs as an operator setting (`REA_ANALYSIS_CPUS`); measured Ghidra 139 s → 57 s on 2 CPUs; correct the worker's speed notes | claude | done | T024, T027 |
 | R007 | Independently review T040 link-preview metadata, image and attribution | codex | done | T040 |
 | R008 | Independently review T046 trusted operator CPU setting and unchanged sandbox defaults | codex | done | T046 |
+| R009 | Independently review T035 macOS fixture, adapter, CLI and isolated worker | codex | in progress | T035 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
 ---
