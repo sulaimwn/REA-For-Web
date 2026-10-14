@@ -6,6 +6,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { S3Client } from '@aws-sdk/client-s3';
 import { R2Store, resultKey, uploadKey } from '../src/storage.js';
 import { processUpload } from '../src/processor.js';
@@ -19,7 +21,7 @@ const record = (): UploadRecord => ({
   id: randomUUID(), tokenHash: 'c'.repeat(64), createdAt: Date.now(),
 });
 
-async function setup(t: import('node:test').TestContext, handler: RequestListener, maxAttempts = 1) {
+async function setup(t: import('node:test').TestContext, handler: RequestListener, maxAttempts = 1, deadlineMs = 500) {
   const root = await mkdtemp(join(testRoot, '.pipeline-test-'));
   const server = createServer(handler);
   const clients: S3Client[] = [];
@@ -64,7 +66,7 @@ async function setup(t: import('node:test').TestContext, handler: RequestListene
     logger: { debug() {}, info() {}, warn() {}, error() {} },
   });
   clients.push(client);
-  const store = new R2Store(client, 'test', 500);
+  const store = new R2Store(client, 'test', deadlineMs);
   const config: PipelineConfig = {
     store, redisUrl: 'redis://localhost:1', prefix: 'storage-test',
     origin: 'http://localhost:1', workRoot: join(root, 'work'),
@@ -106,6 +108,104 @@ test('the storage deadline includes retries and backoff', { timeout: 5000 }, asy
   assert.ok(Date.now() - start < 1000, 'settle during the two-second retry sleep');
   await delay(2100);
   assert.equal(attempts, 1, 'cancellation must also prevent a delayed request after returning');
+});
+
+test('GET headers and partial bodies retain the deadline; streamed results recover afterward', { timeout: 5000 }, async (t) => {
+  let mode: 'headers' | 'partial' | 'normal' = 'headers';
+  let closed = 0;
+  const { store } = await setup(t, (req, res) => {
+    req.resume();
+    res.on('close', () => { closed++; });
+    res.writeHead(200, { 'Content-Length': bytes.length });
+    res.flushHeaders();
+    if (mode === 'partial') res.write(bytes.subarray(0, 3));
+    if (mode === 'normal') res.end(bytes);
+  });
+  for (const next of ['headers', 'partial'] as const) {
+    mode = next;
+    const start = Date.now();
+    const body = await store.read(resultKey('a'.repeat(64)));
+    let received = 0;
+    const sink = new Writable({ write(chunk: Buffer, _encoding, callback) { received += chunk.length; callback(); } });
+    await assert.rejects(pipeline(body, sink), (error: unknown) =>
+      error instanceof Error && 'code' in error && error.code === 'storage_unavailable');
+    assert.ok(Date.now() - start < 1500, 'the stream must settle without a separate consumer timeout');
+    assert.equal(received, next === 'partial' ? 3 : 0);
+    assert.equal(body.destroyed, true);
+  }
+  // The actual web route adapts the stored gzip stream with Readable.toWeb.
+  // Consume that same Web-stream boundary after recovery, using the same client.
+  mode = 'normal';
+  const { Readable } = await import('node:stream');
+  const body = await store.read(resultKey('a'.repeat(64)));
+  assert.deepEqual(Buffer.from(await new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>).arrayBuffer()), bytes);
+  assert.ok(closed >= 2, 'timed-out GETs release their HTTP connections');
+});
+
+test('a result Web stream reports the same sanitized storage deadline after partial bytes', { timeout: 5000 }, async (t) => {
+  const { store } = await setup(t, (req, res) => {
+    req.resume();
+    res.writeHead(200, { 'Content-Length': bytes.length });
+    res.write(bytes.subarray(0, 3));
+  });
+  const { Readable } = await import('node:stream');
+  const body = await store.read(resultKey('a'.repeat(64)));
+  await assert.rejects(new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>).arrayBuffer(), (error: unknown) =>
+    error instanceof Error && 'code' in error && error.code === 'storage_unavailable' &&
+    error.message === 'Object storage request timed out.');
+});
+
+test('GET body consumption shares the original deadline with delayed headers', { timeout: 5000 }, async (t) => {
+  const { store } = await setup(t, (req, res) => {
+    req.resume();
+    void delay(600).then(() => {
+      if (!res.destroyed) {
+        res.writeHead(200, { 'Content-Length': bytes.length });
+        res.write(bytes.subarray(0, 3));
+      }
+    });
+  }, 1, 800);
+  const start = Date.now();
+  const body = await store.read(resultKey('a'.repeat(64)));
+  assert.ok(Date.now() - start >= 550, 'headers really consumed most of the deadline');
+  await assert.rejects(pipeline(body, new Writable({ write(_chunk, _encoding, callback) { callback(); } })),
+    (error: unknown) => error instanceof Error && 'code' in error && error.code === 'storage_unavailable');
+  assert.ok(Date.now() - start < 1150, 'GET must not start a fresh 800ms deadline after headers');
+});
+
+test('a stalled upload body cleans raw data and staging, then the processor recovers', { timeout: 5000 }, async (t) => {
+  let stalled = true, analyzed = 0, deletions = 0, puts = 0;
+  const { config } = await setup(t, (req, res) => {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Length': bytes.length });
+      if (stalled) res.write(bytes.subarray(0, 3));
+      else res.end(bytes);
+    }
+    if (req.method === 'HEAD') { res.writeHead(404); res.end(); }
+    if (req.method === 'DELETE') { deletions++; res.writeHead(204); res.end(); }
+    if (req.method === 'PUT') {
+      puts++; req.resume(); req.on('end', () => { res.writeHead(200); res.end(); });
+    }
+  });
+  const analyze = async ({ outputRoot }: { outputRoot: string }) => {
+    analyzed++;
+    const projectPath = join(dirname(outputRoot), 'normalized.json'), projectId = 'b'.repeat(64);
+    await writeFile(projectPath, JSON.stringify({ id: projectId }));
+    return { projectPath, projectId };
+  };
+  await assert.rejects(processUpload(config, { data: record(), updateProgress: async () => {} }, analyze),
+    /^Error: Analysis failed \(storage_unavailable\)\.$/u);
+  assert.equal(analyzed, 0);
+  assert.equal(puts, 0);
+  assert.equal(deletions, 1);
+  assert.deepEqual(await readdir(config.workRoot), []);
+  stalled = false;
+  const result = await processUpload(config, { data: record(), updateProgress: async () => {} }, analyze);
+  assert.equal(result.cacheHit, false);
+  assert.equal(analyzed, 1);
+  assert.equal(puts, 1);
+  assert.equal(deletions, 2);
+  assert.deepEqual(await readdir(config.workRoot), []);
 });
 
 test('a stalled cache lookup stops analysis and deletes raw data and staging', { timeout: 5000 }, async (t) => {
