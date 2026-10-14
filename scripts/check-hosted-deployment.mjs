@@ -5,7 +5,9 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp, writeFile, readdir, rm } from 'node:fs/promises';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertQueueIdentity } from '../apps/worker/src/queue-identity.ts';
 
+assertQueueIdentity();
 const root = fileURLToPath(new URL('../', import.meta.url));
 const webPort = Number(process.env.HOST_TEST_WEB_PORT ?? 3116);
 const redisPort = Number(process.env.HOST_TEST_REDIS_PORT ?? 6382);
