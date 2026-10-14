@@ -26,6 +26,14 @@ it('preserves the package name from real REA facts when available', () => {
   assert.equal(projectForUpload(project, 'renamed.asar').target.name, 'tiny-electron');
 });
 
+it('shows each macOS upload’s own name without changing the shared Mach-O project', () => {
+  const cached = { target: { name: 'target.macho', format: 'macho' }, nodes: [] };
+  assert.equal(projectForUpload(cached, 'jq.macho').target.name, 'jq.macho');
+  assert.equal(projectForUpload(cached, 'libjq.DYLIB').target.name, 'libjq.DYLIB');
+  assert.equal(cached.target.name, 'target.macho');
+  assert.equal(projectForUpload(cached, 'libjq.DYLIB').target.format, 'macho');
+});
+
 it('preserves Android package and .NET assembly names from the artifact', () => {
   for (const fixture of ['tiny-android.rea-6.4.0.json', 'tiny-dotnet.rea-6.4.0.json']) {
     const raw = JSON.parse(readFileSync(new URL(`../../../fixtures/samples/${fixture}`, import.meta.url), 'utf8'));

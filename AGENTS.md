@@ -13,7 +13,7 @@ See `ARCHITECTURE.md` for the design. Current local-mode targets: Electron/JS,
 .NET/native Windows programs, Linux ELF and macOS Mach-O programs, Android APKs and website captures. Program files
 are analyzed statically; website capture loads the requested page in a fresh
 browser. The Docker runner and upload pipeline support .asar, .exe, .dll, .apk,
-.elf and .so files; the Docker runner also takes single-architecture macOS .macho/.dylib files.
+.elf, .so and single-architecture macOS .macho/.dylib files.
 Native/APK/ELF/Mach-O analysis requires the native image on the trusted analysis host.
 
 ## Before you start any work

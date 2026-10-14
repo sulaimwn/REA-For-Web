@@ -1,6 +1,6 @@
-# Upload pipeline (T007, T025, T032)
+# Upload pipeline (T007, T025, T032, T048)
 
-The browser hashes an .asar, .exe, .dll, .apk, .elf or .so file in 4 MB chunks, requests a signed upload ticket,
+The browser hashes an .asar, .exe, .dll, .apk, .elf, .so, .macho or .dylib file in 4 MB chunks, requests a signed upload ticket,
 uploads it, and explicitly completes the upload. Redis/BullMQ holds the job until
 a separate trusted worker downloads and verifies its size and SHA-256. The worker
 calls the existing Docker sandbox and stores only compressed StudioProject JSON.
@@ -29,12 +29,19 @@ to 127.0.0.1:6380, and runs the web app and trusted queue worker. Ctrl+C stops i
 services. Use UPLOAD_DEV_PORT / UPLOAD_REDIS_PORT if those ports are occupied.
 Alternate Redis ports use their own persistent volume; the default port keeps the original volume.
 The helper defaults to `REA_NATIVE_WORKER=1` for Ghidra/JADX support. Set it to `0`
-to build/run only the smaller image (.NET and Electron); native programs, ELF and APKs then fail clearly.
+to build/run only the smaller image (.NET and Electron); native programs, ELF, Mach-O and APKs then fail clearly.
 
 Linux executables often have no extension. Rename the file to end in `.elf`
 before uploading; versioned library names such as `libnotes.so.1` must end in
 `.so` or `.elf` for this explicit upload path. The worker checks the actual ELF
 header inside the sandbox; an extension alone does not make a file valid.
+
+For macOS, upload a single-architecture Mach-O program as `.macho`, or a library
+as `.dylib`. Rename an extensionless program first. The worker checks its actual
+thin Mach-O header; universal binaries, `.app` directories, `.ipa` archives and
+versioned `.dylib.1` filenames are outside this path. For an app bundle, use its
+thin executable from `Contents/MacOS/`. Full macOS verification currently covers
+x86_64 jq and its filename aliases, not every architecture or a real dylib build.
 
 Local objects and the signing secret live in gitignored `.pipeline-data/`;
 private staging is in `.pipeline-work/`. Redis uses the named Docker volume
@@ -46,7 +53,7 @@ generated once and never logged.
 ## API
 
 - POST /api/uploads, JSON `{name, bytes, sha256}` → `{jobId, jobToken, uploadUrl,
-  headers, expiresAt}`. Names must end in .asar, .exe, .dll, .apk, .elf or .so (case-insensitive).
+  headers, expiresAt}`. Names must end in .asar, .exe, .dll, .apk, .elf, .so, .macho or .dylib (case-insensitive).
   Request/response fields are unchanged; unknown request fields are discarded.
 - PUT the file bytes to uploadUrl, with the returned headers. A ticket expires
   after ten minutes. The local endpoint verifies bytes before publication; R2
@@ -77,8 +84,10 @@ Different file kinds have separate cache paths. A PE uploaded as .asar must reac
 ASAR validation rather than reuse a cached .exe result with the same hash.
 Both `.elf` and `.so` use the canonical `elf` kind and may reuse each other's
 verified result for identical bytes. PE, ASAR and APK results remain separate.
-The ELF namespace is new; revision 7 still describes the existing parser/cache
-semantics, and existing authorized results remain readable.
+Both `.macho` and `.dylib` use canonical `macho`, with a separate result namespace
+from ELF, PE, ASAR and APK. Their bytes are verified before any cache lookup.
+These added namespaces keep revision 7's existing parser/cache semantics, and
+existing authorized results remain readable.
 
 Cached projects use a canonical `target.<kind>` fallback name, never another uploader's
 filename. The viewer applies its own authorized uploadName when the app has no
@@ -183,7 +192,7 @@ Configure the web server and trusted worker using `.env.example`:
 - PIPELINE_QUEUE_PREFIX must match on web and worker; PIPELINE_WORK_ROOT is a
   private writable staging directory on the Docker host.
 - Build both worker images and set `REA_NATIVE_WORKER=1` on the trusted queue
-  service to analyze native Windows/Linux programs and Android APKs. .NET works in the
+  service to analyze native Windows/Linux/macOS programs and Android APKs. .NET works in the
   standard image. Upload requests cannot choose an image or resource limits.
 
 Keep secrets in deployment settings or ignored environment files, never Git.
@@ -227,3 +236,20 @@ alias deduplication, missing authorization, and refusal of PE bytes renamed to
 either ELF extension or ELF bytes renamed to PE. Those checks require the native queue setting/image.
 CI runs storage/unit tests, real Redis queue checks and the existing real Docker
 tests; HTTP/browser checks are currently local.
+
+The separate macOS HTTP check uses the public [jq 1.8.2 release](https://github.com/jqlang/jq/releases/tag/jq-1.8.2)
+file `jq-macos-amd64` (SHA-256
+`e94b266e3c26690550006abe63152b782280f4e14374accdf04cbde844f00bc0`).
+Set `PIPELINE_TEST_MACOS_FILE` to your local copy and use a stack with fresh,
+isolated storage and the native image:
+
+```powershell
+$env:PIPELINE_TEST_ORIGIN='http://localhost:3104'
+$env:PIPELINE_TEST_MACOS_FILE='C:\path\to\jq-macos-amd64'
+npm run test:macos -w @rea-studio/pipeline
+```
+
+This checksum-gated, loopback-only test requires a real fresh analysis, private
+result access and progress, verifies `.macho`/`.dylib` alias cache reuse, and
+rejects hash-only possession, wrong bytes, cross-format renames and a universal
+header. No download occurs in the test; the supplied program is never executed.

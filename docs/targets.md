@@ -83,11 +83,13 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - **Entry point:** Ghidra names it `entry`.
   - **Admission:** only thin Mach-O headers (32/64-bit, either byte order).
     - The CLI recognizes them by header.
-    - The worker accepts `.macho` (rename extensionless programs) and `.dylib` in the native image.
-    - Universal (`0xCAFEBABE`) binaries are refused with a "pick one architecture (`lipo -thin`)" message. REA's
+    - The worker and local upload form accept `.macho` (rename extensionless programs) and `.dylib` in the native image.
+      Both filenames use the same verified `macho` parser/cache namespace.
+    - Universal (`0xCAFEBABE`) binaries are refused; the CLI explains how to pick one architecture (`lipo -thin`). REA's
       `available_architectures` suggests it could select one, but no universal sample has been tested.
   - Demo: `/explore/jq-macos` (T049), using the committed fixture.
-  - **Not yet:** upload-form admission on main (T048 is in review), universal binaries and `.app`/`.ipa` bundles.
+  - **Not yet:** universal binaries or `.app`/`.ipa` bundles. The real full run covers thin x86_64 jq;
+    other thin headers and the `.dylib` filename alias do not establish coverage of other architectures or a real shared library.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
   - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`packages/rea-adapter/src/native-session.ts`).
@@ -105,7 +107,7 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
 - Not yet: decompiled code (`procedure_pseudo_code`), and limits for large binaries. Every function costs one `procedure_callees` call, so very large programs need a cap or REA's `get_call_graph`.
 - Uploads: the reviewed native image ships JDK 21 + Ghidra 12.1.4 and JADX under
   the same sandbox. The local pipeline accepts `.asar`, `.exe`, `.dll`, `.apk`,
-  `.elf` and `.so`. Hosted uploads still need an analysis host and private storage;
+  `.elf`, `.so`, `.macho` and `.dylib`. Hosted uploads still need an analysis host and private storage;
   local provider installation alone does not create that service.
 
 ### Apple

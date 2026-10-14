@@ -2,15 +2,16 @@
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 export const UPLOAD_TTL_SECONDS = 24 * 60 * 60;
 export const SIGNED_UPLOAD_SECONDS = 10 * 60;
-// Extensions and analysis kinds differ: .so and .elf use the same ELF parser.
-export const UPLOAD_KINDS = ['asar', 'exe', 'dll', 'apk', 'elf'] as const;
+// Filename aliases share a parser: .so/.elf and .dylib/.macho.
+export const UPLOAD_KINDS = ['asar', 'exe', 'dll', 'apk', 'elf', 'macho'] as const;
 export type UploadKind = (typeof UPLOAD_KINDS)[number];
-export const UPLOAD_EXTENSIONS = [...UPLOAD_KINDS, 'so'] as const;
+export const UPLOAD_EXTENSIONS = ['asar', 'exe', 'dll', 'apk', 'elf', 'so', 'macho', 'dylib'] as const;
 export const UPLOAD_ACCEPT = UPLOAD_EXTENSIONS.map((extension) => `.${extension}`).join(',');
-export const UPLOAD_FILE_ERROR = 'Choose an .asar, .exe, .dll, .apk, .elf or .so file up to 512 MB.';
+export const UPLOAD_FILE_ERROR = 'Choose an .asar, .exe, .dll, .apk, .elf, .so, .macho or .dylib file up to 512 MB.';
 export function uploadKind(name: string): UploadKind | null {
-  const extension = /\.(asar|exe|dll|apk|elf|so)$/iu.exec(name)?.[1]?.toLowerCase();
+  const extension = /\.(asar|exe|dll|apk|elf|so|macho|dylib)$/iu.exec(name)?.[1]?.toLowerCase();
   if (extension === 'so') return 'elf';
+  if (extension === 'dylib') return 'macho';
   return (extension as UploadKind | undefined) ?? null;
 }
 export type UploadRequest = { name: string; bytes: number; sha256: string };

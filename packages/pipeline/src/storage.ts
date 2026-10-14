@@ -50,7 +50,7 @@ export const resultKey = (hash: string, kind: UploadKind = 'asar') =>
   `results/schema-0.1.0-rea-6.4.0-adapter-7/${kind}/${hash}.json.gz`;
 function safeKey(key: string) {
   if (
-    !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk|elf)|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk|elf)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
+    !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk|elf|macho)|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk|elf|macho)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
       key,
     )
   ) {
@@ -194,7 +194,7 @@ export class LocalStore implements ObjectStore {
       throw error;
     });
     for (const name of files) {
-      if (!/^[a-f0-9-]+\.(?:asar|exe|dll|apk|elf)(?:\.[a-f0-9-]+\.partial)?$/u.test(name)) continue;
+      if (!/^[a-f0-9-]+\.(?:asar|exe|dll|apk|elf|macho)(?:\.[a-f0-9-]+\.partial)?$/u.test(name)) continue;
       const path = join(root, name);
       if ((await stat(path)).mtimeMs < Date.now() - UPLOAD_TTL_SECONDS * 1000)
         await rm(path, { force: true });
