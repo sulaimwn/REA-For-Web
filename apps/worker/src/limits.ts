@@ -30,7 +30,9 @@ export type AnalysisLimits = {
 export const DEFAULT_LIMITS: Readonly<AnalysisLimits> = Object.freeze({
   timeoutMs: 900_000,
   sourceTimeoutMs: 180_000,
-  maxFiles: 5_000,
+  // Admission only (preflight); REA is bounded by memory, CPU and the deadline. Big Electron apps ship
+  // thousands of files, so 20,000 (the allowed maximum) lets real apps through.
+  maxFiles: 20_000,
   maxInputBytes: 512 * 1024 * 1024,
   maxOutputBytes: 128 * 1024 * 1024,
   memoryMb: 2_048,
@@ -79,5 +81,11 @@ export function queueLimitsFromEnv(env: NodeJS.ProcessEnv = process.env): Analys
     ...(env.REA_SOURCE_TIMEOUT_MS === undefined ? {} : { sourceTimeoutMs: Number(env.REA_SOURCE_TIMEOUT_MS) }),
     // Ghidra runs on the JVM, which one CPU starves: jq 1.8.2 took 124–145 s on 1 CPU, 52–57 s on 2, 42 s on 4.
     ...(env.REA_ANALYSIS_CPUS === undefined ? {} : { cpus: Number(env.REA_ANALYSIS_CPUS) }),
+    // Big real apps (T057): one job runs at a time, so a dedicated host can give it most of its memory.
+    // resolveLimits keeps every value inside the sandbox's reviewed ranges.
+    ...(env.REA_ANALYSIS_MEMORY_MB === undefined ? {} : { memoryMb: Number(env.REA_ANALYSIS_MEMORY_MB) }),
+    ...(env.REA_ANALYSIS_HEAP_MB === undefined ? {} : { heapMb: Number(env.REA_ANALYSIS_HEAP_MB) }),
+    ...(env.REA_ANALYSIS_MAX_FILES === undefined ? {} : { maxFiles: Number(env.REA_ANALYSIS_MAX_FILES) }),
+    ...(env.REA_ANALYSIS_MAX_INPUT_BYTES === undefined ? {} : { maxInputBytes: Number(env.REA_ANALYSIS_MAX_INPUT_BYTES) }),
   });
 }

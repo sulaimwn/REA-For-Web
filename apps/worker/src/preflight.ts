@@ -61,6 +61,22 @@ class Budget {
       throw new WorkerError("input_limit_exceeded", "Input byte limit exceeded.");
     }
   }
+  /**
+   * One APK ZIP entry. Real apps ship thousands of resources (WhatsApp exceeds 5,000), and JADX
+   * never unpacks them all, so entries don't count as app files. They're bounded by the ZIP
+   * format (a non-ZIP64 directory lists at most 65,534 entries; ZIP64 is refused), the 8 MiB
+   * directory cap and the expanded-byte budget below.
+   */
+  archiveEntry(expanded: number) {
+    if (!Number.isSafeInteger(expanded) || expanded < 0) {
+      throw new WorkerError("invalid_input", "Invalid file size.");
+    }
+    this.entries++;
+    this.logicalBytes += expanded;
+    if (this.logicalBytes > this.limits.maxInputBytes) {
+      throw new WorkerError("input_limit_exceeded", "The APK is too large once unpacked.");
+    }
+  }
 }
 
 // ASAR is two Chromium pickles followed by file bytes. Read only a bounded header,
@@ -171,9 +187,8 @@ async function inspectApk(handle: FileHandle, size: number, budget: Budget) {
         || mode === 0xa000) throw invalid();
     const name = directory.subarray(at + 46, at + 46 + nameBytes).toString("utf8");
     if (/^[\/\\]|[\x00-\x1f\\:]/u.test(name) || name.split("/").some((part) => part === ".." || part === ".")) throw invalid();
-    budget.entry(0);
-    // Every ZIP entry counts, including directories; expanded sizes bound compressed APKs.
-    budget.file(expanded, false, true);
+    // Expanded sizes bound compressed APKs; see Budget.archiveEntry for the entry bound.
+    budget.archiveEntry(expanded);
     at += length;
   }
   if (at !== bytes) throw invalid();
@@ -234,5 +249,5 @@ export async function preflightTarget(target: string, kind: TargetKind, limits: 
       }
     }
   }
-  return { files: budget.files, physicalBytes: budget.physicalBytes, logicalBytes: budget.logicalBytes };
+  return { files: budget.files, entries: budget.entries, physicalBytes: budget.physicalBytes, logicalBytes: budget.logicalBytes };
 }
