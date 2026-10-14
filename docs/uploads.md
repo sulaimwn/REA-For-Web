@@ -73,6 +73,12 @@ URLs. A result URL can be reloaded in its uploading tab; opening it in a differe
 browser session requires uploading the app again. There is no public hash lookup.
 The server admits at most 100 upload tickets per UTC day for the private beta.
 
+R2 downloads have one 60-second deadline covering request retries, response
+headers and the complete body. A stalled result download fails instead of
+leaving the viewer loading indefinitely; the authorized tab can reload to try
+reading its stored result again. A stalled raw-file download fails the analysis
+job before the analyzer runs, then cleans raw data and local staging as usual.
+
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys

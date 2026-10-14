@@ -212,23 +212,38 @@ export class R2Store implements ObjectStore {
     if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1)
       throw new Error('Invalid storage request deadline.');
   }
-  private async request<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  private async request<T>(
+    send: (signal: AbortSignal) => Promise<T>,
+    responseBody?: (value: T) => Readable,
+  ): Promise<T> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let body: Readable | undefined;
     try {
       // SDK retry backoff does not immediately respond to abort. Settle our
       // caller on time as well as canceling any current/future HTTP attempt.
-      return await Promise.race([
+      const value = await Promise.race([
         send(controller.signal),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
-            controller.abort();
-            reject(Object.assign(new Error('Object storage request timed out.'), {
+            const error = Object.assign(new Error('Object storage request timed out.'), {
               code: 'storage_unavailable',
-            }));
+            });
+            // GET resolves at headers. Fail its stream with our sanitized code
+            // before aborting the HTTP request can replace it with ECONNRESET.
+            body?.destroy(error);
+            controller.abort();
+            reject(error);
           }, this.requestTimeoutMs);
         }),
       ]);
+      if (responseBody) {
+        body = responseBody(value);
+        const finish = () => clearTimeout(timer);
+        body.once('end', finish).once('close', finish).once('error', finish);
+        if (body.readableEnded || body.destroyed) finish();
+      }
+      return value;
     } catch (error) {
       if (['AbortError', 'TimeoutError'].includes((error as Error).name))
         throw Object.assign(new Error('Object storage request timed out.'), {
@@ -236,7 +251,9 @@ export class R2Store implements ObjectStore {
         });
       throw error;
     } finally {
-      clearTimeout(timer);
+      // A GET body retains the same deadline through consumption, including
+      // time already spent acquiring headers or retrying. Other calls settle here.
+      if (!body) clearTimeout(timer);
     }
   }
   async signUpload(id: string, request: UploadRequest, _origin: string) {
@@ -273,13 +290,17 @@ export class R2Store implements ObjectStore {
     }
   }
   async read(key: string) {
-    const r = await this.request((abortSignal) => this.client.send(
+    let body: Readable | undefined;
+    await this.request((abortSignal) => this.client.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: safeKey(key) }),
       { abortSignal },
-    ));
-    if (!(r.Body instanceof Readable))
-      throw new Error('Object storage did not return a stream.');
-    return r.Body;
+    ), (response) => {
+      if (!(response.Body instanceof Readable))
+        throw new Error('Object storage did not return a stream.');
+      body = response.Body;
+      return body;
+    });
+    return body!;
   }
   async put(key: string, path: string, metadata: Record<string, string>) {
     const bytes = (await stat(path)).size;
