@@ -14,6 +14,8 @@ const image = (await readFile(join(root, 'apps/worker/Dockerfile'), 'utf8')).spl
 assert.match(image ?? '', /^node:[a-zA-Z0-9._-]+@sha256:[a-f0-9]{64}$/u);
 assert.equal(WORKER_USER, '1000:1000', 'Update this ownership regression if the reviewed sandbox identity changes.');
 const limits = join(root, 'apps/worker/dist/limits.js');
+const identity = join(root, 'apps/worker/dist/queue-identity.js');
+const identitySource = join(root, 'apps/worker/src/queue-identity.ts');
 assert.ok(!limits.includes(','), 'Docker mount paths for this check must not contain commas.');
 const id = `rea-identity-${randomBytes(6).toString('hex')}`;
 const volume = `${id}-data`;
@@ -24,7 +26,8 @@ const docker = async (args) => (await exec('docker', args, {
 })).stdout.trim();
 const containers = [];
 let created = false;
-async function run(user, source, { writable = false, chown = false } = {}) {
+async function run(user, source, { writable = false, chown = false, script } = {}) {
+  if (script) assert.ok(['dev-uploads.mjs', 'check-hosted-deployment.mjs'].includes(script));
   const name = `${id}-${containers.length}`;
   containers.push(name);
   return docker(['run', '--rm', '--pull=never', '--name', name, '--label', `${label}=${id}`,
@@ -34,7 +37,12 @@ async function run(user, source, { writable = false, chown = false } = {}) {
     '--memory=128m', '--memory-swap=128m',
     '--mount', `type=volume,source=${volume},target=/data${writable ? '' : ',readonly'}`,
     '--mount', `type=bind,source=${limits},target=/opt/worker-limits.mjs,readonly`,
-    image, 'node', '--input-type=module', '-e', source]);
+    '--mount', `type=bind,source=${identity},target=/opt/queue-identity.js,readonly`,
+    ...(script ? ['--workdir=/src',
+      '--mount', `type=bind,source=${join(root, 'scripts', script)},target=/src/scripts/${script},readonly`,
+      '--mount', `type=bind,source=${identitySource},target=/src/apps/worker/src/queue-identity.ts,readonly`,
+    ] : []),
+    image, 'node', ...(script ? [`/src/scripts/${script}`] : ['--input-type=module', '-e', source])]);
 }
 const probe = `
   import {stat,readFile} from 'node:fs/promises';
@@ -77,7 +85,19 @@ try {
   assert.equal(aligned.mode, 0o600);
   assert.equal(aligned.bytes, 39);
   assert.equal(aligned.readError, undefined);
+  // These are the actual setup entrypoints, with no builds, dependencies,
+  // credentials, writable workspace or Docker socket available in the probe.
+  // A late/missing check fails with a filesystem or missing-module error.
+  for (const script of ['dev-uploads.mjs', 'check-hosted-deployment.mjs']) {
+    await assert.rejects(run('1001:1001', '', { script }), error => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /Linux upload queue must run as UID 1000/u);
+      assert.doesNotMatch(error.stderr, /ENOENT|EACCES|EROFS|ERR_MODULE_NOT_FOUND/u);
+      return true;
+    });
+  }
   console.log('Linux ownership checks passed: mismatched queue UID rejected; private input unreadable until UID aligns; mode 0600 unchanged.');
+  console.log('Setup entrypoints reject mismatched Linux ownership before filesystem writes, builds or service startup.');
 } finally {
   for (const name of containers) {
     let info;
