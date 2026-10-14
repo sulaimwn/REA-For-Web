@@ -98,6 +98,12 @@ Analysis has a 15-minute whole-job deadline, enforced by both the host and the
 container. On slower machines the operator can set `REA_ANALYSIS_TIMEOUT_MS`
 on the trusted queue worker (1,000–1,800,000 ms; maximum 30 minutes). Upload
 requests cannot change it. CPU, memory, file and output caps still apply.
+`REA_ANALYSIS_CPUS` (0.1–4, default 1) sets the CPUs each job's container gets.
+Program analysis runs Ghidra on the JVM, which one CPU starves. jq 1.8.2 (macOS)
+took 124–145 s on 1 CPU, 52–57 s on 2 and 42 s on 4, with identical results.
+APK (JADX) timings varied too much to conclude: Binary Eye took 90–165 s on 1 CPU,
+109–162 s on 2 and 74 s on 4. Jobs run one at a time, so 2 suits a 4-vCPU host
+and leaves room for the website and Redis.
 APK admission checks its bounded ZIP directory and caps both its entry count and
 declared expanded bytes. Its individual class/method collection also has caps,
 and missing method bodies remain visible as partial analysis.

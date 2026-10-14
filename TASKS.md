@@ -57,8 +57,9 @@ Details for a task go under its heading below the table.
 | T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | done | T026, T029 |
 | T044 | Verify real free Ask answers and node citations after the human deploys the reviewed AI-binding release | codex | done | T041, R006 |
 | T045 | Readable overview for big programs: a call tree from the entry point instead of the first 250 parts by kind (jq, big .NET) | claude | review | T021, T031 |
-| T046 | Faster program/APK analysis: job CPUs as an operator setting (`REA_ANALYSIS_CPUS`); measured Ghidra 139 s → 57 s on 2 CPUs; correct the worker's speed notes | claude | review | T024, T027 |
+| T046 | Faster program/APK analysis: job CPUs as an operator setting (`REA_ANALYSIS_CPUS`); measured Ghidra 139 s → 57 s on 2 CPUs; correct the worker's speed notes | claude | done | T024, T027 |
 | R007 | Independently review T040 link-preview metadata, image and attribution | codex | done | T040 |
+| R008 | Independently review T046 trusted operator CPU setting and unchanged sandbox defaults | codex | done | T046 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | review | T038 |
 
 ---
