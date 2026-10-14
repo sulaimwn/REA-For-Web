@@ -16,7 +16,8 @@
     "test:redis-api": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/redis-api.integration.js",
     "test:storage": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/storage.integration.js",
     "test:preanalyze": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json && node --test dist-tests/tests/preanalyze.integration.js",
-    "test:http": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/http.integration.js"
+    "test:http": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/http.integration.js",
+    "test:macos": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/macos.integration.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1150.0",

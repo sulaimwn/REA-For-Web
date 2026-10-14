@@ -125,6 +125,9 @@ test('upload admission rejects hostile paths, wrong format, oversized files and 
     { name: 'tiny.zip' },
     { name: 'tiny-notes' },
     { name: 'libnotes.so.1' },
+    { name: 'Notes.app' },
+    { name: 'Notes.ipa' },
+    { name: 'libnotes.dylib.1' },
     { bytes: MAX_UPLOAD_BYTES + 1 },
     { bytes: 1.5 },
     { sha256: 'a' },
@@ -136,7 +139,13 @@ test('ELF and shared-library filename aliases use the same analysis kind and fil
   for (const name of ['tiny.elf', 'libnotes.so', 'libnotes.SO']) {
     assert.equal(uploadKind(validateUpload({ ...request, name }).name), 'elf');
   }
-  assert.equal(UPLOAD_ACCEPT, '.asar,.exe,.dll,.apk,.elf,.so');
+  assert.equal(UPLOAD_ACCEPT, '.asar,.exe,.dll,.apk,.elf,.so,.macho,.dylib');
+});
+
+test('Mach-O and dylib aliases use the same analysis kind, without admitting bundles or bare names', () => {
+  for (const name of ['jq.macho', 'jq.MACHO', 'libnotes.dylib', 'libnotes.DYLIB']) {
+    assert.equal(uploadKind(validateUpload({ ...request, name }).name), 'macho');
+  }
 });
 test('signed local uploads validate expiry, signature, size and SHA before publication', async (t) => {
   const { store } = await setup(t),
@@ -280,7 +289,7 @@ test('renaming a cached artifact cannot bypass the new kind’s parser or publis
     await writeFile(projectPath, '{}');
     return { projectPath, projectId };
   });
-  for (const name of ['renamed.exe', 'renamed.elf', 'renamed.so']) {
+  for (const name of ['renamed.exe', 'renamed.elf', 'renamed.so', 'renamed.macho', 'renamed.dylib']) {
     const renamed = { ...record(), name }, kind = uploadKind(name)!;
     await receive(store, renamed);
     let analyzed = false;
@@ -292,6 +301,40 @@ test('renaming a cached artifact cannot bypass the new kind’s parser or publis
     assert.equal(await store.head(resultKey(renamed.sha256, kind)), null);
     assert.equal(await store.head(uploadKey(renamed.id, kind)), null);
   }
+  assert.deepEqual(await readdir(config.workRoot), []);
+});
+
+test('Mach-O alias cache hits require verified bytes, canonical staging and raw cleanup', async (t) => {
+  const { config, store, root } = await setup(t);
+  let calls = 0;
+  const analyze = async ({ targetPath, targetName }: { targetPath: string; targetName: string }) => {
+    assert.equal(targetName, 'target.macho');
+    assert.ok(targetPath.endsWith('target.macho'));
+    assert.deepEqual(await readFile(targetPath), bytes);
+    calls++;
+    const projectPath = join(root, 'macho-result.json');
+    await writeFile(projectPath, JSON.stringify({ id: projectId }));
+    return { projectPath, projectId };
+  };
+  for (const [name, cached] of [['jq.macho', false], ['libjq.DYLIB', true]] as const) {
+    const r = { ...record(), name };
+    await receive(store, r);
+    const result = await processUpload(config, { data: r, updateProgress: async () => {} }, analyze);
+    assert.equal(result.cacheHit, cached);
+    assert.equal(result.resultKey, resultKey(r.sha256, 'macho'));
+    assert.equal(await store.head(uploadKey(r.id, 'macho')), null);
+  }
+  // Bypass the local PUT verifier to exercise the same worker boundary as R2.
+  const tampered = { ...record(), name: 'tampered.dylib' };
+  await receive(store, tampered);
+  await writeFile(join(root, 'objects', uploadKey(tampered.id, 'macho')), Buffer.alloc(bytes.length));
+  let cacheReads = 0;
+  const head = store.head.bind(store);
+  store.head = async (key) => { cacheReads++; return head(key); };
+  await assert.rejects(processUpload(config, { data: tampered, updateProgress: async () => {} }, analyze));
+  assert.equal(cacheReads, 0, 'SHA verification must finish before even looking for a cached result');
+  assert.equal(calls, 1);
+  assert.equal(await head(uploadKey(tampered.id, 'macho')), null);
   assert.deepEqual(await readdir(config.workRoot), []);
 });
 
@@ -379,10 +422,14 @@ test('expiry sweep removes old uploads and retains fresh objects', async (t) => 
     await receive(store, r);
     await utimes(join(root, 'objects', uploadKey(r.id, kind)), new Date(0), new Date(0));
   }
+  const partial = join(root, 'objects', `${uploadKey(old.id, 'macho')}.${randomUUID()}.partial`);
+  await writeFile(partial, bytes);
+  await utimes(partial, new Date(0), new Date(0));
   await store.expireUploads();
   assert.equal(await store.head(uploadKey(old.id)), null);
   for (const kind of UPLOAD_KINDS) assert.equal(await store.head(uploadKey(old.id, kind)), null);
   assert.ok(await store.head(uploadKey(fresh.id)));
+  assert.deepEqual(await readdir(join(root, 'objects', 'uploads')), [`${fresh.id}.asar`]);
 });
 test('R2 upload signature binds object key, type, length, and a ten-minute expiry without contacting R2', async () => {
   const client = new S3Client({

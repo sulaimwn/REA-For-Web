@@ -67,7 +67,7 @@ export function OpenProject() {
           This writes <code>app.studio.json</code> (for <code>Program.exe</code>, <code>Program.studio.json</code>). It reads:
           <ul>
             <li>Electron apps: an <code>.asar</code> or an extracted app folder, and .NET programs (<code>.exe</code>, <code>.dll</code>), with nothing else to install</li>
-            <li>native Windows programs, and Linux programs on a Linux or macOS machine: set <code>GHIDRA_INSTALL_DIR</code> to Ghidra 12.1 (with a JDK 21)</li>
+            <li>native Windows programs, and Linux or single-architecture macOS programs on a Linux or macOS machine: set <code>GHIDRA_INSTALL_DIR</code> to Ghidra 12.1 (with a JDK 21)</li>
             <li>Android apps (<code>.apk</code>): set <code>REA_JADX_MCP_JAR</code> to the jadx-headless-mcp 0.7.1 JAR</li>
             <li>websites: pass an <code>https://</code> URL; it opens in a headless Chrome with a throwaway profile</li>
           </ul>

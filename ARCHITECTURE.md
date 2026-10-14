@@ -299,6 +299,13 @@ restrictions are unchanged. The native worker verifies ELF bytes; a renamed PE
 cannot reuse a PE cache entry. Bare filenames and versioned `.so.1` libraries are
 not accepted by the upload form; rename them to an admitted extension first.
 
+T048 connects the reviewed T035/R009 Mach-O worker to explicit `.macho` and
+`.dylib` upload admission. Both use canonical `macho` staging/raw objects and a
+new isolated revision-7 `macho` cache namespace. The worker checks thin Mach-O
+bytes; universal binaries and `.app`/`.ipa` bundles remain unsupported. Each
+alias proves its uploaded bytes before cache access. No request/response fields,
+schema, existing cache identities, admission quotas or sandbox limits change.
+
 T026 packages the existing API/explorer as a non-root Linux web container, with
 private Redis and a trusted host queue service. Only the host queue controls
 Docker; analysis containers remain offline and credential-free. The Cloudflare

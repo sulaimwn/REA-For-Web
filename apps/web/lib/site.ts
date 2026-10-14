@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const SITE_NAME = 'REA for Web';
 export const SITE_DESCRIPTION =
-  "See how an app is put together. Upload an Electron app, a Windows or Linux program or an Android APK and explore a map of its parts, with REA's evidence for each one.";
+  "See how an app is put together. Upload an Electron app, a Windows, Linux or macOS program or an Android APK and explore a map of its parts, with REA's evidence for each one.";
 
 // public/og-image.png: the landing card over a crop of the GitHub Desktop demo.
 const SHARE_IMAGE = {

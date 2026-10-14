@@ -118,9 +118,10 @@ including measurements and known limitations.
 The public preview is live at [reaforweb.com](https://reaforweb.com). It shows **pre-analyzed open-source apps**, and
 local mode lets you analyze and view an app entirely on your own machine.
 Uploading your own app is available locally with `npm run dev:uploads`.
-Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf` or `.so` file. Linux programs
-without an extension should be renamed to `.elf` before uploading.
-The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all five analysis kinds,
+Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf`, `.so`, `.macho` or `.dylib` file.
+Rename extensionless Linux programs to `.elf` and single-architecture macOS
+programs to `.macho`. Universal macOS binaries and `.app`/`.ipa` bundles are not supported.
+The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all six analysis kinds,
 including Ghidra and JADX analysis. The helper builds both worker images by
 default. Cloudflare R2 and the hosted analysis backend are not connected yet.
 See [upload setup and API](docs/uploads.md).
