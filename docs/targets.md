@@ -86,7 +86,8 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
     - The worker accepts `.macho` (rename extensionless programs) and `.dylib` in the native image.
     - Universal (`0xCAFEBABE`) binaries are refused with a "pick one architecture (`lipo -thin`)" message. REA's
       `available_architectures` suggests it could select one, but no universal sample has been tested.
-  - **Not yet:** upload-form admission (pipeline) and a demo page.
+  - Demo: `/explore/jq-macos` (T049), using the committed fixture.
+  - **Not yet:** upload-form admission on main (T048 is in review), universal binaries and `.app`/`.ipa` bundles.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
   - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`packages/rea-adapter/src/native-session.ts`).
