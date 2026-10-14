@@ -140,6 +140,42 @@ port 3116. Pass the original HTTPS hostname; `PIPELINE_PUBLIC_ORIGIN` must exact
 match the browser Origin. Do not expose the web or Redis ports directly. The
 form requires the private-beta access key before issuing R2 upload tickets.
 
+### Admission capacity and network quotas (T055)
+
+After deploying the reviewed T055 source, admission reserves one of **20 total
+slots** atomically in Redis, counting both outstanding upload tickets and queued,
+paused, delayed, prioritized or active analyses. A ticket without a completed
+transfer releases its slot after ten minutes. Completion after that point must
+reacquire a slot; it cannot bypass a full queue. Full capacity returns a sanitized
+503 saying the queue is busy. The existing 100 tickets/UTC-day ceiling remains.
+
+To enable the additional **5 tickets/network/UTC-hour and 15/UTC-day** limits,
+set `PIPELINE_VISITOR_LIMITS=1`, `PIPELINE_TRUST_PROXY=1` and a separate random
+`PIPELINE_VISITOR_SECRET` of at least 32 characters in **web.env only**. Caddy
+overwrites `X-REA-Client-IP` with its actual socket peer. Keep Node's port private
+and this hostname DNS-only/direct to Caddy. Placing a CDN or another proxy in
+front requires a new verified trust boundary; do not enable these settings by
+blindly trusting `CF-Connecting-IP` or `X-Forwarded-For`.
+
+Only expiring HMAC quota identifiers are retained, never raw IPs. IPv4-mapped
+IPv6 shares the IPv4 quota; native IPv6 is grouped by /64. People sharing a network
+share these limits. The beta key still remains required; these controls alone
+do not open anonymous uploads or establish an R2 spending cap.
+
+If a queue write times out, its completion reservation deliberately remains
+non-expiring because the write might arrive later. Retrying completion with the
+same authorized job recovers it once the queue insertion is confirmed. A truly
+abandoned ambiguous reservation needs operator reconciliation after quiescing
+all API writers; never delete it automatically based only on a timeout. This
+conservative behavior can cause busy responses during an outage.
+
+The Caddyfile also enforces `X-Content-Type-Options: nosniff` and one-year HSTS
+on this HTTPS hostname, without `includeSubDomains` or preload. Verify the actual
+TLS certificate before rollout. Run `npm run test:upload-proxy` for the real
+pinned proxy's spoofed-header/body-limit checks, and `npm run test:admission
+--workspace=@rea-studio/pipeline` with an isolated `PIPELINE_TEST_REDIS_URL`
+for quota races, capacity and completion recovery.
+
 ## Connect the Cloudflare site
 
 After the analysis site is verified, set **REA_UPLOAD_ORIGIN** to its HTTPS

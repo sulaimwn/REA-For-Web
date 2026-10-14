@@ -3,6 +3,8 @@ import {
   UploadControl,
   configFromEnv,
   PipelineError,
+  networkIdentity,
+  UPLOAD_BUSY_MESSAGE,
 } from '@rea-studio/pipeline/server';
 export { PipelineError };
 let control: UploadControl | undefined;
@@ -25,6 +27,10 @@ export function authorizeMutation(request: Request) {
 }
 export function jobToken(request: Request) {
   return request.headers.get('Authorization')?.replace(/^Bearer /u, '') ?? '';
+}
+export function uploadIdentity(request: Request): string | undefined {
+  const secret = uploads().config.visitorSecret;
+  return secret ? networkIdentity(request.headers.get('X-REA-Client-IP'), secret) : undefined;
 }
 export async function uploadJson(request: Request) {
   if (!request.body)
@@ -51,7 +57,7 @@ export async function uploadJson(request: Request) {
 export function uploadError(error: unknown) {
   const status = error instanceof PipelineError ? error.status : 503;
   const message =
-    error instanceof PipelineError && status !== 503
+    error instanceof PipelineError && (status !== 503 || error.message === UPLOAD_BUSY_MESSAGE)
       ? error.message
       : 'Uploads are not available on this server yet.';
   return Response.json(
