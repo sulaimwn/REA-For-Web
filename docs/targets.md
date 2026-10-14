@@ -87,7 +87,8 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
       Both filenames use the same verified `macho` parser/cache namespace.
     - Universal (`0xCAFEBABE`) binaries are refused; the CLI explains how to pick one architecture (`lipo -thin`). REA's
       `available_architectures` suggests it could select one, but no universal sample has been tested.
-  - **Not yet:** a demo page, universal binaries or `.app`/`.ipa` bundles. The real full run covers thin x86_64 jq;
+  - Demo: `/explore/jq-macos` (T049), using the committed fixture.
+  - **Not yet:** universal binaries or `.app`/`.ipa` bundles. The real full run covers thin x86_64 jq;
     other thin headers and the `.dylib` filename alias do not establish coverage of other architectures or a real shared library.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
