@@ -22,7 +22,8 @@ const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>
 
   <app>            An extracted Electron/JS app directory, an .asar file,
                    a Windows program (.exe or .dll: .NET, or native with
-                   GHIDRA_INSTALL_DIR set), a Linux program (ELF, with
+                   GHIDRA_INSTALL_DIR set), a Linux (ELF) or macOS
+                   (Mach-O, single architecture) program (with
                    GHIDRA_INSTALL_DIR set, on a Linux or macOS machine),
                    an Android app (.apk, with REA_JADX_MCP_JAR set), or a
                    website (https://…, opened in a headless Chrome with a
@@ -35,15 +36,27 @@ const USAGE = `Usage: rea-studio analyze <app> [--out <file>] [--max-heap-mb <n>
 Then open the file at /open on the REA for Web site. It stays on your machine.`;
 
 /** What kind of REA analysis the input needs. */
-type TargetKind = 'javascript' | 'managed' | 'elf' | 'android' | 'web';
+type TargetKind = 'javascript' | 'managed' | 'elf' | 'macho' | 'android' | 'web';
 const MANAGED_EXTENSIONS = new Set(['.exe', '.dll']);
 
 /** Linux programs and shared libraries usually have no extension; recognize them by their header. */
-function isElf(path: string): boolean {
+const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+/** Thin Mach-O, 32- and 64-bit, in either byte order. */
+const MACHO_MAGICS = ['cffaedfe', 'cefaedfe', 'feedfacf', 'feedface'].map((hex) => Buffer.from(hex, 'hex'));
+
+/** A Linux (ELF) or macOS (thin Mach-O) program, by its header; `fat-macho` for a universal macOS binary. */
+function programHeader(path: string): 'elf' | 'macho' | 'fat-macho' | null {
   const fd = openSync(path, 'r');
   try {
-    const magic = Buffer.alloc(4);
-    return readSync(fd, magic, 0, 4, 0) === 4 && magic.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+    const head = Buffer.alloc(8);
+    const read = readSync(fd, head, 0, 8, 0);
+    const magic = head.subarray(0, 4);
+    if (read >= 4 && magic.equals(ELF_MAGIC)) return 'elf';
+    if (read >= 4 && MACHO_MAGICS.some((m) => magic.equals(m))) return 'macho';
+    // 0xCAFEBABE also starts Java class files, whose next field (minor, major version) reads as 45 or more.
+    const archs = read === 8 ? head.readUInt32BE(4) : 0;
+    if (head.readUInt32BE(0) === 0xcafebabe && archs > 0 && archs < 45) return 'fat-macho';
+    return null;
   } finally {
     closeSync(fd);
   }
@@ -102,12 +115,15 @@ function parseArgs(argv: string[]): Options {
   if (!existsSync(abs)) throw new CliError(`Not found: ${abs}`);
   const isDir = statSync(abs).isDirectory();
   const ext = isDir ? '' : extname(abs).toLowerCase();
-  const elf = !isDir && ext !== '.asar' && ext !== '.apk' && !MANAGED_EXTENSIONS.has(ext) && isElf(abs);
-  if (!isDir && !elf && ext !== '.asar' && ext !== '.apk' && !MANAGED_EXTENSIONS.has(ext)) {
-    throw new CliError('The app must be a directory, an .asar file, an .exe/.dll program, a Linux (ELF) program or an .apk.');
+  const program = !isDir && ext !== '.asar' && ext !== '.apk' && !MANAGED_EXTENSIONS.has(ext) ? programHeader(abs) : null;
+  if (program === 'fat-macho') {
+    throw new CliError('This is a universal (multi-architecture) macOS program, which isn’t supported yet. Analyze one architecture: on a Mac, `lipo <program> -thin x86_64 -output <program>-x86_64` (or arm64).');
+  }
+  if (!isDir && !program && ext !== '.asar' && ext !== '.apk' && !MANAGED_EXTENSIONS.has(ext)) {
+    throw new CliError('The app must be a directory, an .asar file, an .exe/.dll program, a Linux (ELF) or macOS (Mach-O) program or an .apk.');
   }
   const name = basename(abs, isDir ? '' : extname(abs)) || 'app';
-  const kind: TargetKind = elf ? 'elf' : MANAGED_EXTENSIONS.has(ext) ? 'managed' : ext === '.apk' ? 'android' : 'javascript';
+  const kind: TargetKind = program ?? (MANAGED_EXTENSIONS.has(ext) ? 'managed' : ext === '.apk' ? 'android' : 'javascript');
   return { target: abs, kind, out: resolve(cwd, out ?? `${name}.studio.json`), maxHeapMb, recover };
 }
 
@@ -303,12 +319,13 @@ async function main() {
         await runRea(rea.script, ['project-managed-application-graph', input], files.projection);
         ({ project } = await adaptManagedFiles(files, adapterOptions));
       }
-    } else if (opts.kind === 'elf') {
-      // Linux programs: REA's Ghidra provider, which reads ELF only on Linux/macOS hosts.
+    } else if (opts.kind === 'elf' || opts.kind === 'macho') {
+      // Linux and macOS programs: REA's Ghidra provider, which reads ELF and Mach-O only on Linux/macOS hosts.
+      const what = opts.kind === 'elf' ? 'Linux (ELF)' : 'macOS (Mach-O)';
       if (process.platform === 'win32') {
-        throw new CliError('Linux (ELF) programs need REA’s Ghidra on a Linux or macOS machine: on Windows, REA’s Ghidra provider reads only Windows programs. The analysis worker (native image) can read them.');
+        throw new CliError(`${what} programs need REA’s Ghidra on a Linux or macOS machine: on Windows, REA’s Ghidra provider reads only Windows programs. The analysis worker (native image) can read them.`);
       }
-      if (!ghidraConfigured()) throw new CliError('Linux programs need REA’s Ghidra provider: set GHIDRA_INSTALL_DIR to Ghidra 12.1.x (and have a JDK 21).');
+      if (!ghidraConfigured()) throw new CliError(`${what} programs need REA’s Ghidra provider: set GHIDRA_INSTALL_DIR to Ghidra 12.1.x (and have a JDK 21).`);
       const bundle = join(work, 'native-bundle.json');
       await writeFile(bundle, JSON.stringify(await collectNativeBundle({
         reaScript: rea.script, program: opts.target, onProgress: (m) => process.stderr.write(`  ${m}\n`),

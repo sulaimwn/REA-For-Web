@@ -6,16 +6,22 @@ import type { FileHandle } from "node:fs/promises";
 /**
  * `exe`/`dll` are Windows programs (PE): .NET assemblies, or native code for the native image.
  * `elf` is a Linux program or shared library, read by REA's Ghidra provider (native image only).
+ * `macho` is a single-architecture macOS program or library, read the same way (T035).
  * `apk` is an Android package, read by REA's JADX provider (native image only).
  */
-export type TargetKind = "asar" | "directory" | "exe" | "dll" | "elf" | "apk";
+export type TargetKind = "asar" | "directory" | "exe" | "dll" | "elf" | "macho" | "apk";
 /** Single files read by REA's program providers rather than its JavaScript analyzer. */
-export const PROGRAM_KINDS: readonly TargetKind[] = ["exe", "dll", "elf", "apk"];
-const SIGNATURES: Partial<Record<TargetKind, { magic: string; error: string }>> = {
-  exe: { magic: "MZ", error: "Not a Windows program (no MZ header)." },
-  dll: { magic: "MZ", error: "Not a Windows program (no MZ header)." },
-  elf: { magic: "\x7fELF", error: "Not a Linux program (no ELF header)." },
-  apk: { magic: "PK\x03\x04", error: "Not an Android package (no ZIP header)." },
+export const PROGRAM_KINDS: readonly TargetKind[] = ["exe", "dll", "elf", "macho", "apk"];
+const SIGNATURES: Partial<Record<TargetKind, { magics: string[]; error: string }>> = {
+  exe: { magics: ["MZ"], error: "Not a Windows program (no MZ header)." },
+  dll: { magics: ["MZ"], error: "Not a Windows program (no MZ header)." },
+  elf: { magics: ["\x7fELF"], error: "Not a Linux program (no ELF header)." },
+  // Thin Mach-O, 32/64-bit in either byte order. Universal (0xCAFEBABE) binaries are refused for now.
+  macho: {
+    magics: ["\xcf\xfa\xed\xfe", "\xce\xfa\xed\xfe", "\xfe\xed\xfa\xcf", "\xfe\xed\xfa\xce"],
+    error: "Not a single-architecture macOS program (no thin Mach-O header).",
+  },
+  apk: { magics: ["PK\x03\x04"], error: "Not an Android package (no ZIP header)." },
 };
 export const TARGET_KINDS: readonly TargetKind[] = ["asar", "directory", ...PROGRAM_KINDS];
 const MAX_HEADER_BYTES = 8 * 1024 * 1024;
@@ -181,8 +187,10 @@ async function inspectProgram(target: string, kind: TargetKind, budget: Budget) 
     budget.archive(stats.size);
     if (kind !== "apk") budget.file(stats.size, false, true);
     const signature = SIGNATURES[kind]!;
-    const magic = Buffer.alloc(signature.magic.length);
-    if ((await handle.read(magic, 0, magic.length, 0)).bytesRead !== magic.length || magic.toString("latin1") !== signature.magic) {
+    const head = Buffer.alloc(Math.max(...signature.magics.map(m => m.length)));
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    const text = head.subarray(0, bytesRead).toString("latin1");
+    if (!signature.magics.some(m => text.startsWith(m))) {
       throw new WorkerError("invalid_input", signature.error);
     }
     if (kind === "apk") await inspectApk(handle, stats.size, budget);
