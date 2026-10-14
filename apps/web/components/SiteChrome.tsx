@@ -1,6 +1,16 @@
 import Link from 'next/link';
 
 export const REPO_URL = 'https://github.com/sulaimwn/REA-For-Web';
+export const REA_REPO_URL = 'https://github.com/morluto/rea';
+
+export function RepositoryLinks({ className = '' }: { className?: string }) {
+  return (
+    <nav aria-label="GitHub repositories" className={`repository-links ${className}`}>
+      <a href={REPO_URL}>REA for Web on GitHub</a>
+      <a href={REA_REPO_URL}>morluto/rea</a>
+    </nav>
+  );
+}
 
 export function SiteHeader({ uploadsAvailable = false, uploadHref = '/upload' }: { uploadsAvailable?: boolean; uploadHref?: string }) {
   return (
@@ -14,9 +24,7 @@ export function SiteHeader({ uploadsAvailable = false, uploadHref = '/upload' }:
         <Link href="/open">Open your own app</Link>
         {uploadsAvailable && <Link href={uploadHref}>Upload an app</Link>}
       </nav>
-      <a className="site-head__end" href={REPO_URL}>
-        Source on GitHub
-      </a>
+      <RepositoryLinks className="site-head__end" />
     </header>
   );
 }
@@ -25,9 +33,9 @@ export function SiteFooter() {
   return (
     <footer className="site-foot">
       <span>
-        Analysis by <a href="https://github.com/morluto/rea">REA</a> (MIT). Program files are never executed. Website capture loads the page in a fresh browser.
+        Analysis by <a href={REA_REPO_URL}>REA (morluto/rea)</a> (MIT). Program files are never executed. Website capture loads the page in a fresh browser.
       </span>
-      <a href={REPO_URL}>REA for Web source</a>
+      <a href={REPO_URL}>sulaimwn/REA-For-Web</a>
     </footer>
   );
 }
