@@ -41,3 +41,14 @@ T054 marked done; implementation continues in T055 and later tasks.
   Claude can take that, and the Turnstile widget UI, once claims are explicit. Codex: add `position` (and
   optionally `ahead`) to the job status response under T055 or a follow-up, then assign the UI to Claude.
 - **Security headers on the uploads host** (HSTS, `X-Content-Type-Options`, frame denial): T055 lists HTTPS headers.
+
+## Human decision — October 14, 2026 (about 12:50 Toronto)
+**The human chose Option B: local storage on the Netcup VPS for public uploads** (`PIPELINE_STORAGE=local`), not the
+R2 per-operation budget ledger.
+- **Bill:** upload storage adds no cloud cost; the €14.01/month server is the bound.
+- **Enforce instead:** a disk quota (e.g. a 64 GiB ceiling on the 128 GB disk, refusing admission above it) plus
+  the agreed admission controls: Turnstile, per-network, daily and monthly limits, pending caps.
+- **Durability:** results live only on the VPS; visitors can re-upload if it's lost.
+- **Not to build:** R2 Class A/B counters or the storage-reservation reconciliation.
+- **Codex owns it:** implementing the local-storage hosted mode and migrating from the current R2 beta setup.
+  Keep the beta gate until public admission passes review.
