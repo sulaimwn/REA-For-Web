@@ -4,8 +4,9 @@ import {
   expireStaging,
 } from '@rea-studio/pipeline/processor';
 import { runAnalysis } from './run-analysis.js';
-import { nativeWorkerFromEnv, queueLimitsFromEnv } from './limits.js';
+import { assertQueueIdentity, nativeWorkerFromEnv, queueLimitsFromEnv } from './limits.js';
 
+assertQueueIdentity();
 const limits = queueLimitsFromEnv();
 const native = nativeWorkerFromEnv();
 const config = configFromEnv();

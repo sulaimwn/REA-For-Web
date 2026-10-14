@@ -8,6 +8,7 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
+# This account needs UID 1000 so the sandbox can read its private mode-0600 uploads.
 User=rea-worker
 Group=rea-worker
 SupplementaryGroups=docker

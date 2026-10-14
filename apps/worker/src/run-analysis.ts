@@ -3,7 +3,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { randomUUID } from "node:crypto";
 import { executeDocker, type DockerExecutor } from "./command.js";
 import { ProgressDecoder, type AnalysisProgress } from "./progress.js";
-import { NATIVE_WORKER_IMAGE, REA_VERSION, WORKER_IMAGE, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
+import { NATIVE_WORKER_IMAGE, REA_VERSION, WORKER_IMAGE, WORKER_USER, WorkerError, resolveLimits, type AnalysisLimits } from "./limits.js";
 import { PROGRAM_KINDS, type TargetKind } from "./preflight.js";
 import type { StudioProject } from "@rea-studio/schema";
 import type { AdapterReport } from "@rea-studio/rea-adapter";
@@ -65,7 +65,7 @@ export function containerArgs(name: string, target: string, kind: TargetKind, li
   // The native image runs under the same sandbox: Ghidra on notepad.exe peaked at 52 processes/threads and ~940 MiB.
   return [
     "create", "--pull=never", "--name", name, "--label", "rea-studio.worker=true",
-    "--network=none", "--user=1000:1000", "--read-only", "--cap-drop=ALL",
+    "--network=none", `--user=${WORKER_USER}`, "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges=true", "--init", "--pids-limit=128",
     `--memory=${limits.memoryMb}m`, `--memory-swap=${limits.memoryMb}m`, `--cpus=${limits.cpus}`,
     "--ulimit=nofile=512:512", "--log-driver=none", "--workdir=/tmp",

@@ -65,7 +65,7 @@ Details for a task go under its heading below the table.
 | R011 | Independently review T049 macOS demo, named overview parts and import titles | codex | done | T049 |
 | T048 | macOS uploads: verified .macho/.dylib admission with isolated Mach-O cache namespace | codex | done | T035, R009 |
 | T049 | jq (macOS) demo: the real Mach-O fixture as a public demo, whose overview starts in jq’s own main | claude | done | T035, T045 |
-| T050 | Hosted worker: reproduce Linux service UID mismatch and require readable private input ownership before startup | codex | review | T026 |
+| T050 | Hosted worker: reproduce Linux service UID mismatch and require readable private input ownership before startup | codex | done | T026 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
 ---
