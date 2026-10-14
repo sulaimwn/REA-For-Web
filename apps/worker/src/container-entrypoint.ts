@@ -90,7 +90,7 @@ async function analyzeProgram(targetPath: string, temp: string, limits: Analysis
   return analyzeNative(targetPath, temp, limits, targetName, "This is a native program, not .NET. Native programs need the native analysis worker (Ghidra).");
 }
 
-/** Machine code (a native PE, or a Linux ELF): REA's Ghidra provider, native image only. */
+/** Machine code (a native PE, a Linux ELF or a macOS Mach-O): REA's Ghidra provider, native image only. */
 async function analyzeNative(targetPath: string, temp: string, limits: AnalysisLimits, targetName: string, unavailable: string) {
   if (!ghidraConfigured()) throw new WorkerError("invalid_input", unavailable);
   const options = { reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes, targetName };
@@ -164,6 +164,7 @@ async function main() {
   try {
     const result = targetKind === "apk" ? await analyzeAndroid(targetPath, temp, limits, targetName)
       : targetKind === "elf" ? await analyzeNative(targetPath, temp, limits, targetName, "Linux programs need the native analysis worker (Ghidra).")
+      : targetKind === "macho" ? await analyzeNative(targetPath, temp, limits, targetName, "macOS programs need the native analysis worker (Ghidra).")
       : PROGRAM_KINDS.includes(targetKind) ? await analyzeProgram(targetPath, temp, limits, targetName)
       : await analyzeJavaScript(targetPath, targetKind, temp, limits, targetName);
     await pipeline(Readable.from([JSON.stringify(result.project)]), new ByteLimit(limits.maxOutputBytes), process.stdout);

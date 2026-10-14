@@ -73,6 +73,20 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
   - **Imports:** this collected ELF evidence does not attribute a providing library (Ghidra reports `<EXTERNAL>::name`), so imports are shown by symbol only.
   - **Entry point:** `_start` is marked as the entry.
   - Demo: `/explore/tiny-linux`.
+- **macOS Mach-O (T035):** the same collector and adapter, with real evidence from jq 1.8.2's macOS release
+  (`jq-1.8.2-macos.rea-6.4.0.json`, a thin x86_64 executable).
+  - **Format:** REA reports `format: "mach-o"` (with `architecture` and `available_architectures`). The adapter maps it to the
+    schema's `macho`.
+  - **Host requirement:** the same as ELF. The fixture is collected inside the native worker image.
+  - **Imports:** Mach-O imports name their library (`/usr/lib/libSystem.B.dylib::_name`). Ghidra lists each import's stub
+    as a thunk function, so 1,667 listed functions become 1,537 function nodes plus 130 imports.
+  - **Entry point:** Ghidra names it `entry`.
+  - **Admission:** only thin Mach-O headers (32/64-bit, either byte order).
+    - The CLI recognizes them by header.
+    - The worker accepts `.macho` (rename extensionless programs) and `.dylib` in the native image.
+    - Universal (`0xCAFEBABE`) binaries are refused with a "pick one architecture (`lipo -thin`)" message. REA's
+      `available_architectures` suggests it could select one, but no universal sample has been tested.
+  - **Not yet:** upload-form admission (pipeline) and a demo page.
 - Without a provider, `rea analyze <exe>` fails with `provider_unavailable` and lists `ghidra`, `hopper` and `ida` as candidates.
 - **Approved and done locally:** Ghidra 12.1.4 (SHA-256 checked against the release page) with JDK 21.
   - Each REA CLI command starts its own Ghidra import (about 20 s), so the CLI talks to `rea --mcp` instead: one session, one import, then many queries (`packages/rea-adapter/src/native-session.ts`).

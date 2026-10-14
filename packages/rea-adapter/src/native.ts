@@ -89,8 +89,9 @@ export function adaptNativeBundle(raw: unknown, options: AdapterOptions): { proj
   const program = options.targetName ?? (overview.subject?.name ?? 'program').split(/[\\/]/u).pop() ?? 'program';
   // Only formats established by real fixtures are mapped. Missing or unfamiliar
   // metadata must not become a guessed Windows format or a prototype property.
-  const format = overview.subject?.format;
-  if (format !== 'pe' && format !== 'elf') {
+  const reaFormat = overview.subject?.format;
+  const format = reaFormat === 'pe' || reaFormat === 'elf' ? reaFormat : reaFormat === 'mach-o' ? 'macho' : null;
+  if (!format) {
     throw new ReaOutputError('Native analysis bundle has no supported, recorded binary format');
   }
   const evidenceFrom = (env: Envelope | undefined, extractor: string): Evidence => ({

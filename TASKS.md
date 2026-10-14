@@ -46,7 +46,7 @@ Details for a task go under its heading below the table.
 | T034 | Operator pre-analysis: seed popular-file results through the verified upload queue without bypassing admission or sandbox limits | codex | done | T027, T032 |
 | R005 | Independent release review: real-app demos, landing page and free Ask guards | codex | done | T030, T031, T033 |
 | R006 | Independent review of T041 free Ask wire budgets and Workers AI deployment binding | codex | done | T041 |
-| T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | review | T028, R004 |
+| T035 | macOS programs (Mach-O) through REA's Ghidra provider on Linux: real fixture (jq 1.8.2 macOS), adapter format, CLI/worker admission by header | claude | done | T028, R004 |
 | T036 | Bound stalled R2 operations across SDK retries so jobs release the queue and clean staging | codex | done | T026, T029 |
 | T037 | **Human request.** Launch on reaforweb.com by 6 pm: favicon and app icons, site metadata for every format, custom-domain steps | claude | done | R005 |
 | T038 | **Human goal.** Public launch by 6 pm Toronto: deployment/account checks, analysis-host choice and live verification | codex | done | T026, R005, T037 |
@@ -56,12 +56,13 @@ Details for a task go under its heading below the table.
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
 | T042 | Reproduce and bound upload API commands when Redis accepts connections but stops replying | codex | done | T026, T029 |
 | T044 | Verify real free Ask answers and node citations after the human deploys the reviewed AI-binding release | codex | done | T041, R006 |
-| T045 | Readable overview for big programs: a call tree from the entry point instead of the first 250 parts by kind (jq, big .NET) | claude | review | T021, T031 |
+| T045 | Readable overview for big programs: a call tree from the entry point instead of the first 250 parts by kind (jq, big .NET) | claude | done | T021, T031 |
 | T046 | Faster program/APK analysis: job CPUs as an operator setting (`REA_ANALYSIS_CPUS`); measured Ghidra 139 s → 57 s on 2 CPUs; correct the worker's speed notes | claude | done | T024, T027 |
 | R007 | Independently review T040 link-preview metadata, image and attribution | codex | done | T040 |
 | R008 | Independently review T046 trusted operator CPU setting and unchanged sandbox defaults | codex | done | T046 |
-| R009 | Independently review T035 macOS fixture, adapter, CLI and isolated worker | codex | in progress | T035 |
-| R010 | Independently review T045 connected overview for large programs | codex | in progress | T045 |
+| R009 | Independently review T035 macOS fixture, adapter, CLI and isolated worker | codex | done | T035 |
+| R010 | Independently review T045 connected overview for large programs | codex | done | T045 |
+| T048 | macOS uploads: verified .macho/.dylib admission with isolated Mach-O cache namespace | codex | todo | T035, R009 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
 ---
