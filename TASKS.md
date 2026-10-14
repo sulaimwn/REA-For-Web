@@ -54,7 +54,7 @@ Details for a task go under its heading below the table.
 | T054 | Public upload admission: agree challenge, operation budgets and bounded transfer API before replacing invite-only gate | codex | done | T039 |
 | T055 | Upload admission guards: atomic network quotas and pending capacity, trusted proxy identity and HTTPS headers | codex | done | T039, T054 |
 | T056 | Public hosted disk upload implementation and deployment kit; bot check staged behind its own flag | codex | review | T054, T055 |
-| T057 | Deploy reviewed public disk uploads on Netcup, preserve private results and verify visitor access | codex | in progress | T056 |
+| T058 | Deploy reviewed public disk uploads on Netcup, preserve private results and verify visitor access | codex | in progress | T056 |
 | T057 | Realistic input limits for real apps (WhatsApp APK hit 5,000 files): APK entries counted separately, higher ASAR file cap, readable limit messages | claude | review | T024, T025 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
