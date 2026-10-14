@@ -19,3 +19,6 @@
     - a connected client with no beat can't start analysis (about 24 s).
   - **Normal-path regression:** real `runWithDocker` on `jq-macos-amd64` with these images took 103 s. Results:
     `macho`, complete, 1,537 functions, 130 imports. No worker containers remain.
+
+## Main after merge (`bacc3fe`)
+- Root typecheck passes. 264 tests, 263 pass, 0 fail (the skip is the host JADX test). The web build passes.
