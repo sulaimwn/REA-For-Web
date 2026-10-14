@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Explorer } from '../../../components/Explorer';
 import { loadDemos } from '../../../lib/demos';
+import { SITE_NAME, shareMetadata } from '../../../lib/site';
 
 type Params = { slug: string };
 
@@ -15,7 +16,8 @@ export function generateStaticParams(): Params[] {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const demo = loadDemos().find((d) => d.slug === slug);
-  return { title: demo ? `${demo.title} · REA for Web` : 'REA for Web' };
+  const title = demo ? `${demo.title} · ${SITE_NAME}` : SITE_NAME;
+  return { title, ...shareMetadata(title) };
 }
 
 export default async function ExplorePage({ params }: { params: Promise<Params> }) {
