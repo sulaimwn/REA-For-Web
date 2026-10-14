@@ -76,6 +76,13 @@ const DEMOS = [
     blurb: 'The popular JSON command-line tool, read with Ghidra: about 900 functions and the Windows APIs they call. Release builds are stripped, so most functions have Ghidra’s generic names.',
   },
   {
+    slug: 'jq-macos',
+    title: 'jq (macOS)',
+    file: 'jq-1.8.2-macos.rea-6.4.0.json',
+    targetName: 'jq',
+    blurb: 'The same jq release built for macOS (a single-architecture x86_64 Mach-O), read with Ghidra: about 1,500 functions and the libSystem calls they make. Its map starts at jq’s own main.',
+  },
+  {
     slug: 'binary-eye',
     title: 'Binary Eye (Android)',
     file: 'binaryeye-1.75.5.rea-6.4.0.json',
