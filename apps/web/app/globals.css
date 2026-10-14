@@ -141,6 +141,7 @@ button { font: inherit; color: inherit; }
 .site-head nav a { color: var(--ink-2); text-decoration: none; }
 .site-head nav a:hover { color: var(--ink); text-decoration: underline; }
 .site-head__end { margin-left: auto; }
+.repository-links { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; }
 
 /* ───────────── landing ───────────── */
 .frontpage { max-width: 1280px; margin: 0 auto; padding: 0 24px 64px; font-size: 16px; line-height: 1.55; }

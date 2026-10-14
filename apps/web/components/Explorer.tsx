@@ -10,6 +10,7 @@ import { GraphPane } from './GraphPane';
 import { AskPanel } from './AskPanel';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
+import { RepositoryLinks } from './SiteChrome';
 
 const APP_KIND_LABEL: Record<StudioProject['target']['appKind'], string> = {
   electron: 'Electron app',
@@ -116,6 +117,7 @@ export function ProjectExplorer({ project, title, note = null, actions, tours = 
           <span className={`status ${complete ? 'status--complete' : 'status--partial'}`}>{complete ? 'Complete analysis' : 'Partial analysis'}</span>
         </div>
         {actions}
+        {!embedded && <RepositoryLinks />}
         <div className="topbar__meta num">
           {a.engine.package} {a.engine.version} · {project.nodes.length.toLocaleString()} nodes · {project.edges.length.toLocaleString()} links
         </div>
