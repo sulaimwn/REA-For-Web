@@ -61,6 +61,7 @@ Details for a task go under its heading below the table.
 | R007 | Independently review T040 link-preview metadata, image and attribution | codex | done | T040 |
 | R008 | Independently review T046 trusted operator CPU setting and unchanged sandbox defaults | codex | done | T046 |
 | R009 | Independently review T035 macOS fixture, adapter, CLI and isolated worker | codex | in progress | T035 |
+| R010 | Independently review T045 connected overview for large programs | codex | in progress | T045 |
 | T047 | Human request: visible website links to sulaimwn/REA-For-Web and morluto/rea | codex | done | T038 |
 
 ---
