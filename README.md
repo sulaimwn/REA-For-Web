@@ -16,12 +16,14 @@ or website scripts and frameworks.
 ## Try it
 
 - **Explore a demo:** open the [website](https://reaforweb.com) and choose a sample or real app, including GitHub Desktop, VS Code, Caprine, jq, and Binary Eye.
+- **Upload your own app:** use [public uploads](https://uploads.reaforweb.com/upload). No access key is required; the resulting map stays private to your browser session.
 - **Explore your own app:** analyze it locally, then open the resulting `.studio.json` at [reaforweb.com/open](https://reaforweb.com/open). The project file is read in your browser.
 - **Ask a question:** open the explorer's Ask tab. Use your own Anthropic API key, or the free model where available. The Workers AI binding is enabled in this release's configuration; free questions require its successful deployment.
 
-The website is live. **Hosted app uploads are not available yet**; the upload
-pipeline works locally, and the separate analysis host is still pending setup.
-See [local upload setup](docs/uploads.md) and [hosted deployment](docs/hosted-uploads.md).
+The website and **public app uploads are live**. Analysis runs on a dedicated
+sandboxed server with private, capped local storage. Initial limits are three
+uploads per network per UTC day, 25 site-wide per day and 500 per month.
+See [public hosting](docs/public-disk-uploads.md) or [local upload setup](docs/uploads.md).
 
 Program files are analyzed without executing them. Website capture loads the
 requested page in a fresh browser. This is an independent project built on REA.
@@ -117,14 +119,16 @@ including measurements and known limitations.
 
 The public preview is live at [reaforweb.com](https://reaforweb.com). It shows **pre-analyzed open-source apps**, and
 local mode lets you analyze and view an app entirely on your own machine.
-Uploading your own app is available locally with `npm run dev:uploads`.
+Upload your own app at [uploads.reaforweb.com](https://uploads.reaforweb.com/upload),
+or run the upload stack locally with `npm run dev:uploads`.
 Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf`, `.so`, `.macho` or `.dylib` file.
 Rename extensionless Linux programs to `.elf` and single-architecture macOS
 programs to `.macho`. Universal macOS binaries and `.app`/`.ipa` bundles are not supported.
 The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all six analysis kinds,
 including Ghidra and JADX analysis. The helper builds both worker images by
-default. Cloudflare R2 and the hosted analysis backend are not connected yet.
-See [upload setup and API](docs/uploads.md).
+default. Public uploads use the paid server's bounded private disk; the R2
+deployment kit remains available for private installations.
+See [public hosting](docs/public-disk-uploads.md) and [upload API](docs/uploads.md).
 
 Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
 - Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
@@ -177,8 +181,9 @@ worker and web in dependency order. After changing a shared package while
 
 The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
 [the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
-custom-domain configuration. Hosted app uploads need a separate analysis
-backend. With the configured Workers AI binding deployed, Ask answers free
+custom-domain configuration. Hosted app uploads run on the separate Linux
+analysis backend described in [public hosting](docs/public-disk-uploads.md).
+With the configured Workers AI binding deployed, Ask answers free
 questions, or uses each visitor's own Anthropic API key.
 
 ## Credits
