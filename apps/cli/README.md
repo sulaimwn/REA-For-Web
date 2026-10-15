@@ -10,7 +10,7 @@ npm run analyze -w rea-studio -- path/to/app.asar     # or an .asar archive
 npm run analyze -w rea-studio -- path/to/Program.exe  # or a .NET program (.exe or .dll)
 ```
 
-This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.4.0`, pinned),
+This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.5.0`, pinned),
 converts its output with `@rea-studio/rea-adapter`, and writes `<app>.studio.json`
 in the directory you ran npm from. Electron/JS apps use
 `analyze-javascript-application`. .NET programs use the three `inspect-managed-*`

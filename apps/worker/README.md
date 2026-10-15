@@ -1,6 +1,6 @@
 # Analysis worker foundation (T006)
 
-This package runs **only static analysis** with `rea-agents@6.4.0`: Electron/JavaScript
+This package runs **only static analysis** with `rea-agents@6.5.0`: Electron/JavaScript
 apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`) and
 Android apps (`.apk`).
 It is an internal runner, not an upload API. It
@@ -14,7 +14,7 @@ private container temporary storage and is removed after normalization. Only
   `inspect-managed-artifact`, `inspect-managed-members` and `inspect-managed-native-boundaries`,
   then `project-managed-application-graph`.
 - **Native programs** need REA's Ghidra provider, which lives in a second image,
-  `rea-studio-worker-native:rea-6.4.0` (`Dockerfile.native`). It is the standard image plus:
+  `rea-studio-worker-native:rea-6.5.0` (`Dockerfile.native`). It is the standard image plus:
   - a JDK 21 (Temurin, pinned by digest);
   - Ghidra 12.1.4 (SHA-256 checked);
   - jadx-headless-mcp 0.7.1 for Android (SHA-256 checked).
@@ -66,9 +66,9 @@ Use a local Linux Docker engine (Docker Desktop in Linux-container mode is
 acceptable). Build the image from the repository root:
 
 ```sh
-docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
+docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.5.0 .
 # Optional, for native programs (downloads Ghidra and a JDK at build time):
-docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.5.0 .
 ```
 
 Image builds need network access. Analysis containers have no network, and jobs
