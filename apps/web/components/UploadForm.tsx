@@ -13,11 +13,10 @@ import { useRouter } from 'next/navigation';
 import { uploadFile } from '../lib/upload-file';
 import { requestUploadChallenge } from '../lib/upload-challenge';
 
-export function UploadForm({ publicSiteKey, publicUploads = false }: { publicSiteKey?: string | undefined; publicUploads?: boolean }) {
+export function UploadForm({ publicSiteKey }: { publicSiteKey?: string | undefined }) {
   const [file, setFile] = useState<File | null>(null),
     [message, setMessage] = useState(''),
-    [busy, setBusy] = useState(false),
-    [accessKey, setAccessKey] = useState('');
+    [busy, setBusy] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const challengeContainer = useRef<HTMLDivElement | null>(null);
   const [canCancel, setCanCancel] = useState(false);
@@ -54,9 +53,8 @@ export function UploadForm({ publicSiteKey, publicUploads = false }: { publicSit
           `Preparing file… ${Math.min(100, Math.round(((offset + 4 * 1024 * 1024) / file.size) * 100))}%`,
         );
       }
-      const ownerKey = accessKey.trim();
       let challengeToken: string | undefined;
-      if (publicSiteKey && !ownerKey) {
+      if (publicSiteKey) {
         if (!challengeContainer.current) throw new Error('The security check is unavailable. Please try again.');
         setProgress(null);
         setMessage('Complete the security check to continue.');
@@ -65,7 +63,6 @@ export function UploadForm({ publicSiteKey, publicUploads = false }: { publicSit
       abort.signal.throwIfAborted();
       const common = {
         'Content-Type': 'application/json',
-        ...(ownerKey ? { 'X-REA-Access-Key': ownerKey } : {}),
       };
       const response = await fetch('/api/uploads', {
         method: 'POST',
@@ -139,17 +136,6 @@ export function UploadForm({ publicSiteKey, publicUploads = false }: { publicSit
         Electron .asar, Windows .exe/.dll, Android .apk, Linux .elf/.so, or single-architecture macOS .macho/.dylib files up to 512 MB. The uploaded app is
         never run.
       </p>
-      <details>
-        <summary>{publicUploads ? 'Optional access key' : 'Private beta access key'}</summary>
-        <input
-          type="password"
-          aria-label="Upload access key"
-          autoComplete="off"
-          value={accessKey}
-          onChange={(event) => setAccessKey(event.target.value)}
-          disabled={busy}
-        />
-      </details>
       {publicSiteKey ? <div ref={challengeContainer} aria-label="Upload security check" /> : null}
       <button
         type="button"

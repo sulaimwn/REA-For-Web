@@ -17,7 +17,7 @@ export default function UploadPage() {
         {uploadsAvailable ? (
           <>
             <p>Upload an Electron app, a Windows, Linux or macOS program, or an Android APK to see how it works.</p>
-            <UploadForm publicSiteKey={publicUploadSiteKey()} publicUploads={process.env.PIPELINE_PUBLIC_UPLOADS === '1'} />
+            <UploadForm publicSiteKey={publicUploadSiteKey()} />
           </>
         ) : uploadHref ? (
           <>
