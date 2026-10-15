@@ -137,8 +137,10 @@ service retries with a bounded restart rate.
 
 If a provider already terminates HTTPS, omit Caddy and proxy to the loopback web
 port 3116. Pass the original HTTPS hostname; `PIPELINE_PUBLIC_ORIGIN` must exactly
-match the browser Origin. Do not expose the web or Redis ports directly. The
-form requires the private-beta access key before issuing R2 upload tickets.
+match the browser Origin. Do not expose the web or Redis ports directly. This
+private R2 API requires the operator key when issuing tickets. The website has
+no access-key entry; use operator API/CLI tooling for this private mode. Public
+browser uploads use the [bounded local-disk deployment](public-disk-uploads.md).
 
 ### Admission capacity and network quotas (T055)
 
@@ -159,7 +161,7 @@ blindly trusting `CF-Connecting-IP` or `X-Forwarded-For`.
 
 Only expiring HMAC quota identifiers are retained, never raw IPs. IPv4-mapped
 IPv6 shares the IPv4 quota; native IPv6 is grouped by /64. People sharing a network
-share these limits. The beta key still remains required; these controls alone
+share these limits. The operator key remains required in this private R2 mode; these controls alone
 do not open anonymous uploads or establish an R2 spending cap.
 
 If a queue write times out, its completion reservation deliberately remains
@@ -195,9 +197,11 @@ deployment. Those belong only to the Node service and host queue.
 1. Check that web and Redis are healthy, the host queue is active, and only the
    reverse proxy is publicly reachable. Check `journalctl -u rea-upload-worker`
    for sanitized startup/completion/failure messages.
-2. Open the HTTPS `/upload` page, enter the beta key and choose the public tiny
-   Electron fixture packaged as ASAR. Confirm upload progress, queue/analysis
-   progress, and a finished graph with evidence. Raw files go to R2.
+2. For this private R2 mode, submit the public tiny Electron ASAR through the
+   operator cache-seeding API/CLI tool with its private credential. Confirm
+   analysis finishes with a graph and raw files go to R2. For the public-disk
+   deployment, use the HTTPS `/upload` page without any access key and confirm
+   upload progress, queue/analysis progress and a finished graph with evidence.
 3. Repeat with the public .NET, native EXE and APK fixtures. Missing Android method
    bodies must remain partial coverage, not disappear. Upload the same artifact
    again to verify dedupe still requires verified possession.
