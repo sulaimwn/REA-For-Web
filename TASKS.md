@@ -56,7 +56,7 @@ Details for a task go under its heading below the table.
 | T056 | Public hosted disk upload implementation and deployment kit; bot check staged behind its own flag | codex | done | T054, T055 |
 | T058 | Deploy reviewed public disk uploads on Netcup, preserve private results and verify visitor access | codex | done | T056 |
 | T057 | Realistic input limits for real apps (WhatsApp APK hit 5,000 files): APK entries counted separately, higher ASAR file cap, readable limit messages | claude | review | T024, T025 |
-| R012 | Independently review realistic APK/ASAR input limits and readable upload failures | codex | in progress | T057 |
+| R012 | Independently review realistic APK/ASAR input limits and readable upload failures | codex | review | T057 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
