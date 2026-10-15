@@ -64,7 +64,7 @@ export default function HomePage() {
             <div>
               <dt>Engine</dt>
               <dd>
-                <a href="https://github.com/morluto/rea">REA</a> 6.4.0, static analysis
+                <a href="https://github.com/morluto/rea">REA</a> 6.5.0, static analysis
               </dd>
             </div>
           </dl>

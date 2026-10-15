@@ -23,6 +23,7 @@ import { adaptNativeBundle, isNativeBundle } from './native.js';
 import { adaptAndroidBundle, isAndroidBundle } from './android.js';
 import { assessEndpoints, linkBridgeMemberReads, BRIDGE_MEMBER_READ } from './heuristics.js';
 import { convertNode } from './nodes.js';
+import { callPathEdges, isCallPathStep } from './call-paths.js';
 import type { ReaCoverage, ReaEdge, ReaNode, ReaProps, ReaResult } from './rea-types.js';
 import { num, str } from './read.js';
 
@@ -71,6 +72,10 @@ export interface AdapterReport {
   droppedSelfEdges: number;
   /** REA node kinds or unsupported property shapes (kept as `analysis-gap`). */
   unrecognizedNodeKinds: Record<string, number>;
+  /** REA 6.5.0 Electron call-path steps folded into bridge → channel edges (T061). */
+  foldedCallPathSteps?: number;
+  /** Bridge → IPC channel edges added from REA call paths, and paths with no known bridge/channel. */
+  callPathLinks?: { linked: number; unlinked: number };
   /** Edges added by Studio heuristics, by heuristic name (origin `studio-heuristic`). */
   heuristicEdges: Record<string, number>;
   /** Studio `endpoint-shape` verdicts added to REA endpoint candidates (T012). */
@@ -214,10 +219,17 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     }
   }
   const foldedEntries: ReaNode[] = [];
+  const callPathSteps: ReaNode[] = [];
+  const callPathStepIds = new Set<string>();
 
   for (const reaNode of r.graph.nodes) {
     if (entryTarget.has(reaNode.node_id)) {
       foldedEntries.push(reaNode);
+      continue;
+    }
+    if (isCallPathStep(reaNode)) {
+      callPathSteps.push(reaNode);
+      callPathStepIds.add(reaNode.node_id);
       continue;
     }
     const c = convertNode(reaNode);
@@ -270,6 +282,8 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
   // --- edges
   const edges: StudioEdge[] = [];
   for (const e of r.graph.edges as ReaEdge[]) {
+    // The steps' own links are summarized by the bridge → channel edges added below.
+    if (callPathStepIds.has(e.source_node_id) || callPathStepIds.has(e.target_node_id)) continue;
     if (dropped.has(e.source_node_id) || dropped.has(e.target_node_id)) {
       report.droppedEdgesToDroppedNodes++;
       continue;
@@ -299,6 +313,12 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
       origin: { source: 'rea' },
       details: edgeDetails(e.properties ?? {}),
     });
+  }
+  if (callPathSteps.length > 0) {
+    const paths = callPathEdges(callPathSteps, nodes);
+    edges.push(...paths.edges);
+    report.foldedCallPathSteps = callPathSteps.length;
+    report.callPathLinks = { linked: paths.edges.length, unlinked: paths.unlinked };
   }
 
   // --- heuristics (add-only, labeled studio-heuristic)

@@ -58,9 +58,9 @@ jobs:
           PIPELINE_TEST_REDIS_URL: redis://127.0.0.1:6379
         run: npm run test:preanalyze --workspace=@rea-studio/pipeline
       - name: Build the pinned REA image
-        run: docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.4.0 .
+        run: docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.5.0 .
       - name: Build the pinned Ghidra and JADX image
-        run: docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.4.0 .
+        run: docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.5.0 .
       - name: Real Linux queue identity and private input permissions
         run: npm run test:worker-identity
       - name: Real Docker owner crash and missing-heartbeat checks

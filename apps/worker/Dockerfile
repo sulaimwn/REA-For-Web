@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps \
 WORKDIR /opt/rea
 COPY apps/worker/rea-runtime/package.json apps/worker/rea-runtime/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
-    && node -e "if (require('./node_modules/rea-agents/package.json').version !== '6.4.0') process.exit(1)"
+    && node -e "if (require('./node_modules/rea-agents/package.json').version !== '6.5.0') process.exit(1)"
 COPY --from=build /build/apps/worker/dist /opt/worker/
 COPY apps/worker/package.json /opt/worker/package.json
 COPY --from=build /build/packages/rea-adapter/dist /opt/worker/node_modules/@rea-studio/rea-adapter/dist

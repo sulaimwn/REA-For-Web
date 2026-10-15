@@ -1,8 +1,8 @@
-export const REA_VERSION = "6.4.0";
-export const WORKER_IMAGE = "rea-studio-worker:rea-6.4.0";
+export const REA_VERSION = "6.5.0";
+export const WORKER_IMAGE = "rea-studio-worker:rea-6.5.0";
 export { WORKER_USER, assertQueueIdentity } from "./queue-identity.js";
 /** The worker image plus REA's Ghidra provider (Dockerfile.native). Needed for native programs only. */
-export const NATIVE_WORKER_IMAGE = "rea-studio-worker-native:rea-6.4.0";
+export const NATIVE_WORKER_IMAGE = "rea-studio-worker-native:rea-6.5.0";
 
 export type WorkerErrorCode =
   | "invalid_input" | "input_limit_exceeded" | "output_limit_exceeded"
