@@ -81,6 +81,20 @@ test("queue deadlines allow larger apps while rejecting unbounded operator setti
   for (const bad of ["0", "5", "", "two", "-1", "Infinity"]) {
     assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_CPUS: bad }), { code: "invalid_input" }, bad);
   }
+  // T057: real apps need more room; the operator can grant it, only inside the reviewed ranges.
+  assert.equal(defaults.maxFiles, 20_000);
+  const roomy = queueLimitsFromEnv({
+    REA_ANALYSIS_MEMORY_MB: "4096", REA_ANALYSIS_HEAP_MB: "3072",
+    REA_ANALYSIS_MAX_INPUT_BYTES: String(1024 ** 3), REA_ANALYSIS_MAX_FILES: "20000",
+  });
+  assert.deepEqual([roomy.memoryMb, roomy.heapMb, roomy.maxInputBytes, roomy.maxFiles], [4096, 3072, 1024 ** 3, 20_000]);
+  assert.ok(containerArgs("job", sample, "directory", roomy).includes("--memory=4096m"));
+  for (const [name, bad] of [["REA_ANALYSIS_MEMORY_MB", "16384"], ["REA_ANALYSIS_MAX_FILES", "50000"],
+    ["REA_ANALYSIS_MAX_INPUT_BYTES", String(2 * 1024 ** 3)], ["REA_ANALYSIS_HEAP_MB", "lots"]] as const) {
+    assert.throws(() => queueLimitsFromEnv({ [name]: bad }), { code: "invalid_input" }, name);
+  }
+  // The heap must still leave the container room for everything else.
+  assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_MEMORY_MB: "2048", REA_ANALYSIS_HEAP_MB: "2048" }), { code: "invalid_input" });
   assert.throws(() => queueLimitsFromEnv({ REA_SOURCE_TIMEOUT_MS: "0" }), { code: "invalid_input" });
   for (const value of ["", "0", "Infinity", "NaN", "900000.5", "1800001"]) {
     assert.throws(() => queueLimitsFromEnv({ REA_ANALYSIS_TIMEOUT_MS: value }), { code: "invalid_input" });
@@ -242,7 +256,7 @@ test("program preflight checks the MZ header and the byte limit", async t => {
   await assert.rejects(preflightTarget(sample, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   // An APK is a ZIP; a PE renamed to .apk (or the reverse) is refused before REA starts.
   const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
-  assert.ok((await preflightTarget(apk, "apk", DEFAULT_LIMITS)).files > 1);
+  assert.ok((await preflightTarget(apk, "apk", DEFAULT_LIMITS)).entries > 1);
   await assert.rejects(preflightTarget(exe, "apk", DEFAULT_LIMITS), { code: "invalid_input" });
   await assert.rejects(preflightTarget(apk, "exe", DEFAULT_LIMITS), { code: "invalid_input" });
   const args = containerArgs("job", apk, "apk", DEFAULT_LIMITS, "tiny-notes.apk", NATIVE_WORKER_IMAGE);
@@ -303,10 +317,38 @@ test("the native image is an explicit operator setting", () => {
   assert.throws(() => nativeWorkerFromEnv({ REA_NATIVE_WORKER: "yes" }), { code: "invalid_input" });
 });
 
-test("APK admission caps ZIP entries and expanded bytes and rejects broken ZIP metadata", async t => {
+/** A stored (uncompressed) ZIP of empty entries, shaped like a real app's thousands of resources. */
+function zipWithEntries(count: number): Buffer {
+  const parts: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (let i = 0; i < count; i++) {
+    const name = Buffer.from(`res/drawable/icon_${i}.png`);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(name.length, 28); central.writeUInt32LE(offset, 42);
+    parts.push(local, name);
+    centrals.push(central, name);
+    offset += 30 + name.length;
+  }
+  const directory = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(count, 8); end.writeUInt16LE(count, 10);
+  end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
+test("APK admission: thousands of resources are fine; expanded bytes and broken ZIP metadata are still refused (T057)", async t => {
   const ctx = await context(t);
   const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
-  await assert.rejects(preflightTarget(apk, "apk", resolveLimits({ maxFiles: 1 })), { code: "input_limit_exceeded" });
+  // APK entries aren't app files: even a tight file cap no longer refuses an APK.
+  assert.ok((await preflightTarget(apk, "apk", resolveLimits({ maxFiles: 1 }))).entries > 1);
+  // WhatsApp-sized: more than the old 5,000-file cap, within the ZIP format's 65,534 entries.
+  const many = join(ctx.temp, "many-resources.apk");
+  await writeFile(many, zipWithEntries(6_000));
+  assert.equal((await preflightTarget(many, "apk", DEFAULT_LIMITS)).entries, 6_000);
   const data = await readFile(apk);
   const central = data.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
   assert.ok(central > 0);

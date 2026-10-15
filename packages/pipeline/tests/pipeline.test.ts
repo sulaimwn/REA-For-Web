@@ -76,6 +76,20 @@ test('a queue progress timeout offers a retry without exposing internal details'
   assert.equal(status.progress?.message, '17/38 sources');
 });
 
+test('size, memory and result limits read as plain messages, not internal codes (T057)', async () => {
+  const r = record();
+  for (const [code, text] of [['input_limit_exceeded', /larger than this server accepts/u],
+    ['out_of_memory', /more memory than one analysis is allowed/u], ['output_limit_exceeded', /larger than the result limit/u]] as const) {
+    const job = { getState: async () => 'failed', failedReason: `Analysis failed (${code}).`, progress: 0 };
+    const control = Object.create(UploadControl.prototype) as UploadControl;
+    control.authorize = async () => r;
+    Object.defineProperty(control, 'queue', { value: { getJob: async () => job } });
+    const status = await control.status(r.id, 'authorized by test');
+    assert.match(status.error!, text);
+    assert.doesNotMatch(status.error!, new RegExp(code, 'u'));
+  }
+});
+
 const testRoot = resolve(import.meta.dirname, '../../../..');
 async function setup(t: import('node:test').TestContext) {
   const root = await mkdtemp(join(testRoot, '.pipeline-test-'));
