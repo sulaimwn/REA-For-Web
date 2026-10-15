@@ -1,5 +1,9 @@
 # Beyond Electron: what REA can analyze, and what each target needs (T021)
 
+> Historical provider/discovery notes. Measurements and status statements below
+> record the original REA 6.4.0 work. For current public upload support and the
+> deployed REA version, see the [root README](../README.md#supported-targets).
+
 The human's goal: REA for Web should cover what REA covers, not only Electron. Everything below
 was checked against **rea-agents 6.4.0 on this machine** (Windows, no extra providers installed),
 using hand-written sample apps with answer keys in `fixtures/sample-apps/`.

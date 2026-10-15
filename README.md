@@ -1,200 +1,238 @@
 # REA for Web
 
-**Explore apps, visualize their architecture, and ask AI how they work.**
+**Upload an app. Explore how it works. Ask questions with evidence.**
 
-[Try it at reaforweb.com](https://reaforweb.com)
+[Open the website](https://reaforweb.com) · [Upload an app](https://uploads.reaforweb.com/upload) · [Try a demo](https://reaforweb.com/explore/tiny-electron) · [Upstream REA](https://github.com/morluto/rea)
 
-REA for Web (REA Studio) brings [REA](https://github.com/morluto/rea) analysis
-into an interactive browser explorer. Follow connections through an app, inspect
-the evidence behind each finding, and ask questions about how its features work.
+REA for Web turns application files into an interactive map you can explore in
+your browser. Follow an Electron app's IPC messages, inspect an Android app's
+components, or trace a native program's function calls. Select a node to see
+where a finding came from, then ask a question about the connections.
 
-Supports Electron apps, .NET assemblies, native Windows/Linux programs, Android
-APKs, and website captures. Findings vary by target: processes and IPC channels,
-types and calls, native functions and imports, Android components and permissions,
-or website scripts and frameworks.
+Built on [morluto/rea](https://github.com/morluto/rea), the reverse-engineering
+engine behind the analysis. The hosted analyzer currently runs **REA 6.5.0**.
+
+![An Electron app analyzed with REA 6.5.0: its preload bridge, IPC channels and evidence inspector](docs/screenshots/electron-evidence.jpg)
+
+*A real upload of the included Tiny Electron sample. The inspector separates
+observed evidence from inferred connections and Studio heuristics.*
 
 ## Try it
 
-- **Explore a demo:** open the [website](https://reaforweb.com) and choose a sample or real app, including GitHub Desktop, VS Code, Caprine, jq, and Binary Eye.
-- **Upload your own app:** use [public uploads](https://uploads.reaforweb.com/upload). No access key is required; the resulting map stays private to your browser session.
-- **Explore your own app:** analyze it locally, then open the resulting `.studio.json` at [reaforweb.com/open](https://reaforweb.com/open). The project file is read in your browser.
-- **Ask a question:** open the explorer's Ask tab. Use your own Anthropic API key, or the free model where available. The Workers AI binding is enabled in this release's configuration; free questions require its successful deployment.
+1. **[Upload an application file](https://uploads.reaforweb.com/upload).** No account or access key required. Choose a supported file below and wait for its analysis.
+2. **Explore the map.** Search for a component, click to inspect its evidence, or double-click to follow its connections.
+3. **Open Ask.** Ask how a feature works and follow the answer's citations back into the graph.
 
-The website and **public app uploads are live**. Analysis runs on a dedicated
-sandboxed server with private, capped local storage. Initial limits are three
-uploads per network per UTC day, 25 site-wide per day and 500 per month.
-See [public hosting](docs/public-disk-uploads.md) or [local upload setup](docs/uploads.md).
+Prefer to look around first? Try [GitHub Desktop](https://reaforweb.com/explore/github-desktop),
+[VS Code's core](https://reaforweb.com/explore/vscode-core),
+[Caprine](https://reaforweb.com/explore/caprine),
+[jq for Windows](https://reaforweb.com/explore/jq),
+[jq for macOS](https://reaforweb.com/explore/jq-macos), or
+[Binary Eye for Android](https://reaforweb.com/explore/binary-eye).
+These are pre-analyzed samples; some intentionally cover a subset of the app.
+Their explorer headers retain the REA version used to collect them.
 
-Program files are analyzed without executing them. Website capture loads the
-requested page in a fresh browser. This is an independent project built on REA.
+## Supported targets
 
-![REA Studio explorer with an architecture graph and evidence inspector](docs/screenshots/tiny-overview.png)
+| Target | Public upload | What you can explore |
+| --- | --- | --- |
+| **Electron / JavaScript** | `.asar` | Main, preload and renderer processes; windows; bridge APIs; IPC channels and handlers; imports; source-map files where available. |
+| **.NET** | `.exe`, `.dll` | Assemblies, types, methods, calls and native interop declarations. |
+| **Native Windows** | `.exe`, `.dll` | Functions, call relationships, imports and referenced strings, using Ghidra. |
+| **Android** | `.apk` | Manifest components, permissions, collected classes and methods, references, and labeled heuristics for bridges, storage and endpoints, using JADX. |
+| **Linux** | `.elf`, `.so` | Native functions, calls, imports and referenced strings, using Ghidra. |
+| **macOS** | `.macho`, `.dylib` | Single-architecture Mach-O functions, calls and imports, using Ghidra. Full real-world verification currently covers x86_64 jq. |
+| **Websites** | Local CLI only: `https://…` | Captured page scripts, framework/bundler fingerprints, routes and endpoint candidates. |
 
-## What you can explore
+Upload the application's program file, rather than a generic installer or archive.
+For Electron, this is usually `resources/app.asar` inside an installed or extracted
+app. Rename extensionless Linux programs to `.elf`, and thin macOS programs to
+`.macho`; the analyzer also checks the actual file format.
 
-| | |
-|---|---|
-| **Architecture overview** | Main, preload and renderer processes, windows, `contextBridge` APIs, IPC channels and handlers, native `.node` add-ons, storage keys and workers, laid out as a graph. |
-| **Evidence inspector** | Every node and link carries REA's evidence: location, observed vs. inferred, REA's confidence category, the extractor that produced it, and REA's own limitations. |
-| **Recovered source tree** | Original files such as `app/src/ui/history/compare.tsx`, recovered from shipped source maps. |
-| **Neighborhoods** | Double-click any node to see everything connected to it. |
-| **Honest gaps** | Partial coverage, unresolved IPC channel names and files REA couldn't fully analyze are shown, not hidden. "Not found" never means "doesn't exist." |
-| **Shareable links** | The URL records the selected node and view. |
+Universal macOS binaries, whole `.app` bundles, `.ipa`, `.dmg` and generic `.zip`
+uploads are not supported. The local CLI additionally accepts extracted
+Electron/JavaScript directories. Program files are analyzed statically, without
+executing them; local website capture loads the requested page in a fresh Chrome
+profile.
 
-### A real app: GitHub Desktop
+## Follow the evidence
 
-![GitHub Desktop overview: the renderer process with its storage keys, dynamic IPC channels and worker, a grid of native add-ons, and the main and crash processes](docs/screenshots/ghd-overview.png)
+- **Connected views:** start with the overview, search by name or file, then follow a node's neighborhood.
+- **Inspectable findings:** nodes and links carry locations, observed/inferred state, categorical confidence and analysis limitations.
+- **Source-map recovery:** browse original source files when an app ships source maps, separately from its shipped files and bundled modules.
+- **Visible gaps:** partial coverage and unresolved facts stay visible. “Not found” does not establish absence.
+- **Labeled heuristics:** Studio's additional bridge links and endpoint assessments are distinguished from REA's findings. Unlikely endpoint candidates are hidden by default but remain available.
 
-GitHub Desktop is a large, webpack-bundled app, and the demo shows what static
-analysis can and can't recover from it. REA finds the processes, native
-add-ons, storage keys and 1,777 original source files (the demo uses a trimmed
-sample of the output). But GitHub Desktop passes IPC channel names as
-variables, so they're marked **unresolved** rather than guessed.
+## Ask questions about the map
 
-![The neighborhood of renderer.js: IPC channels, the worker, storage keys and imports, with REA's unfiltered endpoint candidates last](docs/screenshots/ghd-renderer.png)
+Ask searches the current analysis, reads evidence and follows relationships before
+answering. Citations select the corresponding nodes; the graph can show the parts
+used in the answer.
 
-## Ask questions about an app
+For example, on Tiny Electron:
 
-Open the **Ask** tab in the explorer and ask in plain English, e.g. *"How does the
-app save notes?"* The model looks things up in the analysis (search, follow links,
-trace paths), answers with every node linked to the graph, and the graph switches
-to show exactly the nodes the answer used. It says when something is unresolved
-instead of guessing.
+> What happens when the renderer calls `window.notesApi.save`? Trace the bridge,
+> IPC channel and main-process handler.
 
-- **Free, no key, where enabled:** an open model (Llama 3.3 70B on Cloudflare Workers AI) answers
-  within a daily limit.
-- **Your own Anthropic API key:** Claude gives better answers. The key is sent only
-  from your browser to api.anthropic.com, and each answer shows its token cost.
-- **Your Claude subscription (or another MCP client):** connect the site's
-  [MCP server](docs/mcp.md) and ask there with the same tools (`packages/ask`).
+![A real Claude answer tracing notesApi.save through the preload bridge and notes:save channel to its main-process handler, with clickable evidence citations and the matching graph](docs/screenshots/ask-save-flow.jpg)
 
-## Explore your own app (local mode)
+*An actual Ask response on the uploaded sample, with five cited nodes. The answer
+identifies inferred links and explicitly leaves uninspected behavior unresolved.*
 
-Analyze an app on your machine and open the result in the browser. Nothing is uploaded.
+- **Free Ask:** Llama 3.3 70B for demos and local project files opened on `reaforweb.com`, with usage limits and no API key required. The separate upload host currently requires your own Anthropic key for questions; uploading and exploring need no key.
+- **Use Claude:** optionally supply your own Anthropic API key in Ask. Requests go directly from your browser to Anthropic. The UI shows token usage and an estimated API cost; API billing is separate from a Claude chat subscription. Keys are kept in the browser session unless you choose “Remember on this device,” and can be removed with “Forget key.”
+- **Use an MCP client:** connect to `https://reaforweb.com/api/mcp` for the public demos, or run the local MCP server over your own project files. See the [MCP guide](docs/mcp.md).
+
+Asking a question sends your question and the analysis context the model reads
+to the selected provider. Free Ask routes through the site and Cloudflare;
+Claude requests go to Anthropic. Model answers can be wrong: use the citations
+and evidence inspector to check them.
+
+## Upload limits and privacy
+
+Public uploads accept files up to **512 MiB**. Initial admission limits are
+**3 uploads per network per UTC day**, **25 site-wide per day** and **500 per
+UTC month**. Limits count issued upload tickets, including attempts that later
+fail. Queue capacity and disk-space guards
+can temporarily pause admission. Analyses run one at a time, and large apps
+can take many minutes. The job page shows queue and analyzer progress.
+
+Uploaded programs are processed in containers with no network, a non-root user,
+a read-only root filesystem, and CPU, memory, time and output limits. Raw uploads
+are removed after processing, with expiry cleanup for abandoned uploads. Results
+are stored privately on the analysis server and accessed with a token held in
+your browser session. Copying a private job URL alone does not share its result
+with someone else; losing that session can also lose access.
+
+For files you want to keep on your own machine, use local analysis below. The
+`.studio.json` viewer reads the project file in your browser; choosing Ask still
+sends the relevant analysis context to its provider.
+
+## Analyze locally
+
+Use **Node.js 22.19+ (22.x), 24.11+ (24.x), or 26+**, and **npm 10+**.
+From a terminal:
 
 ```sh
-npm install
-npm run analyze -w rea-studio -- path/to/YourApp/resources/app.asar   # writes app.studio.json
-npm run dev                                                             # then open http://localhost:3000/open
+git clone https://github.com/sulaimwn/REA-For-Web.git
+cd REA-For-Web
+npm ci --ignore-scripts
+
+npm run analyze --workspace=rea-studio -- "path/to/app.asar" --out my-app.studio.json
 ```
 
-Drop the `.studio.json` file on the **/open** page. Your browser reads it
-locally. REA only reads the app's files and never runs it. See
-[apps/cli](apps/cli/README.md) for options and timings.
-## VS Code's core demo
+Open [reaforweb.com/open](https://reaforweb.com/open) and drop in
+`my-app.studio.json`. The analysis and project-file loading happen on your
+machine. To use a local viewer too, run `npm run dev` and open
+[localhost:3000/open](http://localhost:3000/open).
 
-The VS Code demo covers its main process and preload scripts: 3 BrowserWindows,
-4 `contextBridge` APIs, and 18 named IPC channels (`vscode:fetchShellEnv`,
-`vscode:browserView:*`). VS Code's main-process handlers register channels
-through a validating wrapper, so REA reports them as unresolved instead of
-pairing them.
+Electron and .NET analysis use the bundled REA package. Other local targets need
+additional tools:
+
+| Target | Local requirement |
+| --- | --- |
+| Native Windows | Ghidra and JDK 21; set `GHIDRA_INSTALL_DIR`. |
+| Linux / macOS programs | Ghidra and JDK 21 on Linux or macOS; set `GHIDRA_INSTALL_DIR`. |
+| Android | JADX headless MCP 0.7.1 JAR and a full JDK 17+ (not a JRE); set `REA_JADX_MCP_JAR`. |
+| Website URL | An installed Chrome browser; the CLI creates a temporary profile. |
+
+Local analysis runs with your user account's permissions. For containerized
+analysis, use the Docker upload stack described below. See the [CLI](apps/cli/README.md)
+and [target/provider notes](docs/targets.md) for options and setup details.
+
+## Run and develop
+
+After installing dependencies from the repository root:
+
+```sh
+npm run dev                         # web app: http://localhost:3000
+npm run typecheck
+npm test --workspaces --if-present
+npm run build
+npm start                           # serve the production build
+```
+
+The web app rebuilds its demo projects from committed fixtures before development
+and production builds. After editing a shared package while the dev server is
+running, refresh its output with `npm run build:packages`.
+
+To run **uploads, Redis and the sandbox worker** locally, start Docker and run:
+
+```sh
+npm run dev:uploads
+```
+
+Open [localhost:3104/upload](http://localhost:3104/upload). The first run builds
+both analysis images, including Ghidra and JADX, and can take a while. Native
+Linux hosts require the documented service-account setup. See the
+[upload setup and integration checks](docs/uploads.md).
 
 ## How it works
 
-```
-app / program / APK ──► target-specific REA analysis ──► REA evidence JSON
-                                                                     │
-                                            @rea-studio/rea-adapter  ▼
-                                                              StudioProject JSON ──► web explorer
-```
-
-- **[`packages/schema`](packages/schema/src/index.ts)** defines `StudioProject`, the format
-  the UI reads. It's derived from real REA 6.4.0 output: categorical confidence, evidence on
-  everything, and explicit gaps.
-- **[`packages/rea-adapter`](packages/rea-adapter/src/index.ts)** is the only code that reads
-  raw REA output. On GitHub Desktop it turns 50 MB of REA JSON into 4.5 MB in under half a second.
-- **[`apps/web`](apps/web)** is the Next.js explorer (React Flow + dagre). The demo pages are
-  static HTML.
-- **[`apps/cli`](apps/cli/README.md)** (local mode) runs REA and the adapter on your machine
-  and writes a `.studio.json` file that the web app's `/open` page reads in the browser.
-- **[`apps/worker`](apps/worker)** runs REA in a locked-down container (no network, non-root,
-  resource limits) and normalizes the result with the adapter. It's verified locally with Docker
-  but not deployed yet; see [its README](apps/worker/README.md).
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design and
-[fixtures/README.md](fixtures/README.md) for what REA's output actually contains,
-including measurements and known limitations.
-
-## Status
-
-The public preview is live at [reaforweb.com](https://reaforweb.com). It shows **pre-analyzed open-source apps**, and
-local mode lets you analyze and view an app entirely on your own machine.
-Upload your own app at [uploads.reaforweb.com](https://uploads.reaforweb.com/upload),
-or run the upload stack locally with `npm run dev:uploads`.
-Choose an `.asar`, `.exe`, `.dll`, `.apk`, `.elf`, `.so`, `.macho` or `.dylib` file.
-Rename extensionless Linux programs to `.elf` and single-architecture macOS
-programs to `.macho`. Universal macOS binaries and `.app`/`.ipa` bundles are not supported.
-The full upload → queue → Docker analysis → explorer flow is tested with public fixtures for all six analysis kinds,
-including Ghidra and JADX analysis. The helper builds both worker images by
-default. Public uploads use the paid server's bounded private disk; the R2
-deployment kit remains available for private installations.
-See [public hosting](docs/public-disk-uploads.md) and [upload API](docs/uploads.md).
-
-Known limitations (from REA 6.4.0, documented in [fixtures/README.md](fixtures/README.md)):
-- Electron APIs reached through webpack's module aliases (e.g. `r.BrowserWindow`) aren't recognized,
-  so windows and handlers in bundled apps are often "not found."
-- IPC channels passed as variables can't be named statically.
-- REA's endpoint detection is noisy; Studio filters unlikely candidates by default
-  and labels that decision as a heuristic. All candidates remain available.
-- In whole-app runs, REA's shared result budget can drop relationship detail.
-  Per-file recovery restores affected relationships within the job's time budget.
-- Ghidra/JADX analysis has collection and resource caps. Missing method bodies
-  and other unresolved facts remain visible as partial coverage.
-
-## Development
-
-Use Node.js 22.19+ on the 22.x line, 24.11+ on the 24.x line, or 26+, and npm
-10+. Install dependencies once from the repository root:
-
-```sh
-npm install
-npm run typecheck
-npm run build
+```text
+Application file → private upload → queue → sandboxed REA analysis
+                                                    ↓
+                                              REA evidence
+                                                    ↓
+                                                adapter
+                                                    ↓
+                                             StudioProject
+                                                    ↓
+                                            explorer + Ask
 ```
 
-The committed `package-lock.json` pins the dependency tree. Use `npm ci` for
-repeatable installs in CI or a fresh checkout.
+The main website runs on Cloudflare Workers. Public file uploads are handled by
+a separate Linux service with private disk storage and a Docker analysis worker.
+Local CLI output enters the same explorer through `/open`.
 
-Start the web app at http://localhost:3000:
-
-```sh
-npm run dev
-```
-
-`npm run dev` and `npm run build` regenerate the demo data in
-`apps/web/public/projects/` from the committed fixtures. To serve a production
-build locally, run `npm run build` followed by `npm start`.
-
-| Workspace | Purpose |
+| Location | Responsibility |
 | --- | --- |
-| `@rea-studio/web` | Next.js explorer and demo pages |
-| `@rea-studio/schema` | `StudioProject` types, derived from real REA fixtures |
-| `@rea-studio/rea-adapter` | REA JSON → `StudioProject`, with fixture tests (`npm test -w @rea-studio/rea-adapter`) |
-| `@rea-studio/worker` | Sandboxed REA runner that outputs `StudioProject` (Docker; see `apps/worker/README.md`) |
-| `rea-studio` | Local-mode CLI (`apps/cli`): REA + adapter on your machine → `.studio.json`; tests: `npm test -w rea-studio` |
+| [`apps/web`](apps/web) | Next.js / React explorer, React Flow graph, upload UI and Ask panel. |
+| [`apps/worker`](apps/worker/README.md) | Sandboxed REA runner and queue consumer. |
+| [`apps/cli`](apps/cli) | Local analysis to `.studio.json`. |
+| [`packages/schema`](packages/schema/src/index.ts) | Shared `StudioProject` types. |
+| [`packages/rea-adapter`](packages/rea-adapter) | Converts raw REA output into the explorer's evidence model. |
+| [`packages/pipeline`](packages/pipeline) | Upload admission, private storage, queueing and cache. |
+| [`packages/ask`](packages/ask) | Graph lookup tools and model orchestration. |
+| [`packages/mcp`](packages/mcp) | Read-only MCP access to analyzed projects. |
 
-All workspaces extend `tsconfig.base.json`. Root builds run schema, adapter,
-worker and web in dependency order. After changing a shared package while
-`npm run dev` is running, run `npm run build:packages` to refresh its output.
+Only the adapter consumes raw REA output. The website, worker result and Ask
+tools share the normalized project format. See [architecture](ARCHITECTURE.md),
+[fixtures and coverage](fixtures/README.md), [Cloudflare deployment](docs/deploy-cloudflare.md)
+and [public upload hosting](docs/public-disk-uploads.md).
 
-### Deployment
+## Current limitations
 
-The demos, local-file viewer and Ask panel deploy to Cloudflare Workers. See
-[the deployment guide](docs/deploy-cloudflare.md) for GitHub Actions setup and
-custom-domain configuration. Hosted app uploads run on the separate Linux
-analysis backend described in [public hosting](docs/public-disk-uploads.md).
-With the configured Workers AI binding deployed, Ask answers free
-questions, or uses each visitor's own Anthropic API key.
+Analysis coverage depends on the target. Dynamic IPC names, obfuscation, stripped
+symbols and missing source maps can leave parts unresolved. Collection budgets
+and timeouts can produce partial maps; per-file recovery improves large
+JavaScript maps within those budgets. Native views show collected functions and
+relationships, rather than a complete recovered source codebase. The graph is
+not a complete runtime dataflow model.
 
-## Credits
+REA 6.5.0 supports more capabilities than this website currently exposes.
+Upstream support for a format or tool does not automatically make it available
+through public uploads. The supported-target table above describes this project.
 
-- [REA](https://github.com/morluto/rea) (MIT) does the analysis.
-- Demo data comes from [GitHub Desktop](https://github.com/desktop/desktop) (MIT) 3.6.5, a core subset of the
-  VS Code 1.141.0 build ([Code - OSS](https://github.com/microsoft/vscode) source is MIT), the
-  [Caprine](https://github.com/sindresorhus/caprine) 2.61.0, [jq](https://github.com/jqlang/jq) 1.8.2 and
-  [Binary Eye](https://github.com/markusfisch/BinaryEye) 1.75.5 releases (all MIT; see
-  [real-world samples](fixtures/sample-apps/real-world.md)), and hand-written sample apps.
+## Contributing
 
-## License
+Bug reports and improvements are welcome in
+[GitHub issues](https://github.com/sulaimwn/REA-For-Web/issues). For analysis bugs,
+include the target format, displayed engine version, last progress/error message
+and a reproducible public sample where possible. Keep credentials and private
+application data out of reports. Agent contributors should read [AGENTS.md](AGENTS.md).
 
-[MIT](LICENSE).
+## Credits and license
+
+[REA by morluto](https://github.com/morluto/rea) powers the analysis. REA for Web
+is an independent browser interface and upload service built on top of it.
+
+Public demo data includes [GitHub Desktop](https://github.com/desktop/desktop),
+[Code - OSS / VS Code core](https://github.com/microsoft/vscode),
+[Caprine](https://github.com/sindresorhus/caprine), [jq](https://github.com/jqlang/jq)
+and [Binary Eye](https://github.com/markusfisch/BinaryEye), alongside small
+hand-written samples with answer keys. See [sample sources and licenses](fixtures/sample-apps/real-world.md)
+for releases, provenance and coverage.
+
+This repository is licensed under [MIT](LICENSE). Upstream tools and analyzed
+applications retain their own licenses.

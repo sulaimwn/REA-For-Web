@@ -61,7 +61,7 @@ Details for a task go under its heading below the table.
 | T060 | Remove access-key controls and owner-key submission from the upload website; deploy and verify public upload | codex | done | T056, T059 |
 | T061 | Upgrade REA 6.4.0 → 6.5.0: pin, adapter compatibility for its breaking changes (null source-map names, P/Invoke statuses), fresh 6.5.0 fixtures, cache revision; then new features one at a time | claude | done | T057, T059 |
 | R013 | Independent REA 6.5.0 runtime/upgrade audit, sandbox compatibility and release review; preserve existing private results and rollback | codex | done | T061 |
-| T062 | Human request: rewrite README for the live product, supported formats and real Ask screenshots | codex | in progress | T060, T061 |
+| T062 | Human request: rewrite README for the live product, supported formats and real Ask screenshots | codex | review | T060, T061 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
