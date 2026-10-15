@@ -144,9 +144,11 @@ kept inside the sandbox's reviewed range:
 | `REA_ANALYSIS_MAX_FILES` | 20000 | 1–20000 (files in an ASAR or folder) |
 | `REA_ANALYSIS_MAX_INPUT_BYTES` | 512 MiB | up to 1 GiB (unpacked size) |
 
-On a dedicated 8 GB, 4-vCPU host running one job at a time, a reasonable starting point is
-`REA_ANALYSIS_CPUS=2`, `REA_ANALYSIS_MEMORY_MB=5120`, `REA_ANALYSIS_HEAP_MB=4096`,
-`REA_ANALYSIS_TIMEOUT_MS=1800000` and `REA_ANALYSIS_MAX_INPUT_BYTES=1073741824`.
+The heap limit applies to each process. For an APK, REA's Node process and JADX can each reach it,
+so keep memory at least twice the heap plus some headroom. On a dedicated 8 GB, 4-vCPU host running
+one job at a time, a reasonable starting point is `REA_ANALYSIS_CPUS=2`, `REA_ANALYSIS_MEMORY_MB=6144`,
+`REA_ANALYSIS_HEAP_MB=2560`, `REA_ANALYSIS_TIMEOUT_MS=1800000` and `REA_ANALYSIS_MAX_INPUT_BYTES=1073741824`.
+That leaves about 1.8 GB for the website, Redis, Caddy and the OS.
 APK ZIP entries (images, layouts and other resources) don't count as app files: the ZIP format
 (at most 65,534 entries without ZIP64, which is refused), the 8 MiB directory cap and the
 unpacked-byte cap bound them instead. WhatsApp ships more than 5,000 entries.
