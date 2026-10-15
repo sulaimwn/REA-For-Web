@@ -2,8 +2,9 @@
 
 First release: no invitation or bot check required for a visitor. Public access
 is explicit/default off and requires HTTPS, the dedicated trusted Caddy proxy,
-network quotas and bounded disk storage. The owner's existing private key may
-skip the per-network limit; it never skips global or disk limits. Uploaded
+network quotas and bounded disk storage. The website has no access-key control.
+The owner's existing private key is only for operator API/CLI use and may skip
+the per-network limit; it never skips global or disk limits. Uploaded
 targets still reach only the existing static REA Docker sandbox.
 
 Admission limits are **3 tickets/network/UTC-day, 25 site-wide/UTC-day and 500
