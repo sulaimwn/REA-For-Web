@@ -59,6 +59,7 @@ Details for a task go under its heading below the table.
 | R012 | Independently review realistic APK/ASAR input limits and readable upload failures | codex | done | T057 |
 | T059 | Deploy reviewed larger-app admission and operator settings; verify the human's real WhatsApp APK | codex | done | T057, R012 |
 | T060 | Remove access-key controls and owner-key submission from the upload website; deploy and verify public upload | codex | done | T056, T059 |
+| T061 | Upgrade REA 6.4.0 → 6.5.0: pin, adapter compatibility for its breaking changes (null source-map names, P/Invoke statuses), fresh 6.5.0 fixtures, cache revision; then new features one at a time | claude | in progress | T057, T059 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
