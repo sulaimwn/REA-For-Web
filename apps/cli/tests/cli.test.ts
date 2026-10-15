@@ -44,7 +44,7 @@ describe('rea-studio analyze', () => {
     const project = JSON.parse(text) as StudioProject;
     assert.equal(project.schemaVersion, STUDIO_SCHEMA_VERSION);
     assert.equal(project.target.name, 'tiny-electron');
-    assert.equal(project.analysis.engine.version, '6.4.0');
+    assert.equal(project.analysis.engine.version, '6.5.0');
     assert.equal(project.findings.find((f) => f.category === 'ipc')?.count, 3);
     // The file is meant to be shared; it must not contain the analyzing machine's paths.
     assert.ok(!text.includes(tiny), 'no absolute input path');

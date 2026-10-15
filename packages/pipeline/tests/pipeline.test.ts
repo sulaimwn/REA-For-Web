@@ -361,6 +361,14 @@ test('old authorized ASAR result paths remain readable after the cache revision 
     await store.put(key, file, {});
     assert.equal((await (await store.read(key)).toArray()).join(''), 'saved bytes');
   }
+  // T061: REA 6.4.0 kind-scoped results stay readable after new results move to REA 6.5.0.
+  for (const kind of ['asar', 'exe', 'dll', 'apk', 'elf', 'macho'] as const) {
+    const key = `results/schema-0.1.0-rea-6.4.0-adapter-7/${kind}/${request.sha256}.json.gz`;
+    await store.put(key, file, {});
+    assert.equal((await (await store.read(key)).toArray()).join(''), 'saved bytes');
+    assert.match(resultKey(request.sha256, kind), new RegExp(`^results/schema-0\\.1\\.0-rea-6\\.5\\.0-adapter-8/${kind}/`, 'u'));
+  }
+  await assert.rejects(store.read(`results/schema-0.1.0-rea-6.5.0-adapter-7/asar/${request.sha256}.json.gz`), /Invalid storage key/u);
 });
 test('analysis failures expose no internal paths or secrets and publish no result', async (t) => {
   const { config, store } = await setup(t),

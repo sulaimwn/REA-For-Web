@@ -29,7 +29,8 @@ export interface ReaObservation {
   properties?: ReaProps | null;
   evidence?: ReaEvidence | null;
   source_map_reference?: {
-    source_name?: string;
+    /** Null in REA 6.5.0 when the map names no source; the adapter falls back to the node label. */
+    source_name?: string | null;
     map_path?: string;
     resolution?: { kind?: string; path?: string } | null;
   } | null;
@@ -38,6 +39,8 @@ export interface ReaObservation {
 export interface ReaNode {
   node_id: string;
   kind: string;
+  /** How REA keys the node, e.g. namespace `electron-call-path-step` (6.5.0). */
+  identity?: { namespace?: string | null; key?: string | null } | null;
   observations?: ReaObservation[];
 }
 

@@ -47,10 +47,11 @@ export interface ObjectStore {
 }
 export const uploadKey = (id: string, kind: UploadKind = 'asar') => `uploads/${id}.${kind}`;
 export const resultKey = (hash: string, kind: UploadKind = 'asar') =>
-  `results/schema-0.1.0-rea-6.4.0-adapter-7/${kind}/${hash}.json.gz`;
+  `results/schema-0.1.0-rea-6.5.0-adapter-8/${kind}/${hash}.json.gz`;
 function safeKey(key: string) {
   if (
-    !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk|elf|macho)|results\/schema-0\.1\.0-rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk|elf|macho)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
+    // Older namespaces stay readable for results already published (T061 moved new results to REA 6.5.0).
+    !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk|elf|macho)|results\/schema-0\.1\.0-(?:rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk|elf|macho)\/)|rea-6\.5\.0-adapter-8\/(?:asar|exe|dll|apk|elf|macho)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
       key,
     )
   ) {
