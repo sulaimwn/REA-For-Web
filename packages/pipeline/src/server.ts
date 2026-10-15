@@ -327,6 +327,12 @@ return 1
             ? { error: 'Analysis lost its queue connection. Its upload has been removed; upload it again to retry.' }
             : job.failedReason === 'Analysis failed (storage_unavailable).'
               ? { error: 'Analysis lost its storage connection. Its upload has been removed; upload it again to retry.' }
+            : job.failedReason === 'Analysis failed (input_limit_exceeded).'
+              ? { error: 'This app is larger than this server accepts: too many files, or too large once unpacked. It wasn’t analyzed, and its upload has been removed.' }
+            : job.failedReason === 'Analysis failed (out_of_memory).'
+              ? { error: 'This app needed more memory than one analysis is allowed. Its upload has been removed.' }
+            : job.failedReason === 'Analysis failed (output_limit_exceeded).'
+              ? { error: 'This app’s map came out larger than the result limit. Its upload has been removed.' }
             : { error: job.failedReason }),
       };
     return {

@@ -223,14 +223,16 @@ test("real Docker maps an Android app with JADX in the native image, and refuses
   const before = await workerContainers();
   const temp = await workspace(t);
   const apk = join(repo, "fixtures/sample-apps/tiny-android/tiny-notes.apk");
-  const output = await runAnalysis({ targetPath: apk, outputRoot: join(temp, "results"), native: true });
+  const output = await runAnalysis({ targetPath: apk, outputRoot: join(temp, "results"), native: true, limits: { maxFiles: 1 } });
   const project = JSON.parse(await readFile(output.projectPath, "utf8")) as StudioProject;
   assert.equal(project.target.appKind, "android");
   assert.equal(project.nodes.filter(n => n.kind === "android-component").length, 4);
   assert.deepEqual(project.nodes.filter(n => n.kind === "bridge-api").map(n => n.label), ["window.notesBridge"]);
   assert.equal(project.analysis.coverage.status, "partial");
   assert.equal(project.nodes.filter(n => n.kind === "managed-method" && (n.name === "<init>" || n.name === "<clinit>")).length, 5);
-  await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "capped"), native: true, limits: { maxFiles: 1 } }),
+  // APK resources are not app files (T057); the byte cap still rejects oversized APKs before JADX.
+  await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "capped"), native: true,
+    limits: { maxInputBytes: (await readFile(apk)).length - 1 } }),
     (error: unknown) => error instanceof WorkerError && error.code === "input_limit_exceeded");
   assert.deepEqual(await readdir(join(temp, "capped")), []);
   await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "refused"), limits: { timeoutMs: 60_000 } }),

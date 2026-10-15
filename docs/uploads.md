@@ -133,6 +133,23 @@ took 124–145 s on 1 CPU, 52–57 s on 2 and 42 s on 4, with identical results.
 APK (JADX) timings varied too much to conclude: Binary Eye took 90–165 s on 1 CPU,
 109–162 s on 2 and 74 s on 4. Jobs run one at a time, so 2 suits a 4-vCPU host
 and leaves room for the website and Redis.
+
+Real apps are big (T057), so the queue worker also takes these operator settings, each
+kept inside the sandbox's reviewed range:
+
+| Setting | Default | Range |
+|---|---|---|
+| `REA_ANALYSIS_MEMORY_MB` | 2048 | 512–8192 (container memory, no swap) |
+| `REA_ANALYSIS_HEAP_MB` | 1024 | 64–4096, at least 256 below memory (REA/Ghidra/JADX heap) |
+| `REA_ANALYSIS_MAX_FILES` | 20000 | 1–20000 (files in an ASAR or folder) |
+| `REA_ANALYSIS_MAX_INPUT_BYTES` | 512 MiB | up to 1 GiB (unpacked size) |
+
+On a dedicated 8 GB, 4-vCPU host running one job at a time, a reasonable starting point is
+`REA_ANALYSIS_CPUS=2`, `REA_ANALYSIS_MEMORY_MB=5120`, `REA_ANALYSIS_HEAP_MB=4096`,
+`REA_ANALYSIS_TIMEOUT_MS=1800000` and `REA_ANALYSIS_MAX_INPUT_BYTES=1073741824`.
+APK ZIP entries (images, layouts and other resources) don't count as app files: the ZIP format
+(at most 65,534 entries without ZIP64, which is refused), the 8 MiB directory cap and the
+unpacked-byte cap bound them instead. WhatsApp ships more than 5,000 entries.
 APK admission checks its bounded ZIP directory and caps both its entry count and
 declared expanded bytes. Its individual class/method collection also has caps,
 and missing method bodies remain visible as partial analysis.
