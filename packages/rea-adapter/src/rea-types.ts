@@ -16,6 +16,7 @@ export interface ReaLocation {
 }
 
 export interface ReaEvidence {
+  artifact?: { sha256?: string | null } | null;
   authority?: string;
   state?: string;
   confidence?: string;
@@ -40,7 +41,7 @@ export interface ReaNode {
   node_id: string;
   kind: string;
   /** How REA keys the node, e.g. namespace `electron-call-path-step` (6.5.0). */
-  identity?: { namespace?: string | null; key?: string | null } | null;
+  identity?: { namespace?: string | null; key?: string | null; artifact_sha256?: string | null } | null;
   observations?: ReaObservation[];
 }
 

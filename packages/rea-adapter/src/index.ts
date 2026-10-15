@@ -315,7 +315,7 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
     });
   }
   if (callPathSteps.length > 0) {
-    const paths = callPathEdges(callPathSteps, nodes);
+    const paths = callPathEdges(callPathSteps, nodes, r.graph.nodes);
     edges.push(...paths.edges);
     report.foldedCallPathSteps = callPathSteps.length;
     report.callPathLinks = { linked: paths.edges.length, unlinked: paths.unlinked };
@@ -351,7 +351,10 @@ export function adaptReaResult(raw: unknown, options: AdapterOptions): { project
       engine: { package: 'rea-agents', version: options.reaVersion, operation: raw.operation },
       reaEvidenceId: raw.evidence_id,
       coverage: graphCoverage,
-      limitations: [...new Set((r.limitations ?? []).filter((l): l is string => typeof l === 'string'))],
+      limitations: [...new Set([
+        ...(r.limitations ?? []).filter((l): l is string => typeof l === 'string'),
+        ...(report.callPathLinks?.unlinked ? [`${report.callPathLinks.unlinked} Electron call paths could not be linked to an unambiguous bridge and channel; missing links do not establish absence.`] : []),
+      ])],
       statistics: {
         relevantFiles: num(stats, 'relevant_files') ?? 0,
         parsedJavascriptFiles: num(stats, 'parsed_javascript_files') ?? 0,
