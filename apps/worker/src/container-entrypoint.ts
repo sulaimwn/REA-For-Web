@@ -117,7 +117,12 @@ async function analyzeAndroid(targetPath: string, temp: string, limits: Analysis
     reaScript: REA_SCRIPT, apk: targetPath, maxMessageBytes: limits.maxOutputBytes,
     nodeArgs: [`--max-old-space-size=${limits.heapMb}`],
     // JADX's JVM gets the same heap budget as REA's Node analysis.
-    env: { ...process.env, NODE_OPTIONS: "", NODE_PATH: "", REA_JADX_HEAP_MIB: String(limits.heapMb) },
+    env: {
+      ...process.env, NODE_OPTIONS: "", NODE_PATH: "", REA_JADX_HEAP_MIB: String(limits.heapMb),
+      // REA 6.7 applies this to APK loading and provider RPCs. The container's
+      // existing whole-job deadline still bounds their combined runtime.
+      REA_JADX_OPERATION_TIMEOUT_MS: String(limits.timeoutMs),
+    },
     onProgress: message => progress("android", message),
   });
   return adaptBundle(bundle, join(temp, "android-bundle.json"), limits, { reaVersion: REA_VERSION, maxBytes: limits.maxOutputBytes, targetName });

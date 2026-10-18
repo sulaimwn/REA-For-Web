@@ -14,7 +14,7 @@ Job queue
   │
   ▼
 Analysis worker (sandboxed container: no network, non-root, CPU/RAM/time limits)
-  │  rea analyze-javascript-application <path> --format json   (rea-agents@6.5.0)
+  │  rea analyze-javascript-application <path> --format json   (rea-agents@6.7.0)
   ▼
 packages/rea-adapter  ── raw REA JSON → StudioProject
   │
@@ -50,7 +50,7 @@ answer (markdown; nodes linked as [name](node:<id>)) ──► explorer shows th
 ### Local mode (no upload, no server)
 
 ```
-user's machine:  rea-studio analyze <app>  ──►  REA (rea-agents@6.5.0)  ──►  rea-adapter  ──►  <app>.studio.json
+user's machine:  rea-studio analyze <app>  ──►  REA (rea-agents@6.7.0)  ──►  rea-adapter  ──►  <app>.studio.json
 browser:         /open  ──  file read with FileReader, shape-checked, rendered by the same explorer
 ```
 

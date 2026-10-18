@@ -3,7 +3,7 @@
 // REA's output with the temporary folder scrubbed to <INPUT_PATH>.
 //
 // Usage: REA_SCRIPT=<rea-agents/scripts/rea.mjs> node fixtures/tools/isolate-files.mjs <app dir> <name> <file>...
-// Writes fixtures/samples/<name>.isolated.<file with / as __>.rea-6.5.0.json. REA only reads the files.
+// Writes fixtures/samples/<name>.isolated.<file with / as __>.rea-6.7.0.json. REA only reads the files.
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,7 +31,7 @@ for (const rel of files) {
     const home = process.env.USERPROFILE ?? process.env.HOME;
     if (home && text.includes(JSON.stringify(home).slice(1, -1))) throw new Error(`A local home path survived scrubbing in ${rel}.`);
     JSON.parse(text);
-    const out = join(samples, `${name}.isolated.${rel.replaceAll('/', '__')}.rea-6.5.0.json`);
+    const out = join(samples, `${name}.isolated.${rel.replaceAll('/', '__')}.rea-6.7.0.json`);
     writeFileSync(out, `${text.trim()}\n`);
     console.log(`wrote ${out} (${(text.length / 1024).toFixed(0)} KB)`);
   } finally {

@@ -40,7 +40,7 @@ test("streams the real adapter project unchanged and removes the container befor
   const expected = Buffer.from(JSON.stringify(normalized.project));
   const actual = await readFile(result.projectPath);
   assert.equal(createHash("sha256").update(actual).digest("hex"), createHash("sha256").update(expected).digest("hex"));
-  assert.equal(result.reaVersion, "6.5.0");
+  assert.equal(result.reaVersion, "6.7.0");
   assert.equal(result.projectId, normalized.project.id);
   assert.deepEqual(result.adapterReport, normalized.report);
   assert.equal(events.length, 1);

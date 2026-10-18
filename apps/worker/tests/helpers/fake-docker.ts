@@ -32,7 +32,7 @@ if (command === "info") {
     process.stdout.write(JSON.stringify(result.project));
     if (config.mode !== "no-receipt") {
       process.stderr.write(`${JSON.stringify({ studio_worker_result: {
-        projectId: result.project.id, reaVersion: config.mode === "wrong-receipt" ? "0.0.0" : "6.5.0", report: result.report,
+        projectId: result.project.id, reaVersion: config.mode === "wrong-receipt" ? "0.0.0" : "6.7.0", report: result.report,
       } })}\n`);
     }
   }

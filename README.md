@@ -10,7 +10,7 @@ components, or trace a native program's function calls. Select a node to see
 where a finding came from, then ask a question about the connections.
 
 Built on [morluto/rea](https://github.com/morluto/rea), the reverse-engineering
-engine behind the analysis. The hosted analyzer currently runs **REA 6.5.0**.
+engine behind the analysis. The analyzer runs **REA 6.7.0**.
 
 ![An Electron app analyzed with REA 6.5.0: its preload bridge, IPC channels and evidence inspector](docs/screenshots/electron-evidence.jpg)
 
@@ -210,7 +210,7 @@ JavaScript maps within those budgets. Native views show collected functions and
 relationships, rather than a complete recovered source codebase. The graph is
 not a complete runtime dataflow model.
 
-REA 6.5.0 supports more capabilities than this website currently exposes.
+REA 6.7.0 supports more capabilities than this website currently exposes.
 Upstream support for a format or tool does not automatically make it available
 through public uploads. The supported-target table above describes this project.
 
