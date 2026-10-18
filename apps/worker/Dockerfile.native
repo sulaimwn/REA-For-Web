@@ -3,12 +3,13 @@
 #   - JDK 21 (Eclipse Temurin 21.0.12.1): Ghidra runs on it and compiles REA's bridge scripts with javac.
 #   - Ghidra 12.1.4 (NSA, Apache-2.0): REA's provider for native code (.exe/.dll, ELF, Mach-O).
 #   - jadx-headless-mcp 0.7.1 (Apache-2.0): REA's JADX provider for Android APKs, at the release
-#     and SHA-256 REA 6.5.0 pins in its JadxRelease (unchanged from 6.4.0).
+#     and SHA-256 REA 6.7.0 pins in its JadxRelease (JAR unchanged from 6.4.0;
+#     the matching bridge is bundled with the installed REA package).
 # Build the standard image first, from the same checkout:
-#   docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.5.0 .
-#   docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.5.0 .
+#   docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.7.0 .
+#   docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.7.0 .
 # Analysis containers still have no network; these downloads happen only at image build time.
-ARG BASE_IMAGE=rea-studio-worker:rea-6.5.0
+ARG BASE_IMAGE=rea-studio-worker:rea-6.7.0
 
 FROM eclipse-temurin:21-jdk-noble@sha256:b468c3fc688b14450571494f588bd939378e7fd542ed5a73f8efc13f17872a87 AS jdk
 # jmods are only for jlink; Ghidra needs the runtime and the compiler, which live in lib/.

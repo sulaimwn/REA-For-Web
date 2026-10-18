@@ -86,7 +86,7 @@ test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async 
     assert.equal(project.nodes.filter(n => n.kind === "process").length, 3);
     assert.equal(project.nodes.filter(n => n.kind === "ipc-channel").length, 3);
     assert.ok(project.findings.every(f => f.status !== "confirmed-absent"));
-    assert.equal(output.reaVersion, "6.5.0");
+    assert.equal(output.reaVersion, "6.7.0");
     assert.ok(events.length > 0);
   }
   assert.equal((await readdir(join(temp, "results"))).length, 2);
@@ -229,6 +229,11 @@ test("real Docker maps an Android app with JADX in the native image, and refuses
   assert.equal(project.nodes.filter(n => n.kind === "android-component").length, 4);
   assert.deepEqual(project.nodes.filter(n => n.kind === "bridge-api").map(n => n.label), ["window.notesBridge"]);
   assert.equal(project.analysis.coverage.status, "partial");
+  const bodyGap = project.nodes.find(n => n.kind === "analysis-gap" && n.operation === "inspect_android_method");
+  assert.ok(bodyGap, "REA 6.7's unavailable constructor body must remain visible");
+  assert.ok(project.edges.some(e => e.target === bodyGap.id && project.nodes.some(n => n.id === e.source && n.kind === "managed-method")));
+  assert.ok(project.nodes.some(n => n.kind === "storage" && n.name === "notes.db"));
+  assert.ok(project.analysis.limitations.some(l => l.includes("smali bytecode")));
   assert.equal(project.nodes.filter(n => n.kind === "managed-method" && (n.name === "<init>" || n.name === "<clinit>")).length, 5);
   // APK resources are not app files (T057); the byte cap still rejects oversized APKs before JADX.
   await assert.rejects(runAnalysis({ targetPath: apk, outputRoot: join(temp, "capped"), native: true,

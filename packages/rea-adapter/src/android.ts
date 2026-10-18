@@ -1,4 +1,4 @@
-// REA 6.4.0 Android analysis (JADX provider) → StudioProject (T021).
+// REA Android analysis (JADX provider) → StudioProject.
 //
 // Input is the bundle `collectAndroidBundle` gathers in one REA MCP session (see android-session.ts
 // and fixtures/samples/tiny-android.rea-6.4.0.json):
@@ -26,11 +26,13 @@ import {
   type StudioProject,
 } from '@rea-studio/schema';
 import { manifestComponents } from './android-manifest.js';
+import { isKnownAndroidBodyGap, type AndroidMethodIdentity } from './android-method-gap.js';
 import { ReaOutputError } from './errors.js';
 import { assessEndpoints } from './heuristics.js';
 import type { AdapterOptions, AdapterReport } from './index.js';
 
 interface Envelope {
+  error?: unknown;
   evidence_id?: string;
   subject?: { name?: string; digest?: { sha256?: string } };
   normalized_result?: unknown;
@@ -48,9 +50,12 @@ interface PackageResult {
   permissions?: unknown;
   manifest?: { text?: unknown; status?: unknown };
 }
-interface MethodInfo { name?: unknown; overload_index?: unknown }
+interface MethodInfo extends AndroidMethodIdentity {}
 interface ClassResult { class_name?: unknown; methods?: MethodInfo[]; fields?: { name?: unknown }[]; inner_classes?: unknown[] }
-interface MethodResult { body_status?: unknown; source?: { text?: unknown; status?: unknown } }
+interface MethodResult { body_status?: unknown; representation?: unknown; source?: { text?: unknown; status?: unknown } }
+const completeJava = (result: MethodResult | null | undefined): result is MethodResult & { source: { text: string } } =>
+  result?.body_status === 'available' && result.representation === 'java' && result.source?.status === 'complete'
+  && typeof result.source.text === 'string' && result.source.text.trim() !== '';
 interface Reference { kind?: unknown; reported_full_name?: unknown; containing_class?: unknown; top_class?: unknown }
 const limitationsOf = (env: Envelope | undefined): string[] => Array.isArray(env?.limitations)
   ? env.limitations.filter((l): l is string => typeof l === 'string') : [];
@@ -219,10 +224,14 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       if (typeof m.name !== 'string') continue;
       const overload = typeof m.overload_index === 'number' ? m.overload_index : 0;
       const key = `${className}#${m.name}#${overload}`;
+      const failed = methodEnvs[key]?.error !== undefined;
+      if (failed && !isKnownAndroidBodyGap(methodEnvs[key], sha256, className, m)) {
+        throw new ReaOutputError('Android method inspection failed outside the supported partial-result boundary');
+      }
       const decompiled = (methodEnvs[key]?.normalized_result ?? null) as MethodResult | null;
       const body = typeof decompiled?.source?.text === 'string' ? decompiled.source.text : '';
       // A missing body is unknown, not proof of an empty initializer.
-      const emptyInit = (m.name === '<init>' || m.name === '<clinit>') && decompiled?.body_status === 'available' && /\)\s*\{\s*\}\s*$/u.test(body.trim());
+      const emptyInit = (m.name === '<init>' || m.name === '<clinit>') && completeJava(decompiled) && /\)\s*\{\s*\}\s*$/u.test(body.trim());
       if (emptyInit || SYNTHETIC_METHOD.test(m.name)) {
         skippedSynthetic++;
         continue;
@@ -235,6 +244,16 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
       methodNodeId.set(key, node.id);
       methodsOf.set(className, [...(methodsOf.get(className) ?? []), node]);
       contains(classNodeId.get(className) as string, node.id, evidence);
+      if (failed) {
+        const gapEvidence: Evidence = { ...evidence, extractor: 'inspect_android_method',
+          limitations: [...evidence.limitations, 'REA could not establish this method’s bytecode body. Method metadata remains available; its behavior is unknown.'] };
+        const gapId = id(`method-body-gap:${key}`);
+        addNode({ id: gapId, kind: 'analysis-gap', label: `${simple}.${m.name}: body unavailable`, path: 'classes.dex',
+          operation: 'inspect_android_method', origin: rea, evidence: [gapEvidence],
+          failure: { code: 'execution_failure', category: 'execution_failure', retryable: false,
+            message: 'REA could not establish one selected method’s disassembly; its body is unavailable.' } });
+        contains(node.id, gapId, gapEvidence);
+      }
     }
   }
 
@@ -282,7 +301,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   for (const [key, methodId] of methodNodeId) {
     const env = methodEnvs[key];
     const result = (env?.normalized_result ?? null) as MethodResult | null;
-    if (result?.body_status !== 'available' || typeof result.source?.text !== 'string') continue;
+    if (!completeJava(result)) continue;
     const code = result.source.text;
     const className = key.slice(0, key.indexOf('#'));
 
@@ -351,7 +370,13 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   report.endpointVerdicts = assessEndpoints(nodes);
   const skippedClasses = typeof collection.skipped_classes === 'number' ? collection.skipped_classes : 0;
   const skippedMethods = typeof collection.skipped_methods === 'number' ? collection.skipped_methods : 0;
-  const undecompiled = [...methodNodeId.keys()].filter((k) => (methodEnvs[k]?.normalized_result as MethodResult | null)?.body_status !== 'available').length;
+  const bodies = [...methodNodeId.keys()].map(k => (methodEnvs[k]?.normalized_result ?? null) as MethodResult | null);
+  const bytecodeOnly = bodies.filter(r => r?.body_status === 'available' && r.representation === 'smali'
+    && typeof r.source?.text === 'string' && r.source.text.trim() !== '').length;
+  const incompleteJava = bodies.filter(r => r?.body_status === 'available' && r.representation === 'java'
+    && typeof r.source?.text === 'string' && r.source.text.trim() !== '' && r.source.status !== 'complete').length;
+  const javaGaps = bodies.filter(r => !completeJava(r)).length;
+  const undecompiled = javaGaps - bytecodeOnly - incompleteJava;
   const searchEnv = b['search_android_classes'] as Envelope | undefined;
   // JADX shows classes a minifier moved into the unnamed package as `defpackage.<short name>`.
   const allClasses = (searchEnv?.normalized_result as { matches?: unknown } | null)?.matches;
@@ -363,7 +388,7 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   const missingManifest = !manifestText || pkg.manifest?.status !== 'complete';
   const incompleteQueries = queryCoverage.some((c) => c !== 'complete') || !searchEnv || missingClasses > 0 || report.droppedEdgesDanglingEndpoint > 0;
   const capped = skippedClasses > 0 || skippedMethods > 0;
-  const coverage = capped || undecompiled > 0 || missingManifest || incompleteQueries ? 'partial' : 'complete';
+  const coverage = capped || javaGaps > 0 || missingManifest || incompleteQueries ? 'partial' : 'complete';
   const of = <K extends StudioNode['kind']>(kind: K) => nodes.filter((n): n is Extract<StudioNode, { kind: K }> => n.kind === kind);
   const finding = (category: FindingCoverage['category'], count: number, notes: string[], unresolvedCount = 0): FindingCoverage => ({
     category, status: count > 0 ? 'found' : 'not-found', count, unresolvedCount, coverage,
@@ -378,6 +403,8 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
   );
   if (skippedClasses || skippedMethods) limitations.push(`Not analyzed to stay within limits: ${skippedClasses} classes and ${skippedMethods} methods.`);
   if (undecompiled) limitations.push(`${undecompiled} listed methods have no available decompiled body; their behavior is unknown, including any constructors or static initializers.`);
+  if (bytecodeOnly) limitations.push(`${bytecodeOnly} listed methods are available only as smali bytecode; Java behavior patterns were not applied to them.`);
+  if (incompleteJava) limitations.push(`${incompleteJava} listed methods have incomplete Java source; Java behavior patterns were not applied to them.`);
   if (missingManifest) limitations.push('The decoded manifest is missing or incomplete; component declarations may be missing.');
   if (incompleteQueries) limitations.push('Some class or reference queries are missing, incomplete or unresolved.');
   if (manifestText.includes('<activity-alias')) limitations.push('Activity aliases are grouped with their target for launcher/actions; the exported flag describes the target activity only. Alias access rules may differ.');
@@ -406,7 +433,9 @@ export function adaptAndroidBundle(raw: unknown, options: AdapterOptions): { pro
         `${classNames.length} app classes inspected (components are listed as components); bundled libraries left out`,
         ...(minifiedClasses > 0 ? [`JADX lists ${minifiedClasses} more classes under defpackage; these are left out of the map. Studio heuristic: this can reflect minification, but names alone do not identify their origin or a particular minifier`] : []),
       ]),
-      finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body; reason unknown`] : []), ...(skippedSynthetic ? [`${skippedSynthetic} proven empty initializers or compiler-style method names left out (Studio heuristic)`] : [])]),
+      finding('methods', of('managed-method').length, [...(undecompiled ? [`${undecompiled} without a decompiled body; see any connected analysis gaps for provider failures`] : []),
+        ...(bytecodeOnly ? [`${bytecodeOnly} with bytecode only`] : []), ...(incompleteJava ? [`${incompleteJava} with incomplete Java`] : []),
+        ...(skippedSynthetic ? [`${skippedSynthetic} proven empty initializers or compiler-style method names left out (Studio heuristic)`] : [])]),
     ],
     ipcSummary: {
       operations: 0, literalChannels: 0, dynamicChannelOperations: 0, rendererTransmissions: 0, rendererListeners: 0,

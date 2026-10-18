@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "dependencies": {
-    "rea-agents": "6.5.0"
+    "rea-agents": "6.7.0"
   }
 }

@@ -4,7 +4,8 @@
 // For the app's own classes (not bundled libraries): each class's members, every method decompiled
 // (capped), and incoming references to each top-level class.
 import { androidAppClassFilter } from './android-manifest.js';
-import { openReaSession, type ReaSessionOptions } from './rea-session.js';
+import { openReaSession, ReaToolError, type ReaSessionOptions } from './rea-session.js';
+import { isKnownAndroidBodyGap, type AndroidMethodIdentity } from './android-method-gap.js';
 
 export interface AndroidSessionOptions extends ReaSessionOptions {
   apk: string;
@@ -21,7 +22,7 @@ export function jadxConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
 }
 
 interface ClassResult {
-  normalized_result?: { methods?: { name?: unknown; overload_index?: unknown }[]; inner_classes?: unknown[] };
+  normalized_result?: { methods?: AndroidMethodIdentity[]; inner_classes?: unknown[] };
 }
 
 export async function collectAndroidBundle(options: AndroidSessionOptions): Promise<Record<string, unknown>> {
@@ -34,6 +35,7 @@ export async function collectAndroidBundle(options: AndroidSessionOptions): Prom
   try {
     onProgress('JADX is decompiling the APK');
     const pkg = await session.call('inspect_android_package', { path });
+    const digest = (pkg as { subject?: { digest?: { sha256?: unknown } } } | null)?.subject?.digest?.sha256;
     const search = (await session.call('search_android_classes', { path, query: '' })) as { normalized_result?: { matches?: unknown[] } };
     const isApp = androidAppClassFilter(pkg);
     const topLevel = (search.normalized_result?.matches ?? []).filter((c): c is string => typeof c === 'string' && isApp(c));
@@ -62,7 +64,18 @@ export async function collectAndroidBundle(options: AndroidSessionOptions): Prom
           skippedMethods++;
           continue;
         }
-        methods[`${className}#${m.name}#${overload}`] = await session.call('inspect_android_method', { path, class_name: className, method_name: m.name, overload_index: overload });
+        const key = `${className}#${m.name}#${overload}`;
+        try {
+          methods[key] = await session.call('inspect_android_method', { path, class_name: className, method_name: m.name, overload_index: overload });
+        } catch (error) {
+          options.signal?.throwIfAborted();
+          if (!(error instanceof ReaToolError) || error.tool !== 'inspect_android_method' || typeof digest !== 'string'
+            || !isKnownAndroidBodyGap(error.result, digest, className, m)) throw error;
+          // Keep the failed record as an error, not fabricated successful Evidence. The adapter
+          // connects a visible gap to the independently inspected method and marks coverage partial.
+          methods[key] = error.result;
+          onProgress('A method body is unavailable; preserving a partial map with an explicit gap');
+        }
       }
     }
     onProgress('tracing references between classes');

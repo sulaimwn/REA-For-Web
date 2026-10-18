@@ -62,6 +62,12 @@ handling carry over; each target adds node-kind mappings plus target-specific fa
     - `startService`/`startActivity`/`sendBroadcast` with `new Intent(…, X.class)` → `invokes`;
     - network APIs → `external-member`.
 - **Result on the sample:** it matches the answer key except one URL. That URL lives in a `static final` field, which method-level decompilation doesn't show.
+  - REA 6.7 can return smali bytecode when Java is unavailable. Java heuristics
+    require a complete Java body; bytecode-only or incomplete methods retain their
+    metadata and make coverage partial. The sample's `SyncService.<init>()V`
+    hits an upstream bytecode-selection failure, shown as a connected analysis
+    gap. Other error types still fail the job. The original failed response is
+    retained in `tiny-android.rea-6.7.0.json`.
   - CLI: `rea-studio analyze app.apk` with `REA_JADX_MCP_JAR` set, about 23 s.
   - Demo: `/explore/tiny-android`.
 - Not yet tested on a large real APK. Library classes (androidx, Kotlin, OkHttp…) are left out by design; they're listed in `search_android_classes` only.

@@ -58,8 +58,8 @@ npm run build --workspace=@rea-studio/schema
 npm run build --workspace=@rea-studio/rea-adapter
 npm run build --workspace=@rea-studio/pipeline
 npm run build --workspace=@rea-studio/worker
-docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.5.0 .
-docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.5.0 .
+docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.7.0 .
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.7.0 .
 ```
 
 Keep the host queue and both images from the same release. The queue and hosted

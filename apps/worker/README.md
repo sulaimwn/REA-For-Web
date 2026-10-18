@@ -1,6 +1,6 @@
 # Analysis worker foundation (T006)
 
-This package runs **only static analysis** with `rea-agents@6.5.0`: Electron/JavaScript
+This package runs **only static analysis** with `rea-agents@6.7.0`: Electron/JavaScript
 apps (`.asar` or an extracted directory) and, since T024, Windows programs (`.exe`/`.dll`) and
 Android apps (`.apk`).
 It is an internal runner, not an upload API. It
@@ -14,7 +14,7 @@ private container temporary storage and is removed after normalization. Only
   `inspect-managed-artifact`, `inspect-managed-members` and `inspect-managed-native-boundaries`,
   then `project-managed-application-graph`.
 - **Native programs** need REA's Ghidra provider, which lives in a second image,
-  `rea-studio-worker-native:rea-6.5.0` (`Dockerfile.native`). It is the standard image plus:
+  `rea-studio-worker-native:rea-6.7.0` (`Dockerfile.native`). It is the standard image plus:
   - a JDK 21 (Temurin, pinned by digest);
   - Ghidra 12.1.4 (SHA-256 checked);
   - jadx-headless-mcp 0.7.1 for Android (SHA-256 checked).
@@ -23,7 +23,10 @@ private container temporary storage and is removed after normalization. Only
   imports the program once and answers every query.
 - **Android apps** also run in the native image. REA's JADX provider (`REA_JADX_MCP_JAR`) reads the
   manifest, the app's classes and their decompiled methods in one `rea --mcp` session, with JADX's
-  heap set by `REA_JADX_HEAP_MIB = heapMb`. The tiny sample takes 18 s in the sandbox.
+  heap set by `REA_JADX_HEAP_MIB = heapMb`. REA 6.7's
+  `REA_JADX_OPERATION_TIMEOUT_MS` is set to the job deadline for APK loading and
+  internal provider requests; the existing container deadline still bounds the
+  entire job. The JAR remains 0.7.1; the rebuilt REA package supplies its bridge.
 - **Choosing the image:** set `native: true` (`--native` on the CLI, `REA_NATIVE_WORKER=1` for the
   queue) to run `.exe`/`.dll`/`.apk` jobs in the native image. Without it, a native program or an
   APK fails with `invalid_input` and says it needs the native worker. `.asar` and directories always use the
@@ -66,9 +69,9 @@ Use a local Linux Docker engine (Docker Desktop in Linux-container mode is
 acceptable). Build the image from the repository root:
 
 ```sh
-docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.5.0 .
+docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.7.0 .
 # Optional, for native programs (downloads Ghidra and a JDK at build time):
-docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.5.0 .
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.7.0 .
 ```
 
 Image builds need network access. Analysis containers have no network, and jobs
