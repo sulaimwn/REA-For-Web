@@ -30,6 +30,16 @@ interface RpcMessage {
   error?: { code: number; message: string };
 }
 
+/** A parsed upstream MCP tool failure, kept intact for narrowly scoped partial-result handling. */
+export class ReaToolError extends Error {
+  constructor(readonly tool: string, readonly result: unknown) {
+    const value = result as { message?: unknown; error?: { message?: unknown } } | null;
+    const message = value?.error?.message ?? value?.message ?? 'Tool returned an error';
+    super(`REA ${tool} failed: ${String(message).slice(0, 300)}`);
+    this.name = 'ReaToolError';
+  }
+}
+
 export async function openReaSession(options: ReaSessionOptions): Promise<ReaSession> {
   const maxMessageBytes = options.maxMessageBytes ?? 256 * 1024 * 1024;
   if (!Number.isSafeInteger(maxMessageBytes) || maxMessageBytes <= 0) {
@@ -154,8 +164,7 @@ export async function openReaSession(options: ReaSessionOptions): Promise<ReaSes
         throw new Error(`REA ${name} returned non-JSON text: ${text.slice(0, 300)}`);
       }
       if (result?.isError) {
-        const message = value && typeof value === 'object' && 'message' in value ? String((value as { message: unknown }).message) : text.slice(0, 300);
-        throw new Error(`REA ${name} failed: ${message}`);
+        throw new ReaToolError(name, value);
       }
       return value;
     },
