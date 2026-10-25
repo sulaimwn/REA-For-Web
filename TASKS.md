@@ -64,7 +64,7 @@ Details for a task go under its heading below the table.
 | T062 | Human request: rewrite README for the live product, supported formats and real Ask screenshots | codex | done | T060, T061 |
 | T063 | Human request: upgrade to published REA 6.7, adapt changed contracts and verify all supported targets and deployment | codex | done | T061, T062 |
 | T064 | Human request: upgrade REA to 6.8, accommodate runtime and output changes, verify real supported targets and deploy | codex | done | T063 |
-| T065 | Human report: repair Free Ask across live demos, uploads and local development; verify real model answers | codex | in progress | T041, T064 |
+| T065 | Human report: repair Free Ask across live demos, uploads and local development; verify real model answers | codex | review | T041, T064 |
 | T040 | Link-preview card on every page (Open Graph/X) and README pointing to reaforweb.com; follow-up to T037 | claude | done | T037 |
 | T041 | Free Ask on the live site: wire-size conversation budget (36 KB) and the Workers AI binding, now that the plan is confirmed Workers Free | claude | done | T030, R005, T038 |
 | T043 | Human request: refresh public README for the live project | codex | done | T038 |
