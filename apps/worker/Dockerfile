@@ -1,4 +1,4 @@
-FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS build
 WORKDIR /build
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/package.json
@@ -15,14 +15,14 @@ RUN npm ci --ignore-scripts --workspace=@rea-studio/worker --include-workspace-r
     && npm run build --workspace=@rea-studio/pipeline \
     && npm run build --workspace=@rea-studio/worker
 
-FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
 # REA checks ownership of its trusted parser subprocesses using ps.
 RUN apt-get update && apt-get install -y --no-install-recommends procps \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/rea
 COPY apps/worker/rea-runtime/package.json apps/worker/rea-runtime/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
-    && node -e "if (require('./node_modules/rea-agents/package.json').version !== '6.7.0') process.exit(1)"
+    && node -e "if (require('./node_modules/rea-agents/package.json').version !== '6.8.0') process.exit(1)"
 COPY --from=build /build/apps/worker/dist /opt/worker/
 COPY apps/worker/package.json /opt/worker/package.json
 COPY --from=build /build/packages/rea-adapter/dist /opt/worker/node_modules/@rea-studio/rea-adapter/dist

@@ -17,9 +17,9 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REA_VERSION = '6.7.0';
+const REA_VERSION = '6.8.0';
 const reaScript = process.env.REA_SCRIPT;
-if (!reaScript) throw new Error('Set REA_SCRIPT to rea-agents/scripts/rea.mjs (rea-agents@6.7.0).');
+if (!reaScript) throw new Error('Set REA_SCRIPT to rea-agents/scripts/rea.mjs (rea-agents@6.8.0).');
 const fixtures = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = {
   caprine: null, // app.asar is extracted from the .deb, whose SHA-256 is recorded in real-world.md
@@ -106,7 +106,7 @@ if (process.env.JQ_MACOS) {
       '--mount', `type=bind,source=${dirname(program)},target=/input,readonly`,
       '--mount', `type=bind,source=${join(fixtures, 'tools')},target=/tools,readonly`,
       '--mount', `type=bind,source=${out},target=/out`,
-      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.7.0', '/tools/collect-native-in-image.mjs', basename(program),
+      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.8.0', '/tools/collect-native-in-image.mjs', basename(program),
     ], { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } }));
     if (r.status !== 0) throw new Error(`native image collection failed: ${r.stderr}`);
     // Paths inside the container: scrub the same way as host paths.

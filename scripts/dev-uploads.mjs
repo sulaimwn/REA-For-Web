@@ -69,11 +69,11 @@ await run('docker', [
   '-f',
   'apps/worker/Dockerfile',
   '-t',
-  'rea-studio-worker:rea-6.7.0',
+  'rea-studio-worker:rea-6.8.0',
   '.',
 ]);
 if (nativeWorker === '1') await run('docker', [
-  'build', '-f', 'apps/worker/Dockerfile.native', '-t', 'rea-studio-worker-native:rea-6.7.0', '.',
+  'build', '-f', 'apps/worker/Dockerfile.native', '-t', 'rea-studio-worker-native:rea-6.8.0', '.',
 ]);
 await run('docker', [
   'run',
