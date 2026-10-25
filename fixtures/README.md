@@ -6,7 +6,7 @@ README.**
 
 ## REA 6.7 upgrade fixtures (T063)
 
-Current CLI and worker pins are `rea-agents@6.7.0`. Historical fixtures below
+Current CLI and worker pins are `rea-agents@6.8.0`. Historical fixtures below
 retain their original producer version; they are never rewritten to appear new.
 
 - `samples/tiny-electron.asar.rea-6.7.0.json`: fresh complete static analysis of

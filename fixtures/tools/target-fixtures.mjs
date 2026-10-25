@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REA_VERSION = '6.7.0';
+const REA_VERSION = '6.8.0';
 const reaScript = process.env.REA_SCRIPT;
-if (!reaScript) throw new Error('Set REA_SCRIPT to rea-agents/scripts/rea.mjs (rea-agents@6.7.0).');
+if (!reaScript) throw new Error('Set REA_SCRIPT to rea-agents/scripts/rea.mjs (rea-agents@6.8.0).');
 const fixtures = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function rea(args) {
@@ -107,7 +107,7 @@ if (process.env.NATIVE_IMAGE === '1') {
       '--mount', `type=bind,source=${dir},target=/input,readonly`,
       '--mount', `type=bind,source=${join(fixtures, 'tools')},target=/tools,readonly`,
       '--mount', `type=bind,source=${out},target=/out`,
-      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.7.0', '/tools/collect-native-in-image.mjs', 'tiny-notes',
+      '--entrypoint', 'node', 'rea-studio-worker-native:rea-6.8.0', '/tools/collect-native-in-image.mjs', 'tiny-notes',
     ], { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
     if (r.status !== 0) throw new Error(`native image collection failed: ${r.stderr}`);
     const bundle = JSON.parse(readFileSync(join(out, 'bundle.json'), 'utf8'));

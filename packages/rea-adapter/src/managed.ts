@@ -5,7 +5,8 @@
 //   inspect_managed_artifact           optional: references, resources, architecture, entry point
 //   inspect_managed_members            optional: CIL call edges and the member refs they target
 //   inspect_managed_native_boundaries  optional: not read directly; its facts are in the projection
-// REA's projection keeps structure only, so calls come from inspect_managed_members.
+// Older projections keep structure only. REA 6.8 also projects internal calls;
+// the member inspection enriches those links and supplies external call targets.
 import {
   COVERAGE_STATUSES,
   RELATIONS,
@@ -287,7 +288,7 @@ export function adaptManagedBundle(raw: unknown, options: AdapterOptions): { pro
     if (entry) assembly.entryPoint = `${entry.declaringType}.${entry.name}`;
   }
 
-  // --- REA projection edges (contains, imports)
+  // --- REA projection edges (contains, imports, and internal calls in REA 6.8)
   const edges: StudioEdge[] = [];
   for (const e of reaEdges) {
     if (dropped.has(e.source_node_id) || dropped.has(e.target_node_id)) {
@@ -308,13 +309,22 @@ export function adaptManagedBundle(raw: unknown, options: AdapterOptions): { pro
       report.droppedEdgesUnknownRelation[e.relation] = (report.droppedEdgesUnknownRelation[e.relation] ?? 0) + 1;
       continue;
     }
-    edges.push({ id: e.edge_id, source, target, relation: e.relation, evidence: toEvidence(e.evidence), origin: { source: 'rea' }, details: {} });
+    const details: StudioEdge['details'] = {};
+    if (e.relation === 'calls') {
+      const count = num(e.properties, 'site_count');
+      if (count !== null && Number.isSafeInteger(count) && count > 0) details.callSites = count;
+      const opcodes = Object.entries(obj(e.properties, 'opcodes') ?? {})
+        .filter(([, count]) => typeof count === 'number' && Number.isSafeInteger(count) && count > 0).map(([opcode]) => opcode);
+      if (opcodes.length) details.mechanism = opcodes.join(' / ');
+    }
+    edges.push({ id: e.edge_id, source, target, relation: e.relation, evidence: toEvidence(e.evidence), origin: { source: 'rea' }, details });
   }
 
-  // --- CIL call edges from inspect_managed_members (REA facts the projection doesn't carry)
+  // --- CIL details and external calls from inspect_managed_members.
   const memberRefs = new Map(list(members, 'member_refs').map((m) => [str(m, 'token') ?? '', m]));
   const externals = new Map<string, ExternalMemberNode>();
-  const calls = new Map<string, StudioEdge>();
+  const calls = new Map(edges.filter(e => e.relation === 'calls').map(e => [`${e.source}|${e.target}`, e]));
+  const projectedCalls = new Set(calls.values());
   for (const c of list(members, 'call_edges')) {
     const callerToken = str(c, 'caller_token') ?? '';
     const source = methodIdByToken.get(callerToken);
@@ -364,7 +374,10 @@ export function adaptManagedBundle(raw: unknown, options: AdapterOptions): { pro
     const key = `${source}|${target}`;
     const existing = calls.get(key);
     if (existing) {
-      existing.details.callSites = (existing.details.callSites ?? 1) + 1;
+      // Projected site counts describe these same rows, not additional sites.
+      if (projectedCalls.has(existing)) continue;
+      existing.details.callSites = (existing.details.callSites ?? 0) + 1;
+      existing.details.mechanism ??= str(c, 'opcode') ?? 'call';
       continue;
     }
     const edge: StudioEdge = {
@@ -390,7 +403,9 @@ export function adaptManagedBundle(raw: unknown, options: AdapterOptions): { pro
     [...(Array.isArray(graph.limitations) ? graph.limitations : []), ...(Array.isArray(result['limitations']) ? result['limitations'] : [])]
       .filter((l): l is string => typeof l === 'string'),
   )];
-  if (!members) limitations.push('No managed member inspection was supplied, so calls between methods are not shown.');
+  if (!members) limitations.push(calls.size > 0
+    ? 'No managed member inspection was supplied; only projected calls are shown. External targets and call-site details may be missing.'
+    : 'No managed member inspection was supplied, so calls between methods are not shown.');
   limitations.push('Studio classifies compiler-style type names by their angle-bracket naming pattern; this does not prove whether a type was compiler-generated.');
   const summary = obj(result, 'summary');
 
@@ -447,6 +462,6 @@ function managedFindings(nodes: StudioNode[], coverage: CoverageStatus): Finding
       ...(libraries.length > 0 ? [`Libraries: ${libraries.join(', ')}`] : []),
       'REA proves the declarations only, not that each native library or export exists.',
     ]),
-    finding('external-apis', of('external-member').length, ['Methods outside the app that its code calls. REA 6.4.0 names the member but not its declaring type.']),
+    finding('external-apis', of('external-member').length, ['Methods outside the app that its code calls. Unresolved declaring types are not guessed.']),
   ];
 }

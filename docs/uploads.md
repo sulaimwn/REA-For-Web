@@ -89,7 +89,7 @@ job before the analyzer runs, then cleans raw data and local staging as usual.
 ## Cache identity and retention
 
 The uploaded file SHA-256 is separate from REA's subject/project id. Cache keys
-include schema 0.1.0, REA 6.7.0, adapter/cache revision 9 and the analysis file kind
+include schema 0.1.0, REA 6.8.0, adapter/cache revision 10 and the analysis file kind
 (T063; REA 6.4.0 revisions 2–7 and REA 6.5.0 revision 8 stay readable). Increment the cache revision
 when adapter semantics or analysis settings change. Cache reuse happens only
 after the worker has downloaded and verified a fresh upload with the same hash.

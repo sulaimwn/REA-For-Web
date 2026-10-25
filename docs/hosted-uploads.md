@@ -28,8 +28,8 @@ allows the small API requests; uploaded artifacts go straight to R2.
 ## Prerequisites
 
 - Dedicated Linux host with a working Docker Engine/Compose **2.30+**, Node at
-  `/usr/bin/node` (24.11+ on the 24.x line), and systemd. The built web image pins
-  Node 24.18.0. Verify the actual node path before installing the unit.
+  `/usr/bin/node` (24.22.1+ on the 24.x line), and systemd. The built web image pins
+  Node 24.22.1. Verify the actual node path before installing the unit.
 - Plan about **8 GiB of RAM** for this initial single-job setup, including the
   2 GiB analysis container, website, queue, Redis and OS headroom. This is capacity
   planning, not measured production sizing or a hosting purchase recommendation.
@@ -58,8 +58,8 @@ npm run build --workspace=@rea-studio/schema
 npm run build --workspace=@rea-studio/rea-adapter
 npm run build --workspace=@rea-studio/pipeline
 npm run build --workspace=@rea-studio/worker
-docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.7.0 .
-docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.7.0 .
+docker build -f apps/worker/Dockerfile -t rea-studio-worker:rea-6.8.0 .
+docker build -f apps/worker/Dockerfile.native -t rea-studio-worker-native:rea-6.8.0 .
 ```
 
 Keep the host queue and both images from the same release. The queue and hosted

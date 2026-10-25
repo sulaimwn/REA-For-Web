@@ -12,7 +12,7 @@ npm run analyze -w rea-studio -- path/to/app.apk      # Android, with JADX confi
 npm run analyze -w rea-studio -- https://example.com # capture a website in fresh Chrome
 ```
 
-This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.7.0`, pinned),
+This runs [REA](https://github.com/morluto/rea) (`rea-agents@6.8.0`, pinned),
 converts its output with `@rea-studio/rea-adapter`, and writes `<app>.studio.json`
 in the directory you ran npm from. Electron/JS apps use
 `analyze-javascript-application`. .NET programs use the three `inspect-managed-*`

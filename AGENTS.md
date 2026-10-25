@@ -57,5 +57,5 @@ Native/APK/ELF/Mach-O analysis requires the native image on the trusted analysis
 
 - Language: TypeScript everywhere unless a task says otherwise.
 - Package manager: npm workspaces.
-- Node: 22.19+ / 24.11+ (REA's requirement).
+- Node: 22.23.4+ / 24.22.1+ (REA's requirement).
 - Commit messages: `<task-id>: <what changed>` e.g. `T002: add upload endpoint`.

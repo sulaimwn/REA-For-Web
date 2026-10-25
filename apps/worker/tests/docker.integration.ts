@@ -86,7 +86,7 @@ test("real Docker/REA directory and ASAR analysis", { timeout: 180_000 }, async 
     assert.equal(project.nodes.filter(n => n.kind === "process").length, 3);
     assert.equal(project.nodes.filter(n => n.kind === "ipc-channel").length, 3);
     assert.ok(project.findings.every(f => f.status !== "confirmed-absent"));
-    assert.equal(output.reaVersion, "6.7.0");
+    assert.equal(output.reaVersion, "6.8.0");
     assert.ok(events.length > 0);
   }
   assert.equal((await readdir(join(temp, "results"))).length, 2);
