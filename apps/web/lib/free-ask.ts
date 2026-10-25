@@ -1,11 +1,12 @@
 // /api/ask/free (T030): one free-tier model call for the Ask panel, on Cloudflare Workers AI.
 // The browser runs the tool loop; this route only accepts that conversation, adds the fixed system prompt
-// and Ask tool list, and calls the free model. Guards: same-origin requests only, bounded input, a
+// and Ask tool list, and calls the free model. Guards: same-origin or explicit site/loopback origins, bounded input, a
 // per-visitor rate limit, and Workers AI's daily allocation on the Workers Free plan. Paid plans can bill.
 import {
   FREE_ASK_LIMITS, FREE_ASK_MODEL, FREE_ASK_SYSTEM_PROMPT, freeAskTools, wireBytes,
   type FreeChatResponse, type FreeMessage,
 } from '@rea-studio/ask/free';
+import { FREE_ASK_SERVICE_ORIGIN, remoteFreeAskOrigin } from './free-ask-transport.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 /** Model calls per visitor per minute and per day, counted in this isolate (best effort across the edge). */
@@ -19,7 +20,7 @@ export interface FreeAskEnv {
 }
 
 const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', vary: 'Origin' } });
 const fail = (status: number, error: string, message: string) => json(status, { error, message });
 
 const counters = new Map<string, { minute: number; minuteCount: number; day: number; dayCount: number }>();
@@ -114,9 +115,36 @@ function sameOrigin(request: Request): boolean {
   }
 }
 
+/** Cross-origin callers only reach the canonical Cloudflare service, never an arbitrary fork. */
+function remoteOrigin(request: Request): string | null {
+  const origin = request.headers.get('origin');
+  if (!origin || !remoteFreeAskOrigin(origin)) return null;
+  return new URL(request.url).origin === FREE_ASK_SERVICE_ORIGIN || request.headers.get('host') === 'reaforweb.com'
+    ? origin : null;
+}
+
+export function handleFreeAskOptions(request: Request): Response {
+  const origin = remoteOrigin(request) ?? (sameOrigin(request) ? request.headers.get('origin') : null);
+  if (!origin) return fail(403, 'forbidden', 'Free questions work only from this site’s Ask panel.');
+  const headers = (request.headers.get('access-control-request-headers') ?? '').split(',').map(h => h.trim().toLowerCase()).filter(Boolean);
+  if (request.headers.get('access-control-request-method') !== 'POST' || headers.some(h => h !== 'content-type')) {
+    return fail(403, 'forbidden', 'Unsupported free question request.');
+  }
+  return new Response(null, { status: 204, headers: {
+    'access-control-allow-origin': origin, 'access-control-allow-methods': 'POST',
+    'access-control-allow-headers': 'Content-Type', 'cache-control': 'no-store', vary: 'Origin',
+  } });
+}
+
 export async function handleFreeAsk(request: Request, env: FreeAskEnv): Promise<Response> {
-  // Same-origin only: the free tier serves this site's Ask panel, not other sites or scripts.
-  if (!sameOrigin(request)) return fail(403, 'forbidden', 'Free questions work only from this site’s Ask panel.');
+  const origin = remoteOrigin(request);
+  if (!sameOrigin(request) && !origin) return fail(403, 'forbidden', 'Free questions work only from this site’s Ask panel.');
+  const response = await answerFreeAsk(request, env);
+  if (origin) response.headers.set('access-control-allow-origin', origin);
+  return response;
+}
+
+async function answerFreeAsk(request: Request, env: FreeAskEnv): Promise<Response> {
   if (!env.AI) return fail(503, 'unavailable', 'Free questions aren’t available on this server. Use your own Claude key instead.');
   const text = await boundedText(request);
   if (text === null) return fail(413, 'too_large', 'This conversation is too large for the free tier.');

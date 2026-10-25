@@ -33,7 +33,7 @@
   "observability": { "enabled": true },
   // Credential-free local previews: `opennextjs-cloudflare preview --env offline`. Bindings aren't inherited
   // by environments, so this one has no Workers AI binding (which always needs a Cloudflare login);
-  // the free Ask tier then answers 503 and the panel offers the Claude-key option.
+  // the panel on HTTP loopback calls the hosted free service instead of this preview's unbound route.
   "env": {
     "offline": {
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "reaforweb-offline" }]

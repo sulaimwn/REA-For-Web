@@ -46,6 +46,13 @@ answer (markdown; nodes linked as [name](node:<id>)) ──► explorer shows th
   on Opus/Sonnet (server-side refusal fallback). Forced `tool_choice` isn't allowed on these models,
   so the last round sends a mid-conversation system note plus `tool_choice: none`.
 - Citations are validated against the project; unknown ids are dropped.
+- Free Ask uses Cloudflare Workers AI at `/api/ask/free`. The official upload host
+  and HTTP loopback previews send their bounded conversation directly to
+  `https://reaforweb.com/api/ask/free`; graph tools still run in the browser.
+  CORS permits only that upload origin and exact loopback hostnames, without
+  credentials or referrers. Other deployments use their own same-origin endpoint.
+  The fixed system prompt/tools, visitor IP limits and daily free allowance remain
+  the same; neither upload-session tokens nor complete project files are forwarded.
 
 ### Local mode (no upload, no server)
 

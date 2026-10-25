@@ -2,16 +2,17 @@
 
 // Ask questions about the open project. Free by default (T030): an open model the site runs on Cloudflare
 // Workers AI, limited per visitor and per day; the tool loop stays in this browser and only the conversation
-// goes to /api/ask/free. With the visitor's own Anthropic key, Claude answers instead, straight from this
-// browser to api.anthropic.com.
+// goes to Cloudflare's /api/ask/free, including on uploads and local previews. With the visitor's own
+// Anthropic key, Claude answers instead, straight from this browser to api.anthropic.com.
 import Anthropic from '@anthropic-ai/sdk';
 import {
   ASK_MODELS, DEFAULT_ASK_MODEL, FREE_ASK_MODEL_LABEL, FreeAskUnavailableError, askProject, askProjectFree, describeAskError,
-  type AskModel, type AskResult, type AskStep, type FreeChat,
+  type AskModel, type AskResult, type AskStep,
 } from '@rea-studio/ask';
 import type { StudioProject } from '@rea-studio/schema';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Tour } from '../lib/project';
+import { createFreeChat } from '../lib/free-ask-transport.ts';
 import { AnswerMarkdown } from './AnswerMarkdown';
 
 const KEY_STORAGE = 'rea-studio:anthropic-api-key';
@@ -42,20 +43,6 @@ function forgetKey() {
     // ignore
   }
 }
-
-/** One free-tier model call through this site's route. */
-const freeChat: FreeChat = async (request, signal) => {
-  const response = await fetch('/api/ask/free', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request), ...(signal ? { signal } : {}),
-  });
-  const body = (await response.json().catch(() => ({}))) as { message?: string; response?: string; tool_calls?: [] };
-  if (!response.ok) {
-    const message = body.message ?? `Free questions failed (${response.status}).`;
-    if ([403, 429, 503].includes(response.status)) throw new FreeAskUnavailableError(message);
-    throw new Error(message);
-  }
-  return { response: body.response ?? '', tool_calls: body.tool_calls ?? [] };
-};
 
 type Answer = { answer: string; citedNodeIds: string[]; toolCalls: number; footnote: string; truncated: boolean };
 
@@ -198,7 +185,7 @@ export function AskPanel({ project, tours = [], onSelect, onShowNodes }: Props) 
     try {
       let answer: Answer;
       if (model === 'free') {
-        const r = await askProjectFree({ chat: freeChat, project, question: text, signal: controller.signal, onStep });
+        const r = await askProjectFree({ chat: createFreeChat(window.location.origin), project, question: text, signal: controller.signal, onStep });
         answer = { ...r, footnote: `${FREE_ASK_MODEL_LABEL} · ${r.toolCalls} lookups · free tier`, truncated: false };
       } else {
         const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
