@@ -50,7 +50,7 @@ export const resultKey = (hash: string, kind: UploadKind = 'asar') =>
   `results/schema-0.1.0-rea-6.8.0-adapter-10/${kind}/${hash}.json.gz`;
 function safeKey(key: string) {
   if (
-    // Published 6.4/6.5 results remain readable; new 6.7 analyses use their own namespace.
+    // Published results remain readable; new 6.8 analyses use their own namespace.
     !/^(uploads\/[a-f0-9-]+\.(?:asar|exe|dll|apk|elf|macho)|results\/schema-0\.1\.0-(?:rea-6\.4\.0-adapter-(?:[23456]\/|7\/(?:asar|exe|dll|apk|elf|macho)\/)|(?:rea-6\.5\.0-adapter-8|rea-6\.7\.0-adapter-9|rea-6\.8\.0-adapter-10)\/(?:asar|exe|dll|apk|elf|macho)\/)[a-f0-9]{64}\.json\.gz)$/u.test(
       key,
     )
