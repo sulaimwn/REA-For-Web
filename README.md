@@ -79,7 +79,7 @@ For example, on Tiny Electron:
 *An actual Ask response on the uploaded sample, with five cited nodes. The answer
 identifies inferred links and explicitly leaves uninspected behavior unresolved.*
 
-- **Free Ask:** Llama 3.3 70B for demos and local project files opened on `reaforweb.com`, with usage limits and no API key required. The separate upload host currently requires your own Anthropic key for questions; uploading and exploring need no key.
+- **Free Ask:** Llama 3.3 70B for demos, uploaded apps and local previews, with usage limits and no API key required. Inference runs on the site's Cloudflare service; the map's tools run in your browser.
 - **Use Claude:** optionally supply your own Anthropic API key in Ask. Requests go directly from your browser to Anthropic. The UI shows token usage and an estimated API cost; API billing is separate from a Claude chat subscription. Keys are kept in the browser session unless you choose “Remember on this device,” and can be removed with “Forget key.”
 - **Use an MCP client:** connect to `https://reaforweb.com/api/mcp` for the public demos, or run the local MCP server over your own project files. See the [MCP guide](docs/mcp.md).
 

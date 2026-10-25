@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FREE_ASK_LIMITS, FREE_ASK_MODEL } from '@rea-studio/ask/free';
-import { allowFreeAsk, handleFreeAsk, normalizeFreeReply, parseFreeAskBody } from '../lib/free-ask.ts';
+import { allowFreeAsk, handleFreeAsk, handleFreeAskOptions, normalizeFreeReply, parseFreeAskBody } from '../lib/free-ask.ts';
 
 const SITE = 'https://reaforweb.example';
 const post = (body, { origin = SITE, ip = '203.0.113.7' } = {}) => new Request(`${SITE}/api/ask/free`, {
@@ -96,6 +96,84 @@ describe('/api/ask/free', () => {
     const broken = await handleFreeAsk(post(question, { ip: '198.51.100.2' }), { AI: fakeAI(new Error('internal secret detail')) });
     assert.equal(broken.status, 502);
     assert.doesNotMatch(await broken.text(), /secret/u);
+  });
+
+  it('accepts only the upload site and HTTP loopback origins at the canonical service', async () => {
+    const origins = ['https://uploads.reaforweb.com', 'http://localhost:3103', 'http://127.0.0.1:3104', 'http://[::1]:3105'];
+    for (const [i, origin] of origins.entries()) {
+      const AI = fakeAI({ response: 'Answer.' });
+      const request = new Request('https://reaforweb.com/api/ask/free', {
+        method: 'POST', headers: { origin, 'cf-connecting-ip': `198.51.100.${30 + i}` }, body: JSON.stringify(question),
+      });
+      const res = await handleFreeAsk(request, { AI });
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('access-control-allow-origin'), origin);
+      assert.equal(res.headers.get('vary'), 'Origin');
+      assert.equal(res.headers.get('access-control-allow-credentials'), null);
+      assert.equal(AI.calls.length, 1);
+    }
+    for (const origin of ['null', 'https://elsewhere.example', 'https://uploads.reaforweb.com.evil.example',
+      'http://uploads.reaforweb.com', 'https://uploads.reaforweb.com:444', 'http://localhost.evil.example:3103',
+      'http://user@localhost:3103', 'http://localhost:3103/', 'http://localhost:3103?x=1', 'https://localhost:3103']) {
+      const AI = fakeAI({ response: 'Answer.' });
+      const request = new Request('https://reaforweb.com/api/ask/free', {
+        method: 'POST', headers: { origin }, body: JSON.stringify(question),
+      });
+      const res = await handleFreeAsk(request, { AI });
+      assert.equal(res.status, 403, origin);
+      assert.equal(res.headers.get('access-control-allow-origin'), null);
+      assert.equal(AI.calls.length, 0);
+    }
+    const wrongHost = await handleFreeAsk(post(question, { origin: origins[0] }), { AI: fakeAI({ response: 'x' }) });
+    assert.equal(wrongHost.status, 403);
+  });
+
+  it('handles the JSON POST preflight without inference or credentials', () => {
+    const origin = 'https://uploads.reaforweb.com';
+    const preflight = (headers = {}) => new Request('https://reaforweb.com/api/ask/free', {
+      method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type', ...headers },
+    });
+    const res = handleFreeAskOptions(preflight());
+    assert.equal(res.status, 204);
+    assert.equal(res.headers.get('access-control-allow-origin'), origin);
+    assert.equal(res.headers.get('access-control-allow-methods'), 'POST');
+    assert.equal(res.headers.get('access-control-allow-headers'), 'Content-Type');
+    assert.equal(res.headers.get('access-control-allow-credentials'), null);
+    assert.equal(res.headers.get('vary'), 'Origin');
+    for (const headers of [{ origin: 'https://evil.example' }, { origin: 'null' },
+      { 'access-control-request-method': 'DELETE' }, { 'access-control-request-headers': 'content-type,authorization' }]) {
+      assert.equal(handleFreeAskOptions(preflight(headers)).status, 403);
+    }
+  });
+
+  it('keeps errors readable across origins and enforces each actual visitor limit', async () => {
+    const origin = 'https://uploads.reaforweb.com';
+    const remotePost = (body, ip) => new Request('https://reaforweb.com/api/ask/free', {
+      method: 'POST', headers: { origin, 'cf-connecting-ip': ip }, body: JSON.stringify(body),
+    });
+    for (const [ip, body, env, status] of [
+      ['198.51.100.40', question, {}, 503],
+      ['198.51.100.41', { messages: [] }, { AI: fakeAI({ response: 'x' }) }, 400],
+      ['198.51.100.42', question, { AI: fakeAI(new Error('internal detail')) }, 502],
+      ['198.51.100.43', question, { AI: fakeAI(new Error('4006: daily free allocation')) }, 429],
+    ]) {
+      const res = await handleFreeAsk(remotePost(body, ip), env);
+      assert.equal(res.status, status);
+      assert.equal(res.headers.get('access-control-allow-origin'), origin);
+      assert.doesNotMatch(await res.text(), /internal detail/u);
+    }
+    const limiterKeys = [];
+    const env = { AI: fakeAI({ response: 'x' }), ASK_FREE_LIMITER: {
+      limit: async ({ key }) => { limiterKeys.push(key); return { success: false }; },
+    } };
+    for (const ip of ['198.51.100.44', '198.51.100.45']) {
+      const res = await handleFreeAsk(remotePost(question, ip), env);
+      assert.equal(res.status, 429);
+      assert.equal(res.headers.get('access-control-allow-origin'), origin);
+    }
+    assert.deepEqual(limiterKeys, ['ask-free:198.51.100.44', 'ask-free:198.51.100.45']);
+    assert.equal(env.AI.calls.length, 0);
   });
 
   it('normalizes odd replies safely', () => {

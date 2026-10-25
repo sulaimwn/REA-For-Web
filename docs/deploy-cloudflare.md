@@ -95,8 +95,11 @@ exact limits.
   (`cf:preview` runs it locally in Cloudflare's runtime; `cf:deploy` deploys with your
   `CLOUDFLARE_API_TOKEN`).
 - `cf:preview` uses the `offline` wrangler environment. It has no Workers AI binding, which would
-  need a Cloudflare login even locally, so the free Ask tier answers 503 there. `next dev`
-  behaves the same way.
+  need a Cloudflare login even locally. On HTTP localhost, 127.0.0.1 and [::1], the
+  Ask panel calls the live Cloudflare service directly, as the official upload
+  host does. It needs internet access but no local credentials. A direct request
+  to the preview's own `/api/ask/free` still returns 503 without a binding.
+  Forks deployed on other domains use their own endpoint and AI binding.
 - Pinned: Next.js `16.3.8`, `@opennextjs/cloudflare@1.20.10`, `wrangler@4.148.0`.
   Next.js `16.4.0` currently fails in the adapter runtime
   ([upstream issue #1448](https://github.com/opennextjs/opennextjs-cloudflare/issues/1448)).
